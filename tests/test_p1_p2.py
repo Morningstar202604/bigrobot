@@ -35,7 +35,7 @@ def test_kb_save_note_allocates_id_and_tag(client, monkeypatch, tmp_path):
     ]}), encoding="utf-8")
     monkeypatch.setattr(retrieval, "KB_PATH", kb_file)
     retrieval._KB_CACHE = None
-    r = client.post("/api/kb/save-note", json={"text": "夜间客服电话 400-000-0000"})
+    r = client.post("/api/kb", json={"text": "夜间客服电话 400-000-0000"})
     assert r.status_code == 200
     d = r.json()
     assert d["entry"]["id"] == "KB101" and "坐席回流" in d["entry"]["tags"] and d["total"] == 2
@@ -45,7 +45,7 @@ def test_kb_save_note_allocates_id_and_tag(client, monkeypatch, tmp_path):
 
 
 def test_kb_save_note_empty_rejected(client):
-    assert client.post("/api/kb/save-note", json={"text": "  "}).status_code == 400
+    assert client.post("/api/kb", json={"text": "  "}).status_code == 400
 
 
 def test_query_rewrite_uses_last_topic(monkeypatch, tmp_path):

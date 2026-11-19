@@ -20,7 +20,8 @@ router = APIRouter(prefix="/api/kb", tags=["knowledge-base"])
 
 
 class KbIn(BaseModel):
-    id: str
+    # id 为空 = 坐席回流/快速保存：自动编号追加；id 非空 = 指定 ID 插入（已存在则 400）
+    id: str = ""
     text: str = ""
     title: str = ""
     answer: str = ""
@@ -34,12 +35,6 @@ class KbImportIn(BaseModel):
 
 class KbTestIn(BaseModel):
     query: str
-
-
-class KbSaveNoteIn(BaseModel):
-    title: str = ""
-    text: str
-    tags: list[str] = []
 
 
 @router.get("", dependencies=[Depends(require_admin)])
@@ -58,15 +53,40 @@ def kb_list():
 
 @router.post("", dependencies=[Depends(require_admin)])
 def add_kb(body: KbIn):
-    def op(items):
-        if any(e["id"] == body.id for e in items):
-            raise HTTPException(400, "知识库条目 ID 已存在")
-        items.append({"id": body.id, "text": body.text, "title": body.title,
-                      "answer": body.answer, "tags": body.tags})
-        return None, items
+    """新增一条知识：带 id 走「指定 ID 插入」，不带 id 走「自动编号追加」。
 
-    _, items = kb_store.store.mutate(op)
-    return {"kb": items}
+    「坐席答案回流」原来是一条独立路由 /save-note，但它和这里做的是同一件事
+    ——往同一个数组末尾追加一条带标题的条目，只是编号方式不同。合并成必填字段的差异。
+    """
+    text = (body.text or "").strip()
+    if body.id:
+        def op_in(items):
+            if any(e["id"] == body.id for e in items):
+                raise HTTPException(400, "知识库条目 ID 已存在")
+            items.append({"id": body.id, "text": body.text, "title": body.title,
+                          "answer": body.answer, "tags": body.tags})
+            return None, items
+
+        _, items = kb_store.store.mutate(op_in)
+        return {"kb": items}
+
+    if not text:
+        raise HTTPException(400, "内容不能为空")
+    title = (body.title or text.strip().splitlines()[0] or text[:30]).strip()[:80]
+
+    def op_append(items):
+        entry = {
+            "id": f"KB{kb_store.next_base(items) + 1}",
+            "title": title,
+            "text": f"{title} {text}"[:300],
+            "answer": body.answer or text,
+            "tags": body.tags or ["坐席回流"],
+        }
+        items.append(entry)
+        return entry, items
+
+    entry, items = kb_store.store.mutate(op_append)
+    return {"entry": entry, "total": len(items), "kb": items}
 
 
 @router.put("/{kb_id}", dependencies=[Depends(require_admin)])
@@ -202,26 +222,3 @@ def export_kb():
         media_type="text/markdown; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=bigrobot-kb.md"},
     )
-
-
-@router.post("/save-note", dependencies=[Depends(require_admin)])
-def kb_save_note(body: KbSaveNoteIn):
-    """坐席答案回流：把人工回复存为 KB 条目，沉淀为下次的自动答案。"""
-    text = (body.text or "").strip()
-    if not text:
-        raise HTTPException(400, "内容不能为空")
-    title = (body.title or text.strip().splitlines()[0] or text[:30]).strip()[:80]
-
-    def op(items):
-        entry = {
-            "id": f"KB{kb_store.next_base(items) + 1}",
-            "title": title,
-            "text": f"{title} {text}"[:300],
-            "answer": text,
-            "tags": body.tags or ["坐席回流"],
-        }
-        items.append(entry)
-        return entry, items
-
-    entry, items = kb_store.store.mutate(op)
-    return {"entry": entry, "total": len(items)}

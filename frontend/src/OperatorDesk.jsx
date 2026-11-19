@@ -343,7 +343,7 @@ export default function OperatorDesk() {
                       onClick={() => {
                         const text = (m.content || '').trim()
                         if (!text) return
-                        http.post('/api/kb/save-note', { text })
+                        http.post('/api/kb', { text })
                           .then((d) => fb.toast.success(`已存入知识库：${d.entry.id}（共 ${d.total} 条）`))
                           .catch((e) => fb.toast.error(e.message || '保存失败'))
                       }}
