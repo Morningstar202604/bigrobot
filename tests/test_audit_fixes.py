@@ -187,7 +187,7 @@ def test_closed_session_rejects_new_messages(client):
     sid, secret = create_web_session(client, "closed-1")
     h = {"X-Session-Secret": secret}
     client.post(f"/api/sessions/{sid}/messages", json={"content": "开发票"}, headers=h)
-    client.post(f"/api/operator/close/{sid}")
+    client.post(f"/api/sessions/{sid}/op", json={"op": "close"})
 
     r = client.post(f"/api/sessions/{sid}/messages", json={"content": "还在吗"}, headers=h)
     assert r.status_code == 409
@@ -196,8 +196,8 @@ def test_closed_session_rejects_new_messages(client):
 
 def test_closed_session_rejects_escalate(client):
     sid, secret = create_web_session(client, "closed-2")
-    client.post(f"/api/operator/close/{sid}")
-    r = client.post(f"/api/sessions/{sid}/escalate", headers={"X-Session-Secret": secret})
+    client.post(f"/api/sessions/{sid}/op", json={"op": "close"})
+    r = client.post(f"/api/sessions/{sid}/op", json={"op": "escalate"}, headers={"X-Session-Secret": secret})
     assert r.status_code == 409
     assert store.get_session(sid)["status"] == "closed"
 
@@ -433,9 +433,9 @@ def test_agent_run_never_stuck_running(monkeypatch):
 # ============================================================
 
 def test_operator_endpoints_404_for_missing_session(client):
-    assert client.post("/api/operator/take/nope", json={"visitor_id": "op"}).status_code == 404
-    assert client.post("/api/operator/reply/nope", json={"content": "x"}).status_code == 404
-    assert client.post("/api/operator/close/nope").status_code == 404
+    assert client.post("/api/sessions/nope/op", json={"op": "take", "visitor_id": "op"}).status_code == 404
+    assert client.post("/api/sessions/nope/op", json={"op": "reply", "content": "x"}).status_code == 404
+    assert client.post("/api/sessions/nope/op", json={"op": "close"}).status_code == 404
 
 
 # ============================================================
@@ -451,8 +451,8 @@ def test_feedback_rejects_message_from_other_session(client):
                       headers={"X-Session-Secret": a["session_secret"]}).json()["messages"]
     mid = next(m["id"] for m in msgs if m["role"] == "agent")
 
-    r = client.post(f"/api/sessions/{b['session_id']}/feedback",
-                    json={"rating": "helpful", "message_id": mid},
+    r = client.post(f"/api/sessions/{b['session_id']}/op",
+                    json={"op": "feedback", "rating": "helpful", "message_id": mid},
                     headers={"X-Session-Secret": b["session_secret"]})
     assert r.status_code == 400, "不能给其他会话的消息打分"
 

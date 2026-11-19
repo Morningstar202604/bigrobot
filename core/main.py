@@ -1022,23 +1022,6 @@ def create_app() -> FastAPI:
 
         return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
-    @app.post("/api/sessions/{sid}/escalate")
-    async def escalate(sid: str, _=Depends(_require_session_secret)):
-        sess = store.get_session(sid)
-        if not sess:
-            raise HTTPException(404, "会话不存在")
-        if sess["status"] == "closed":
-            raise HTTPException(409, "会话已关闭")
-        # 显式升级接口（控制台/坐席工具调用）保持原语义：真进待接管队列。
-        # 对客自动话术里的「转人工」不走这里，由 pipeline 的 escalation.handoff 决定。
-        store.mark_escalated(sid, "visitor_requested")
-        ticket_id = store.create_ticket(sid)
-        store.add_message(sid, "agent", "这儿就我一个人盯着，没别人可转。有问题直接说。")
-        await hub.broadcast_to_operators(
-            {"type": "new_pending", "session_id": sid, "ticket_id": ticket_id, "reason": "visitor_requested"}
-        )
-        return {"ticket_id": ticket_id, "status": "pending_agent"}
-
     class SessionOpIn(BaseModel):
         op: str
         visitor_id: str = ""
@@ -1132,48 +1115,6 @@ def create_app() -> FastAPI:
     def operator_queues():
         return store.pending_queues()
 
-    @app.post("/api/operator/take/{sid}", dependencies=[Depends(require_admin)])
-    async def take_session(sid: str, body: NewSession | None = None):
-        if body is None:
-            body = NewSession()
-        sess = store.get_session(sid)
-        if not sess:
-            raise HTTPException(404, "会话不存在")
-        if sess["status"] == "closed":
-            raise HTTPException(409, "会话已关闭，不能接管")
-        store.set_status(sid, "agent_handled", assignee=body.visitor_id)
-        await hub.publish(sid, {"type": "agent_handled", "operator": body.visitor_id, "session_id": sid})
-        await hub.broadcast_to_operators({"type": "session_updated", "session_id": sid, "status": "agent_handled"})
-        return {"session_id": sid, "status": "agent_handled", "assignee": body.visitor_id}
-
-    @app.post("/api/operator/reply/{sid}", dependencies=[Depends(require_admin)])
-    async def operator_reply(sid: str, body: MessageIn):
-        content = body.content.strip()
-        if not content:
-            raise HTTPException(400, "消息内容不能为空")
-        sess = store.get_session(sid)
-        if not sess:
-            raise HTTPException(404, "会话不存在")
-        if sess["status"] == "closed":
-            raise HTTPException(409, "会话已关闭，不能再回复")
-        store.add_message(sid, "operator", content)
-        await hub.publish(
-            sid,
-            {"type": "operator_message", "role": "operator", "content": content, "session_id": sid},
-        )
-        await hub.broadcast_to_operators({"type": "operator_replied", "session_id": sid, "content": content})
-        return {"role": "operator", "content": content}
-
-    @app.post("/api/operator/close/{sid}", dependencies=[Depends(require_admin)])
-    async def close_session(sid: str):
-        if not store.get_session(sid):
-            raise HTTPException(404, "会话不存在")
-        store.close_session(sid)
-        store.append_audit("operator", "session.closed", {"session_id": sid})
-        await hub.publish(sid, {"type": "session_closed", "session_id": sid})
-        await hub.broadcast_to_operators({"type": "session_updated", "session_id": sid, "status": "closed"})
-        return {"session_id": sid, "status": "closed"}
-
     @app.get("/api/memory/{visitor_id}", dependencies=[Depends(require_admin)])
     def get_memory(visitor_id: str):
         return {
@@ -1181,32 +1122,6 @@ def create_app() -> FastAPI:
             "memory": store.get_memory(visitor_id),
             "visits": store.session_count(visitor_id),
         }
-
-    @app.post("/api/sessions/{sid}/feedback")
-    def add_feedback(sid: str, body: FeedbackIn, _=Depends(_require_session_secret)):
-        if body.rating not in ("helpful", "not_helpful"):
-            raise HTTPException(400, "反馈值必须是 helpful 或 not_helpful")
-        # message_id 必须属于本会话且是 agent 消息，防止给他人消息打分
-        if body.message_id:
-            msgs = store.get_messages(sid)
-            target = next((m for m in msgs if m["id"] == body.message_id), None)
-            if target is None:
-                raise HTTPException(400, "message_id 不属于该会话")
-            if target["role"] != "agent":
-                raise HTTPException(400, "只能对 Agent 回复评分")
-        # 同一条消息重复评价只保留最后一次：否则好评率会被反复点击刷出来
-        if body.message_id:
-            store.upsert_feedback(sid, body.message_id, body.rating, body.comment)
-        else:
-            store.add_feedback(sid, 0, body.rating, body.comment)
-        if body.rating == "not_helpful":
-            sess = store.get_session(sid)
-            if sess and sess["status"] == "ongoing":
-                store.mark_escalated(sid, "feedback_not_helpful")
-                ticket_id = store.create_ticket(sid)
-                store.add_message(sid, "agent", "没帮上忙，抱歉。换个问法再试试？", tool_used="feedback")
-                return {"rating": body.rating, "escalated": True, "ticket_id": ticket_id}
-        return {"rating": body.rating, "escalated": False}
 
     @app.get("/api/feedback/summary", dependencies=[Depends(require_admin)])
     def feedback_summary():

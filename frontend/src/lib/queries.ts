@@ -232,7 +232,7 @@ export function useAdminSessions(status?: string, q?: string, page = 0, pageSize
 export function useCloseSession() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (sid: string) => http.post<{ session_id: string; status: string }>(`/api/operator/close/${sid}`),
+    mutationFn: (sid: string) => http.post<{ session_id: string; status: string }>(`/api/sessions/${sid}/op`, { op: 'close' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'sessions'] })
       qc.invalidateQueries({ queryKey: qk.admin.overview })

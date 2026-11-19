@@ -11,7 +11,7 @@ def test_admin_sessions_list_and_filter(client):
     # 两个会话的 secret 不同，发消息时分别手动带
     client.post(f"/api/sessions/{s1}/messages", json={"content": "怎么开发票"},
                 headers={"X-Session-Secret": sec1})
-    client.post(f"/api/sessions/{s2}/escalate", headers={"X-Session-Secret": sec2})
+    client.post(f"/api/sessions/{s2}/op", json={"op": "escalate"}, headers={"X-Session-Secret": sec2})
 
     body = client.get("/api/admin/sessions").json()
     assert body["total"] >= 2

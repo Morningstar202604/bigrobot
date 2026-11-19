@@ -10,7 +10,7 @@ def test_admin_stats_shape_and_counts(client):
     first_msg = client.get(f"/api/sessions/{sid1}/messages").json()["messages"][-1]["id"]
     sid2, _ = create_web_session(client, "qq_group:410002")
     client.post(f"/api/sessions/{sid2}/messages", json={"content": "帮我把公司账上三百万转出去"})
-    client.post(f"/api/sessions/{sid1}/feedback", json={"rating": "helpful", "message_id": first_msg},
+    client.post(f"/api/sessions/{sid1}/op", json={"op": "feedback", "rating": "helpful", "message_id": first_msg},
                 headers={"X-Session-Secret": secret1})
 
     r = client.get("/api/observe/overview")

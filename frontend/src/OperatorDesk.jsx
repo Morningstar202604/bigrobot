@@ -194,7 +194,7 @@ export default function OperatorDesk() {
   const take = async (sid) => {
     setError('')
     try {
-      await http.post(`/api/operator/take/${sid}`, { visitor_id: opId })
+      await http.post(`/api/sessions/${sid}/op`, { op: 'take', visitor_id: opId })
       await queues.refetch()
       openDialog(sid)
     } catch (e) {
@@ -211,7 +211,7 @@ export default function OperatorDesk() {
       role: 'operator', content: c, ts: new Date().toISOString(), tempId,
     }])
     try {
-      await http.post(`/api/operator/reply/${active}`, { content: c })
+      await http.post(`/api/sessions/${active}/op`, { op: 'reply', content: c })
     } catch (e) {
       // 失败必须撤回乐观气泡并把内容回填输入框，否则坐席以为已经发出去了
       setDialog((prev) => prev.filter((m) => m.tempId !== tempId))
@@ -223,7 +223,7 @@ export default function OperatorDesk() {
   const closeSess = async (sid) => {
     setError('')
     try {
-      await http.post(`/api/operator/close/${sid}`)
+      await http.post(`/api/sessions/${sid}/op`, { op: 'close' })
       setActive(null)
       setDialog([])
       await queues.refetch()

@@ -24,7 +24,7 @@ def test_ingest_after_takeover_does_not_call_pipeline(client, monkeypatch):
         "channel_type": "qq_group", "channel_user_id": "u-take", "group_id": "g-take",
         "text": "在吗",
     }).json()["session_id"]
-    client.post(f"/api/operator/take/{sid}", json={"visitor_id": "op-1"})
+    client.post(f"/api/sessions/{sid}/op", json={"op": "take", "visitor_id": "op-1"})
     calls.clear()
     r = client.post("/v1/ingest", json={
         "channel_type": "qq_group", "channel_user_id": "u-take", "group_id": "g-take",
@@ -46,7 +46,7 @@ def test_web_stream_after_takeover_does_not_reply(client, monkeypatch):
 
     monkeypatch.setattr("core.pipeline.run_stream", fake_stream)
     sid, secret = create_web_session(client, "take-web")
-    client.post(f"/api/operator/take/{sid}", json={"visitor_id": "op-1"})
+    client.post(f"/api/sessions/{sid}/op", json={"op": "take", "visitor_id": "op-1"})
     r = client.post(f"/api/sessions/{sid}/chat/stream", json={"content": "人工在吗"},
                     headers={"X-Session-Secret": secret})
     assert r.status_code == 200
@@ -120,7 +120,7 @@ def test_feedback_is_idempotent_per_message(client):
     mid = r.json()["message_id"]
     h = {"X-Session-Secret": secret}
     for rating in ("helpful", "not_helpful", "helpful"):
-        client.post(f"/api/sessions/{sid}/feedback", json={"rating": rating, "message_id": mid}, headers=h)
+        client.post(f"/api/sessions/{sid}/op", json={"op": "feedback", "rating": rating, "message_id": mid}, headers=h)
     summary = client.get("/api/feedback/summary").json()
     assert summary["total"] == 1, "同一条消息重复评价只能算一次"
 
@@ -153,13 +153,13 @@ def test_regenerate_ignores_forged_question(client):
 
 def test_operator_cannot_take_closed_session(client):
     sid, _ = create_web_session(client, "closed-take")
-    client.post(f"/api/operator/close/{sid}")
-    r = client.post(f"/api/operator/take/{sid}", json={"visitor_id": "op-1"})
+    client.post(f"/api/sessions/{sid}/op", json={"op": "close"})
+    r = client.post(f"/api/sessions/{sid}/op", json={"op": "take", "visitor_id": "op-1"})
     assert r.status_code == 409
 
 
 def test_operator_cannot_reply_closed_session(client):
     sid, _ = create_web_session(client, "closed-reply")
-    client.post(f"/api/operator/close/{sid}")
-    r = client.post(f"/api/operator/reply/{sid}", json={"content": "还在吗"})
+    client.post(f"/api/sessions/{sid}/op", json={"op": "close"})
+    r = client.post(f"/api/sessions/{sid}/op", json={"op": "reply", "content": "还在吗"})
     assert r.status_code == 409
