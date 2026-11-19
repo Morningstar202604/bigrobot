@@ -22,7 +22,7 @@ BUILTIN_SKILLS: list[dict] = [
         "description": "需要实时信息、新闻、价格、版本号时先搜再答",
         "guide": (
             "遇到时效性问题（新闻/价格/版本/政策变动）先用 web_search，"
-            "需要细节再对最相关的一两条用 read_webpage。只引用你真正读到过的内容，"
+            "需要细节再对最相关的一两条用 read_source。只引用你真正读到过的内容，"
             "搜不到就直说没查到，不要用记忆里的旧数据冒充最新。"
         ),
         "builtin": True,
