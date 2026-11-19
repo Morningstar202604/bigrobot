@@ -435,6 +435,16 @@ function QQScanLogin({ onLoggedIn }: { onLoggedIn?: () => void }) {
   const [qr, setQr] = useState<{ url?: string; error?: string } | null>(null)
   const [status, setStatus] = useState<QQLoginStatus | null>(null)
   const [deploy, setDeploy] = useState<QQDeployStatus | null>(null)
+  const [friends, setFriends] = useState<{ user_id: string; nickname: string; remark?: string }[] | null>(null)
+  const [friendsBusy, setFriendsBusy] = useState(false)
+
+  const loadFriends = async () => {
+    setFriendsBusy(true)
+    try {
+      const r = await http.get<{ friends: { user_id: string; nickname: string; remark?: string }[] }>('/api/channel/qq/friends')
+      setFriends(r.friends)
+    } catch (e) { alert((e as Error).message) } finally { setFriendsBusy(false) }
+  }
   const [busy, setBusy] = useState(false)
   const secsRef = useRef(0)
   const openRef = useRef(false)
@@ -629,6 +639,25 @@ function QQScanLogin({ onLoggedIn }: { onLoggedIn?: () => void }) {
                     {qr?.error && <p className="dlg-msg">{qr.error}</p>}
                     {!qr && !busy && <div className="bp-hint">{t('正在获取二维码…')}</div>}
                     <p className="bp-hint">{t('WebUI 令牌需与协议端一致（.env 的 NAPCAT_WEBUI_TOKEN）。')}</p>
+                  </div>
+                )}
+
+                {loggedIn && (
+                  <div style={{ marginTop: 8 }}>
+                    <button className="btn secondary sm" onClick={() => void loadFriends()} disabled={friendsBusy}>
+                      {friendsBusy ? t('加载中…') : t('好友')}
+                    </button>
+                    {friends && (
+                      <div className="rounded border border-[var(--line,#e5e7eb)] p-2 max-h-32 overflow-auto text-[12px]" style={{ marginTop: 6 }}>
+                        <div className="text-muted mb-1">{t('好友')} {friends.length}</div>
+                        {friends.map((f) => (
+                          <div key={f.user_id} className="flex justify-between gap-2">
+                            <span className="truncate">{f.remark || f.nickname || f.user_id}</span>
+                            <span className="text-muted shrink-0">{f.user_id}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
