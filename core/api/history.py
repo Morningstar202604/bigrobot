@@ -37,3 +37,25 @@ async def pull_history(sid: str, body: PullIn):
         raise HTTPException(409, "没有可用的协议端连接（先在渠道页启动并登录）")
     rows = history_ingest.onebot_history_rows(payload)
     return history_ingest.ingest_history(sid, rows)
+
+
+@router.post("/{sid}/messages/{message_id}/transcribe", dependencies=[Depends(require_admin)])
+async def transcribe_message(sid: str, message_id: int):
+    """把一条语音消息转成文本：读 refs 里的音频地址 → 识别 → 回填 content。"""
+    from core import transcribe
+
+    msgs = store.get_messages(sid)
+    target = next((m for m in msgs if m["id"] == message_id), None)
+    if target is None:
+        raise HTTPException(404, "消息不存在")
+    audio = (target.get("refs") or [""])[0]
+    if not audio:
+        raise HTTPException(400, "这条消息没有音频地址")
+    try:
+        text = await transcribe.transcribe_url(audio)
+    except transcribe.NotConfigured as e:
+        raise HTTPException(503, f"语音转写未配置：{e}") from e
+    if not text:
+        raise HTTPException(422, "识别失败（音频格式或服务不可用）")
+    store.update_message_content(message_id, text)
+    return {"message_id": message_id, "text": text}

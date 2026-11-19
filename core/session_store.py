@@ -104,6 +104,13 @@ def add_message(session_id: str, role: str, content: str, refs: list | None = No
         return cur.lastrowid or 0
 
 
+def update_message_content(message_id: int, content: str) -> bool:
+    """替换消息正文（语音转写回填用）。只改 content，保留 refs。"""
+    with get_conn() as conn:
+        cur = conn.execute("UPDATE messages SET content = ? WHERE id = ?", (content, message_id))
+        return cur.rowcount > 0
+
+
 def find_external_message(session_id: str, external_id: str) -> int | None:
     """平台消息是否已经落过库：返回本地 id，未落过返回 None。"""
     with get_conn() as conn:

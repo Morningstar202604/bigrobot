@@ -529,6 +529,11 @@ def add_message(*a, **kw):
     return session_store.add_message(*a, **kw)
 
 
+def update_message_content(*a, **kw):
+    from core import session_store
+    return session_store.update_message_content(*a, **kw)
+
+
 def find_external_message(*a, **kw):
     from core import session_store
     return session_store.find_external_message(*a, **kw)
