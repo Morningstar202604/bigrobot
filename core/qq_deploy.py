@@ -69,14 +69,30 @@ def latest_release() -> tuple[str, str, int]:
     """(tag, 直链, 字节数)。代理与直连都试。"""
     import httpx
 
+    # 官方仓库的 releases 已清空（实测返回空数组，latest 404）。
+    # 允许用 NAPCAT_ZIP_URL 指定任意可用来源：镜像、网盘直链、本地文件都行，
+    # 不再依赖 GitHub API，部署能不能成取决于这个 URL 是否可达。
+    override = os.environ.get("NAPCAT_ZIP_URL", "").strip()
+    if override:
+        return "custom", override, 0
+
     api = "https://api.github.com/repos/NapNeko/NapCatQQ/releases/latest"
     proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") \
         or "http://127.0.0.1:7897"
     last_err: Exception | None = None
     for client_kwargs in ({"proxy": proxy}, {}):
         try:
-            with httpx.Client(timeout=30, **client_kwargs) as c:  # type: ignore[arg-type]
+            headers = {}
+            tok = os.environ.get("GITHUB_TOKEN", "").strip()
+            if tok:
+                headers["Authorization"] = f"Bearer {tok}"   # 共享 IP 未认证会 403 限流
+            with httpx.Client(timeout=30, headers=headers, **client_kwargs) as c:  # type: ignore[arg-type]
                 rel = c.get(api).json()
+                if "tag_name" not in rel:                     # latest 不存在或限流：走 releases 直链
+                    dl = "https://github.com/NapNeko/NapCatQQ/releases/latest/download/NapCat.Shell.zip"
+                    head = c.head(dl, follow_redirects=True)
+                    size = int(head.headers.get("content-length") or 0)
+                    return "latest", dl, size
                 tag = rel["tag_name"]
                 asset = next(a for a in rel["assets"] if a["name"] == "NapCat.Shell.zip")
                 return tag, asset["browser_download_url"], asset["size"]
