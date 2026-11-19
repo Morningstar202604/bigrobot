@@ -41,11 +41,13 @@ __all__ = [
 ]
 
 
-def create_session(session_id: str, visitor_id: str, secret: str = "") -> None:
+def create_session(session_id: str, visitor_id: str, secret: str = "", account_id: str | None = None) -> None:
+    """建会话。account_id 是"这个会话属于哪个渠道账号"，老调用方不传就是 NULL。"""
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO sessions (id, visitor_id, secret, status, started_at) VALUES (?, ?, ?, 'ongoing', ?)",
-            (session_id, visitor_id, secret, _now()),
+            "INSERT INTO sessions (id, visitor_id, secret, status, started_at, account_id) "
+            "VALUES (?, ?, ?, 'ongoing', ?, ?)",
+            (session_id, visitor_id, secret, _now(), account_id),
         )
 
 

@@ -32,7 +32,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             started_at TEXT,
             ended_at TEXT,
             first_response_at TEXT,
-            first_response_seconds INTEGER
+            first_response_seconds INTEGER,
+            account_id TEXT
         );
         CREATE TABLE IF NOT EXISTS session_notes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -144,6 +145,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()}
     if "secret" not in cols:
         conn.execute("ALTER TABLE sessions ADD COLUMN secret TEXT")
+        conn.execute("ALTER TABLE sessions ADD COLUMN account_id TEXT")
     _ensure_message_schema(conn)
     _ensure_action_schema(conn)
     _ensure_reminder_schema(conn)
