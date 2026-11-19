@@ -140,6 +140,31 @@ def _deploy_worker() -> None:
             logger.warning("qq deploy failed: %s", e)
 
 
+_proc: "subprocess.Popen | None" = None
+
+
+def proc_alive() -> bool:
+    """协议端是否还在跑。给状态卡与看门狗共用，不依赖 state 字段猜测。"""
+    return _proc is not None and _proc.poll() is None
+
+
+def protocol_stop(timeout: float = 5.0) -> str:
+    """停止协议端：先 SIGTERM，超时再 kill。没有句柄时明确报"未运行"而不是假装成功。"""
+    global _proc
+    if not proc_alive():
+        _proc = None
+        return "X 协议端未在运行"
+    assert _proc is not None
+    _proc.terminate()
+    try:
+        _proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _proc.kill()
+        _proc.wait(timeout=timeout)
+    _proc = None
+    return "OK 协议端已停止"
+
+
 def protocol_start(qq: str) -> str:
     """后台启动 Shell（scripts/napcat_local.py 负责引导注入与等待）。"""
     exe = DEPLOY_DIR / "NapCatWinBootMain.exe"
@@ -149,7 +174,8 @@ def protocol_start(qq: str) -> str:
     if not script.exists():
         return "X 缺少 scripts/napcat_local.py"
     log_fh = open(ROOT / ".local" / "logs" / "napcat-start.log", "ab")
-    subprocess.Popen(
+    global _proc
+    _proc = subprocess.Popen(
         [sys.executable, str(script), "start", "--qq", qq],
         cwd=str(ROOT), stdout=log_fh, stderr=log_fh,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
