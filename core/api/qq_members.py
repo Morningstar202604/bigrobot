@@ -50,8 +50,26 @@ async def group_files(group_id: str):
             "size": int(f.get("file_size") or f.get("size") or 0),
             "uploader": str(f.get("uploader") or f.get("user_id") or ""),
             "uploaded_at": f.get("upload_time") or f.get("modify_time"),
+            "busid": f.get("busid"),   # 下载时必须带回去，OneBot 用它定位目录
         }
         for f in files
         if isinstance(f, dict)
     ]
     return {"group_id": group_id, "count": len(items), "files": items}
+
+
+@router.get("/groups/{group_id}/files/{file_id}/url", dependencies=[Depends(require_admin)])
+async def group_file_url(group_id: str, file_id: str, busid: int = 0):
+    """取下载直链。OneBot 的 get_group_file_url 需要 group_id + file_id + busid 三件套。"""
+    from gateway import bridge
+
+    payload = await bridge.call_onebot(
+        "get_group_file_url",
+        {"group_id": group_id, "file_id": file_id, "busid": busid},
+    )
+    if payload is None:
+        raise HTTPException(409, "没有可用的协议端连接（先在渠道页启动并登录）")
+    url = (payload or {}).get("url") if isinstance(payload, dict) else None
+    if not url:
+        raise HTTPException(404, "协议端没有返回下载地址（文件可能已过期）")
+    return {"url": url}

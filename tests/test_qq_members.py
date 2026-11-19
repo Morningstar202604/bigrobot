@@ -56,3 +56,26 @@ def test_group_files_without_protocol(client, monkeypatch):
 
     monkeypatch.setattr(bridge, "call_onebot", none)
     assert client.get("/api/channel/qq/groups/410001/files").status_code == 409
+
+
+def test_file_download_url(client, monkeypatch):
+    from gateway import bridge
+
+    async def fake(action, params):
+        assert action == "get_group_file_url"
+        assert params == {"group_id": "410001", "file_id": "f1", "busid": 102}
+        return {"url": "https://cdn/x.docx"}
+
+    monkeypatch.setattr(bridge, "call_onebot", fake)
+    r = client.get("/api/channel/qq/groups/410001/files/f1/url?busid=102")
+    assert r.status_code == 200 and r.json()["url"].endswith("x.docx")
+
+
+def test_file_url_expired_is_404(client, monkeypatch):
+    from gateway import bridge
+
+    async def fake(action, params):
+        return {}
+
+    monkeypatch.setattr(bridge, "call_onebot", fake)
+    assert client.get("/api/channel/qq/groups/410001/files/f1/url").status_code == 404
