@@ -66,15 +66,6 @@ export default function App() {
                 <Route path="/settings/:tab" element={<Settings scope="settings" />} />
                 <Route path="/settings" element={<Settings scope="settings" />} />
                 {/* 旧入口一版重定向：书签不失效，也不再多一层信息架构 */}
-                <Route path="/dashboard" element={<Navigate to="/instances" replace />} />
-                <Route path="/qq-scan" element={<Navigate to="/instances?view=scan" replace />} />
-                <Route path="/operator" element={<Navigate to="/sessions?view=desk" replace />} />
-                <Route path="/annotations" element={<Navigate to="/sessions?view=annotate" replace />} />
-                <Route path="/actions" element={<Navigate to="/policy" replace />} />
-                <Route path="/runs" element={<Navigate to="/observe?view=runs" replace />} />
-                <Route path="/logs" element={<Navigate to="/observe?view=logs" replace />} />
-                <Route path="/emotes" element={<Navigate to="/capabilities?view=emotes" replace />} />
-                <Route path="/persona" element={<Navigate to="/capabilities?view=persona" replace />} />
                 <Route path="/settings/kb" element={<Navigate to="/capabilities/kb" replace />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
