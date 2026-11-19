@@ -88,6 +88,21 @@ export default function SessionsCenter() {
   const [pulling, setPulling] = useState(false)
   const [members, setMembers] = useState<{ user_id: string; nickname: string; role: string }[] | null>(null)
   const [loading, setLoading] = useState('')
+  const [transcribing, setTranscribing] = useState<number | null>(null)
+
+  const transcribe = async (mid: number) => {
+    if (!active) return
+    setTranscribing(mid)
+    try {
+      const r = await http.post<{ text: string }>(`/api/sessions/${active.id}/messages/${mid}/transcribe`, {})
+      alert(`${t('识别结果')}：${r.text}`)
+      sessions.refetch()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setTranscribing(null)
+    }
+  }
   const [notices, setNotices] = useState<{ notice_id: string; text: string }[] | null>(null)
   const [files, setFiles] = useState<{ file_id: string; name: string; size: number; busid?: number }[] | null>(null)
 
@@ -390,6 +405,15 @@ export default function SessionsCenter() {
                         {(m as AgentMsg & { source?: string }).source === 'platform' && ' · QQ 历史'}
                       </span>
                       {m.role === 'visitor' ? m.content : <Markdown text={m.content} />}
+                      {Boolean((m as AgentMsg & { refs?: string[] }).refs?.length) && (
+                        <button
+                          className="btn ghost sm mt-1"
+                          disabled={transcribing === m.id}
+                          onClick={() => m.id !== undefined && void transcribe(m.id)}
+                        >
+                          {transcribing === m.id ? t('识别中…') : t('转写')}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
