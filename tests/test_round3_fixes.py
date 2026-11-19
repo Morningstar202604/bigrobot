@@ -102,8 +102,8 @@ def test_tool_toggle_preserves_metadata(client):
         "id": "keep_meta", "name": "保留元数据", "desc": "描述不能丢",
         "args_json": {"q": "string"}, "enabled": True,
     })
-    # 控制台开关必须走专用端点：整包 PUT 空字段会覆盖元数据（已复现）
-    r = client.put("/api/tools/keep_meta/enabled", json={"enabled": False})
+    # 开关走统一 PUT，但只带 enabled：缺省字段必须沿用旧值（整包覆盖是已复现的旧 bug）
+    r = client.put("/api/tools/keep_meta", json={"enabled": False})
     assert r.status_code == 200
     t = r.json()["tool"]
     assert t["enabled"] is False

@@ -202,7 +202,7 @@ def test_delete_radius_not_applied_to_admin(client, fake_exec, monkeypatch):
         store.action_log_update(f"adm-{i}", status="executed", result={"size": 10})
 
     ap_id = _exec(client, "fs.delete", {"path": "/tmp/x"}).json()["approval_id"]
-    client.post(f"/api/approvals/{ap_id}/approve")
+    client.post(f"/api/approvals/{ap_id}/decide", json={"approved": True})
     r = _exec(client, "fs.delete", {"path": "/tmp/x"}, approval_id=ap_id)
     assert r.status_code == 200, "admin 手动删除不该被 T3 阈值拦住"
 

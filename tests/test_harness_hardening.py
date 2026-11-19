@@ -123,7 +123,7 @@ def test_idempotency_key_does_not_block_approved_execution(client, monkeypatch):
     first = client.post("/api/actions/execute", json=payload).json()
     assert first["status"] == "pending_approval"
     ap_id = first["approval_id"]
-    assert client.post(f"/api/approvals/{ap_id}/approve").status_code == 200
+    assert client.post(f"/api/approvals/{ap_id}/decide", json={"approved": True}).status_code == 200
     second = client.post("/api/actions/execute", json={**payload, "approval_id": ap_id})
     assert second.status_code == 200, second.text
     assert second.json()["status"] == "executed", "批准后必须真正执行"
@@ -138,7 +138,7 @@ def test_approval_digest_matches_raw_params_not_masked(client, monkeypatch):
                "principal": "admin"}
     first = client.post("/api/actions/execute", json=payload).json()
     ap_id = first["approval_id"]
-    assert client.post(f"/api/approvals/{ap_id}/approve").status_code == 200
+    assert client.post(f"/api/approvals/{ap_id}/decide", json={"approved": True}).status_code == 200
     r = client.post("/api/actions/execute", json={**payload, "approval_id": ap_id})
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "executed"
@@ -150,7 +150,7 @@ def test_approval_rejects_changed_params(client, monkeypatch):
     payload = {"action": "set_group_kick",
                "params": {"group_id": "1", "user_id": "2"}, "principal": "admin"}
     ap_id = client.post("/api/actions/execute", json=payload).json()["approval_id"]
-    client.post(f"/api/approvals/{ap_id}/approve")
+    client.post(f"/api/approvals/{ap_id}/decide", json={"approved": True})
     r = client.post("/api/actions/execute", json={
         **payload, "params": {"group_id": "1", "user_id": "3"}, "approval_id": ap_id})
     assert r.status_code == 403

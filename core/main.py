@@ -1356,29 +1356,37 @@ def create_app() -> FastAPI:
             raise HTTPException(400, str(e))
         return {"tool": t}
 
-    class ToolEnabledIn(BaseModel):
-        enabled: bool
+    class ToolPatchIn(BaseModel):
+        """局部更新：只给 enabled 就是开关，给别的字段就是改元数据。
 
-    @app.put("/api/tools/{tool_id}/enabled", dependencies=[Depends(require_admin)])
-    def set_tool_enabled(tool_id: str, body: ToolEnabledIn):
-        """只切换启停，不动名称/描述/参数。
-
-        控制台此前用整包 PUT 做开关，空字段把工具元数据全部覆盖成空（已复现）。
+        旧版 `/enabled` 独立成一条路由，如果用它做整包 PUT，空字段会把工具
+        元数据覆盖成空（已复现）。现在补丁式更新，缺省字段一律沿用旧值。
         """
-        t = store.set_tool_enabled(tool_id, body.enabled)
-        if not t:
-            raise HTTPException(404, "工具不存在")
-        return {"tool": t}
+        name: str | None = None
+        desc: str | None = None
+        args_json: dict | None = None
+        enabled: bool | None = None
 
     @app.put("/api/tools/{tool_id}", dependencies=[Depends(require_admin)])
-    def update_tool(tool_id: str, body: ToolIn):
-        _validate_tool_args(body.args_json)
+    def update_tool(tool_id: str, body: ToolPatchIn):
         existing = store.get_tool(tool_id)
         if not existing:
             raise HTTPException(404, "工具不存在")
+        if (body.name is None and body.desc is None
+                and body.args_json is None and body.enabled is not None):
+            t = store.set_tool_enabled(tool_id, body.enabled)
+            return {"tool": t}
+        args_json = existing["args_json"] if body.args_json is None else body.args_json
+        _validate_tool_args(args_json)
         try:
-            t = store.upsert_tool(tool_id, body.name or existing["name"] or tool_id,
-                                  body.desc, body.args_json, body.enabled, existing["builtin"])
+            t = store.upsert_tool(
+                tool_id,
+                body.name if body.name is not None else (existing["name"] or tool_id),
+                existing["desc"] if body.desc is None else body.desc,
+                args_json,
+                existing["enabled"] if body.enabled is None else body.enabled,
+                existing["builtin"],
+            )
         except ValueError as e:
             raise HTTPException(400, str(e))
         return {"tool": t}
@@ -1711,18 +1719,17 @@ def create_app() -> FastAPI:
             raise HTTPException(404, "审批不存在")
         return ap
 
-    @app.post("/api/approvals/{approval_id}/approve", dependencies=[Depends(require_admin)])
-    def approval_approve(approval_id: str):
-        try:
-            return actions_service.approve(approval_id, decided_by="admin")
-        except actions_service.ActionError as e:
-            raise HTTPException(e.status, str(e))
+    class ApprovalDecideIn(BaseModel):
+        approved: bool
+        reason: str = ""
 
-    @app.post("/api/approvals/{approval_id}/deny", dependencies=[Depends(require_admin)])
-    def approval_deny(approval_id: str, body: ApprovalIn | None = None):
+    @app.post("/api/approvals/{approval_id}/decide", dependencies=[Depends(require_admin)])
+    def approval_decide(approval_id: str, body: ApprovalDecideIn):
+        """一次决策一个入口：批准与拒绝只差一个布尔，不值得两条路由两套前端调用。"""
         try:
-            return actions_service.deny(approval_id, decided_by="admin",
-                                        reason=(body.reason if body else ""))
+            if body.approved:
+                return actions_service.approve(approval_id, decided_by="admin")
+            return actions_service.deny(approval_id, decided_by="admin", reason=body.reason)
         except actions_service.ActionError as e:
             raise HTTPException(e.status, str(e))
 

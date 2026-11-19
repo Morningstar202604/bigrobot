@@ -80,6 +80,18 @@ The authoritative version string lives in [`VERSION`](VERSION), mirrored by
 - **评测同步**：`scripts/tool_selection.py` 用例改用合并名，覆盖从 11 条恢复到 31 条 must 用例，
   准确率 100%（此前 21 条因「工具未配置」被跳过）。
 
+### Changed（B3 第一批：无损路由合并）
+
+- **审批决策 2 条 → 1 条。** `/api/approvals/{id}/approve` 与 `/deny` 合并为
+  `POST /api/approvals/{id}/decide`，body `{approved, reason}`。前端两个 mutation
+  指向同一入口，测试与 e2e 脚本同步。
+- **工具开关 2 条 → 1 条。** `/api/tools/{id}/enabled` 并入 `PUT /api/tools/{id}`：
+  只带 `enabled` 就是开关（沿用旧的元数据保留语义），带其它字段就是改元数据，
+  缺省字段一律沿用旧值（整包覆盖清空元数据的老 bug 有回归用例守着）。
+- 路由 95 → 93。**剩余到 46 的部分没有在这一批硬做**：`/api/admin` 15 条要合成
+  `/api/observe/*`（overview/logs/audit）并重排前端 IA，靠别名"假减"会把路由表
+  变得更乱，等 B4 一起动。
+
 ### 验证
 
 `pytest` 986 passed / 3 skipped，`ruff` 全过，`mypy` 92 文件 0 issue，

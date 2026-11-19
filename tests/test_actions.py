@@ -363,7 +363,7 @@ def test_l2_approval_flow(client, fake_gw, monkeypatch):
     assert any(a["id"] == ap_id for a in pending)
 
     # 3) 批准
-    assert client.post(f"/api/approvals/{ap_id}/approve").status_code == 200
+    assert client.post(f"/api/approvals/{ap_id}/decide", json={"approved": True}).status_code == 200
 
     # 4) 带 approval_id 二次执行
     r2 = client.post("/api/actions/execute", json={**payload, "approval_id": ap_id})
@@ -389,7 +389,7 @@ def test_l2_denied_blocks_execution(client, fake_gw, monkeypatch):
                "principal": "admin"}
     b = client.post("/api/actions/execute", json=payload).json()
     ap_id = b["approval_id"]
-    assert client.post(f"/api/approvals/{ap_id}/deny", json={"reason": "误操作"}).status_code == 200
+    assert client.post(f"/api/approvals/{ap_id}/decide", json={"approved": False, "reason": "误操作"}).status_code == 200
     r = client.post("/api/actions/execute", json={**payload, "approval_id": ap_id})
     assert r.status_code == 403
     assert fake_gw.calls == []
@@ -401,8 +401,8 @@ def test_double_approve_only_executes_once(client, fake_gw, monkeypatch):
     payload = {"action": "set_group_kick", "params": {"group_id": "1", "user_id": "2"},
                "principal": "admin"}
     ap_id = client.post("/api/actions/execute", json=payload).json()["approval_id"]
-    first = client.post(f"/api/approvals/{ap_id}/approve")
-    second = client.post(f"/api/approvals/{ap_id}/approve")
+    first = client.post(f"/api/approvals/{ap_id}/decide", json={"approved": True})
+    second = client.post(f"/api/approvals/{ap_id}/decide", json={"approved": True})
     assert first.status_code == 200
     assert second.status_code == 409, "重复批准必须拒绝"
     client.post("/api/actions/execute", json={**payload, "approval_id": ap_id})

@@ -83,7 +83,7 @@ def test_approval_cannot_be_reused(client, monkeypatch):
 
     monkeypatch.setattr(gw, "call_action", fake)
     ap = client.post("/api/actions/execute", json=_l2_payload()).json()["approval_id"]
-    client.post(f"/api/approvals/{ap}/approve")
+    client.post(f"/api/approvals/{ap}/decide", json={"approved": True})
 
     first = client.post("/api/actions/execute", json={**_l2_payload(), "approval_id": ap})
     second = client.post("/api/actions/execute", json={**_l2_payload(), "approval_id": ap})
@@ -104,7 +104,7 @@ def test_approval_cannot_execute_different_action(client, monkeypatch):
 
     monkeypatch.setattr(gw, "call_action", fake)
     ap = client.post("/api/actions/execute", json=_l2_payload()).json()["approval_id"]
-    client.post(f"/api/approvals/{ap}/approve")
+    client.post(f"/api/approvals/{ap}/decide", json={"approved": True})
 
     r = client.post("/api/actions/execute", json={
         "action": "delete_friend", "params": {"user_id": "999"},
@@ -126,7 +126,7 @@ def test_approval_cannot_execute_different_params(client, monkeypatch):
 
     monkeypatch.setattr(gw, "call_action", fake)
     ap = client.post("/api/actions/execute", json=_l2_payload()).json()["approval_id"]
-    client.post(f"/api/approvals/{ap}/approve")
+    client.post(f"/api/approvals/{ap}/decide", json={"approved": True})
 
     r = client.post("/api/actions/execute", json={
         "action": "set_group_kick", "params": {"group_id": "1", "user_id": "777"},

@@ -153,7 +153,7 @@ export function useToolMutations() {
     }),
     toggle: useMutation({
       mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
-        http.put<{ tool: ToolDef }>(`/api/tools/${id}/enabled`, { enabled }),
+        http.put<{ tool: ToolDef }>(`/api/tools/${id}`, { enabled }),
       onSuccess: invalidate,
     }),
     remove: useMutation({ mutationFn: (id: string) => http.del(`/api/tools/${id}`), onSuccess: invalidate }),
@@ -320,12 +320,14 @@ export function useApprovalMutations() {
   }
   return {
     approve: useMutation({
-      mutationFn: (id: string) => http.post<{ status: string }>(`/api/approvals/${id}/approve`),
+      mutationFn: (id: string) =>
+        http.post<{ status: string }>(`/api/approvals/${id}/decide`, { approved: true }),
       onSuccess: invalidate,
     }),
     deny: useMutation({
       mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
-        http.post<{ status: string }>(`/api/approvals/${id}/deny`, { reason: reason || '' }),
+        http.post<{ status: string }>(`/api/approvals/${id}/decide`,
+          { approved: false, reason: reason || '' }),
       onSuccess: invalidate,
     }),
   }
