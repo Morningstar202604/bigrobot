@@ -73,14 +73,45 @@ const TAB_GROUPS: { group: string; items: { key: string; icon: React.ReactNode; 
 // 平铺视图供 active 查找与页头：必须包含 kb（/settings/kb 是一级导航入口）。
 // TAB_GROUPS 只决定侧栏展示，不含 kb —— 双入口去重只发生在侧栏，URL 与内容保留。
 const KB_TAB = { key: 'kb', icon: <BookOpen size={15} />, label: '知识库', sub: 'RAG 语料增删改' }
-const TABS = [...TAB_GROUPS.flatMap((g) => g.items), KB_TAB]
+// 一页只回答一个问题：能力（能做什么）/ 策略（什么必须我批）/ 设置（换模型改参数）。
+// scope 决定这一页收哪些 tab，避免同一个能力在三个页面各出现一次。
+const SCOPE_TABS: Record<string, { groups: string[]; keys: string[]; base: string; fallback: string }> = {
+  capabilities: {
+    groups: ['行为与知识'],
+    keys: ['skills', 'tools', 'cards', 'profiles', 'lexicon', 'mem', 'kb'],
+    base: '/capabilities',
+    fallback: 'tools',
+  },
+  policy: {
+    groups: ['安全与合规'],
+    keys: ['permission', 'guardrail', 'hooks', 'inj'],
+    base: '/policy',
+    fallback: 'permission',
+  },
+  settings: {
+    groups: ['模型与推理', '数据与运维'],
+    keys: ['providers', 'params', 'data', 'token'],
+    base: '/settings',
+    fallback: 'params',
+  },
+}
 
-export default function Settings() {
+export default function Settings({ scope }: { scope?: keyof typeof SCOPE_TABS } = {}) {
   const { tab: routeTab } = useParams()
   const navigate = useNavigate()
-  const routeOk = TABS.some((t) => t.key === routeTab)
-  const tab = routeOk ? (routeTab as string) : 'params'
-  const setTab = (k: string) => navigate(`/settings/${k}`)
+  const conf = scope ? SCOPE_TABS[scope] : null
+  const groups = conf
+    ? TAB_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => conf.keys.includes(i.key)) }))
+        .filter((g) => g.items.length)
+    : TAB_GROUPS
+  const tabs = [
+    ...groups.flatMap((g) => g.items),
+    ...(conf && !conf.keys.includes('kb') ? [] : [KB_TAB]),
+  ]
+  const routeOk = tabs.some((t) => t.key === routeTab)
+  const tab = routeOk ? (routeTab as string) : (conf?.fallback ?? 'params')
+  const base = conf?.base ?? '/settings'
+  const setTab = (k: string) => navigate(`${base}/${k}`)
   const { mobile } = useShell()
   const { data: cfgRes, isLoading, error, refetch } = useConfig()
   const cfg = cfgRes?.config
@@ -99,14 +130,14 @@ export default function Settings() {
   if (error) return <div className="p-8"><ErrorBanner message={(error as Error).message} onRetry={() => refetch()} /></div>
   if (!cfg) return <TokenGate onAuthed={() => refetch()} />
 
-  const active = TABS.find((t) => t.key === tab)!
+  const active = tabs.find((t) => t.key === tab)!
 
   return (
     <div className={`set-app ${mobile ? 'set-app-mobile' : ''}`}>
       <aside className="set-side">
         <div className="ss-title">{tr('管理中心')}</div>
         <div className="ss-sub">{tr('Agent 运行时配置 · 即时生效')}</div>
-        {TAB_GROUPS.map((g) => (
+        {groups.map((g) => (
           <div key={g.group} className="set-group">
             <div className="set-group-label">{tr(g.group)}</div>
             {g.items.map((item) => (

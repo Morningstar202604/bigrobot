@@ -630,3 +630,17 @@ table.dt .raw { max-width: 300px; overflow: hidden; text-overflow: ellipsis; whi
   margin-top: 12px; font-size: 12px; color: var(--muted);
 }
 .pager .btn { margin-left: 0; }
+
+/* 页内视图切换（7 个一级入口内部不再长二级页面） */
+.console-tabs { padding: 0 0 24px; }
+.console-tabs-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; padding: 16px 20px 8px;
+}
+.console-tabbar { display: flex; gap: 4px; flex-wrap: wrap; }
+.console-tab {
+  border: 1px solid var(--line, #e5e7eb); background: transparent; color: inherit;
+  border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+}
+.console-tab.on { background: var(--accent-weak, #eef2ff); border-color: var(--accent, #6366f1); }
+.console-tabs-body { padding: 0 4px; }

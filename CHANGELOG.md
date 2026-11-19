@@ -92,6 +92,22 @@ The authoritative version string lives in [`VERSION`](VERSION), mirrored by
   `/api/observe/*`（overview/logs/audit）并重排前端 IA，靠别名"假减"会把路由表
   变得更乱，等 B4 一起动。
 
+### Changed（B4-1：控制台 13 条路由 → 7 个一级入口）
+
+- **7 个一级入口**：`/instances` 实例、`/sessions` 会话、`/capabilities` 能力、
+  `/policy` 策略、`/observe` 观测、`/settings` 设置、`/reminders` 提醒；访客页 `/` 不动。
+- **页内视图用 `?view=`**，不再长二级页面：会话页三视图（列表/协作台/标注）、
+  能力页三视图（能力与知识/人设/表情包）、策略页两视图（待批动作/规则）、
+  观测页两视图（任务轨迹/日志）。
+- **设置页按 scope 拆成三份**：`Settings` 新增 `scope` 参数，
+  能力页只收 skills/tools/cards/profiles/lexicon/mem/kb，策略页只收
+  permission/guardrail/hooks/inj，设置页只收 providers/params/data/token。
+  同一个能力不再在三处各出现一次。
+- **审批回到一级入口**：`/policy` 的第一个视图就是 `ActionsCenter`，
+  `/actions` 只做一版重定向（书签不失效）。
+- **旧路径全部保留一版重定向**：dashboard / qq-scan / operator / annotations /
+  actions / runs / logs / emotes / persona / settings/kb。
+
 ### 验证
 
 `pytest` 986 passed / 3 skipped，`ruff` 全过，`mypy` 92 文件 0 issue，

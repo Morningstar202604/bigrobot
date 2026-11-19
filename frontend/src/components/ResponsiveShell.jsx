@@ -1,11 +1,9 @@
 import React, { createContext, useContext, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Link, useLocation, useNavigate,
-} from 'react-router-dom'
-import {
-  MessageCircle, Headset, Settings, Menu, X,
-  LayoutDashboard, MessagesSquare, ScrollText, ShieldAlert, ListChecks,
-  Bot, BookOpen, Stamp, Moon, Sun, Search, Command, Bell, Images, QrCode, ShieldCheck } from 'lucide-react'
+  MessageCircle, Headset, Menu, X, LayoutDashboard, Activity, Wrench,
+  ShieldAlert, ListChecks, Bot, BookOpen, Stamp, Moon, Sun, Search, Command,
+  Bell, Images, QrCode, ShieldCheck, ScrollText, Settings, MessagesSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import Logo from './Logo'
@@ -16,32 +14,20 @@ import { K, read, write } from '../lib/storage'
  *  match 可选：自定义激活判定（默认 startsWith，end 表示全等）。 */
 export const NAV_GROUPS = [
   {
-    label: '工作台',
+    label: '机器人',
     items: [
-      { to: '/dashboard', label: '运行总览', icon: <LayoutDashboard size={16} /> },
-      { to: '/', label: '和秘书聊', icon: <MessageCircle size={16} />, end: true },
-      { to: '/reminders', label: '提醒待办', icon: <Bell size={16} /> },
-      { to: '/sessions', label: '全部对话', icon: <MessagesSquare size={16} /> },
-      { to: '/operator', label: '协作台', icon: <Headset size={16} /> },
+      { to: '/instances', label: '实例', icon: <Activity size={16} /> },
+      { to: '/sessions', label: '会话', icon: <MessagesSquare size={16} /> },
+      { to: '/reminders', label: '提醒', icon: <Bell size={16} /> },
     ],
   },
   {
-    label: '智能体',
+    label: '治理',
     items: [
-      { to: '/persona', label: '秘书人设', icon: <Bot size={16} /> },
-      { to: '/annotations', label: '标注回复', icon: <Stamp size={16} /> },
-      { to: '/emotes', label: '表情包库', icon: <Images size={16} /> },
-      { to: '/settings/kb', label: '知识库', icon: <BookOpen size={16} />, match: (p) => p.startsWith('/settings/kb') },
-      { to: '/runs', label: 'Agent 任务', icon: <ListChecks size={16} /> },
-      { to: '/settings', label: '管理中心', icon: <Settings size={16} />, match: (p) => p.startsWith('/settings') && !p.startsWith('/settings/kb') },
-    ],
-  },
-  {
-    label: '审计',
-    items: [
-      { to: '/actions', label: '动作审批', icon: <ShieldCheck size={16} /> },
-      { to: '/logs', label: '日志中心', icon: <ScrollText size={16} /> },
-      { to: '/qq-scan', label: 'QQ 扫码登录', icon: <QrCode size={16} /> },
+      { to: '/capabilities', label: '能力', icon: <Wrench size={16} /> },
+      { to: '/policy', label: '策略', icon: <ShieldCheck size={16} /> },
+      { to: '/observe', label: '观测', icon: <ScrollText size={16} /> },
+      { to: '/settings', label: '设置', icon: <Settings size={16} /> },
     ],
   },
 ]

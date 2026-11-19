@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Link, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Link, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './lib/queryClient'
 import ResponsiveShell from './components/ResponsiveShell'
@@ -18,6 +18,11 @@ import { bootstrapAdminToken } from './lib/queries'
 const VisitorChat = lazy(() => import('./VisitorChat'))
 const OperatorDesk = lazy(() => import('./OperatorDesk'))
 const Settings = lazy(() => import('./Settings'))
+const Instances = lazy(() => import('./pages/Instances'))
+const Sessions = lazy(() => import('./pages/Sessions'))
+const Capabilities = lazy(() => import('./pages/Capabilities'))
+const Policy = lazy(() => import('./pages/Policy'))
+const Observe = lazy(() => import('./pages/Observe'))
 const Dashboard = lazy(() => import('./Dashboard'))
 const LogsCenter = lazy(() => import('./LogsCenter'))
 const SessionsCenter = lazy(() => import('./SessionsCenter'))
@@ -50,19 +55,27 @@ export default function App() {
               <ErrorBoundary>
               <Routes>
                 <Route path="/" element={<VisitorChat />} />
-                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/instances" element={<Instances />} />
+                <Route path="/sessions" element={<Sessions />} />
+                <Route path="/capabilities/:tab" element={<Capabilities />} />
+                <Route path="/capabilities" element={<Capabilities />} />
+                <Route path="/policy/:tab" element={<Policy />} />
+                <Route path="/policy" element={<Policy />} />
+                <Route path="/observe" element={<Observe />} />
                 <Route path="/reminders" element={<Reminders />} />
-                <Route path="/persona" element={<BotPersona />} />
-                <Route path="/annotations" element={<AnnotationCenter />} />
-                <Route path="/sessions" element={<SessionsCenter />} />
-                <Route path="/actions" element={<ActionsCenter />} />
-                <Route path="/runs" element={<AgentRuns />} />
-                <Route path="/emotes" element={<EmoteCenter />} />
-                <Route path="/logs" element={<LogsCenter />} />
-                <Route path="/qq-scan" element={<QQScanPage />} />
-                <Route path="/operator" element={<OperatorDesk />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/settings/:tab" element={<Settings />} />
+                <Route path="/settings/:tab" element={<Settings scope="settings" />} />
+                <Route path="/settings" element={<Settings scope="settings" />} />
+                {/* 旧入口一版重定向：书签不失效，也不再多一层信息架构 */}
+                <Route path="/dashboard" element={<Navigate to="/instances" replace />} />
+                <Route path="/qq-scan" element={<Navigate to="/instances?view=scan" replace />} />
+                <Route path="/operator" element={<Navigate to="/sessions?view=desk" replace />} />
+                <Route path="/annotations" element={<Navigate to="/sessions?view=annotate" replace />} />
+                <Route path="/actions" element={<Navigate to="/policy" replace />} />
+                <Route path="/runs" element={<Navigate to="/observe?view=runs" replace />} />
+                <Route path="/logs" element={<Navigate to="/observe?view=logs" replace />} />
+                <Route path="/emotes" element={<Navigate to="/capabilities?view=emotes" replace />} />
+                <Route path="/persona" element={<Navigate to="/capabilities?view=persona" replace />} />
+                <Route path="/settings/kb" element={<Navigate to="/capabilities/kb" replace />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               </ErrorBoundary>
