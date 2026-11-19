@@ -86,6 +86,22 @@ export default function SessionsCenter() {
 
   const [pullGroup, setPullGroup] = useState('')
   const [pulling, setPulling] = useState(false)
+  const [members, setMembers] = useState<{ user_id: string; nickname: string; role: string }[] | null>(null)
+  const [loadingMembers, setLoadingMembers] = useState(false)
+
+  const loadMembers = async () => {
+    if (!pullGroup.trim()) return
+    setLoadingMembers(true)
+    try {
+      const r = await http.get<{ count: number; members: { user_id: string; nickname: string; role: string }[] }>(
+        `/api/channel/qq/groups/${pullGroup.trim()}/members`)
+      setMembers(r.members)
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setLoadingMembers(false)
+    }
+  }
 
   const pullHistory = async () => {
     if (!active || !pullGroup.trim()) return
@@ -267,7 +283,23 @@ export default function SessionsCenter() {
                 <button className="btn ghost sm" onClick={() => void pullHistory()} disabled={pulling || !pullGroup.trim()}>
                   {pulling ? t('拉取中…') : t('拉取历史')}
                 </button>
+                <button className="btn ghost sm" onClick={() => void loadMembers()} disabled={loadingMembers || !pullGroup.trim()}>
+                  {loadingMembers ? t('加载中…') : t('成员')}
+                </button>
               </div>
+              {members && (
+                <div className="rounded border border-[var(--line,#e5e7eb)] p-2 max-h-40 overflow-auto text-[12px]">
+                  <div className="text-muted mb-1">{t('群成员')} {members.length}</div>
+                  {members.map((m) => (
+                    <div key={m.user_id} className="flex justify-between gap-2">
+                      <span className="truncate">{m.nickname || m.user_id}</span>
+                      <span className="text-muted shrink-0">
+                        {m.role === 'owner' ? t('群主') : m.role === 'admin' ? t('管理员') : t('成员')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {close.error && <ErrorBanner message={(close.error as Error).message} onRetry={() => sessions.refetch()} />}
               {loadingDialog && <Spinner label={t('加载对话…')} />}
               {!loadingDialog && dialog.length === 0 && <div className="empty">{t('该会话暂无消息')}</div>}
