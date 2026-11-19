@@ -115,6 +115,15 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             session_id TEXT,
             updated_at TEXT
         );
+        CREATE TABLE IF NOT EXISTS accounts (
+            id TEXT PRIMARY KEY,
+            channel TEXT NOT NULL,
+            platform_uid TEXT,
+            display_name TEXT,
+            created_at TEXT,
+            last_seen TEXT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_platform ON accounts(channel, platform_uid);
         CREATE TABLE IF NOT EXISTS annotations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             question TEXT NOT NULL,
@@ -1968,3 +1977,23 @@ def prev_session_messages(visitor_id: str, exclude_sid: str = "", limit: int = 6
             (row["id"], max(1, min(int(limit), 20))),
         ).fetchall()
     return [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+
+
+def upsert_account(channel: str, platform_uid: str, display_name: str = "") -> dict:
+    """登记一个渠道账号。同一渠道下 platform_uid 唯一，重复登记只更新展示名与心跳时间。"""
+    now = _now()
+    aid = f"{channel}:{platform_uid}"
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO accounts (id, channel, platform_uid, display_name, created_at, last_seen) "
+            "VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET "
+            "display_name=excluded.display_name, last_seen=excluded.last_seen",
+            (aid, channel, platform_uid, display_name, now, now),
+        )
+    return {"id": aid, "channel": channel, "platform_uid": platform_uid, "display_name": display_name}
+
+
+def list_accounts() -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM accounts ORDER BY channel, platform_uid").fetchall()
+    return [dict(r) for r in rows]

@@ -1865,6 +1865,22 @@ def create_app() -> FastAPI:
             out.append({**a, "status": status, "live_capabilities": caps})
         return {"adapters": out}
 
+    class AccountIn(BaseModel):
+        channel: str
+        platform_uid: str
+        display_name: str = ""
+
+    @app.get("/api/accounts", dependencies=[Depends(require_admin)])
+    def accounts_list():
+        """已登记的渠道账号。一个 QQ 号、一个微信号各是一条，后续 session 关联到它。"""
+        return {"accounts": store.list_accounts()}
+
+    @app.post("/api/accounts", dependencies=[Depends(require_admin)])
+    def accounts_upsert(body: AccountIn):
+        if not body.channel.strip() or not body.platform_uid.strip():
+            raise HTTPException(400, "channel 与 platform_uid 都不能为空")
+        return {"account": store.upsert_account(body.channel.strip(), body.platform_uid.strip(), body.display_name.strip())}
+
     # ============================================================
     # Agent 多步任务（ReAct）
     # ============================================================
