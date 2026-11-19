@@ -6,7 +6,7 @@
 [English](README.en.md) · [架构](docs/ARCHITECTURE.md) · [部署](docs/DEPLOY.md) · [对比](docs/COMPARISON.md) · [更新日志](CHANGELOG.md) · [路线图](ROADMAP.md)
 
 <p align="center">
-  <img src="docs/media/demo.gif" width="860" alt="BigRobot：控制台、对话、工具执行、审计">
+  <video src="docs/media/demo.mp4" width="860" autoplay muted loop playsinline aria-label="BigRobot：控制台、对话、工具执行、审计"></video>
 </p>
 
 ---

@@ -7,7 +7,7 @@ validates, gates and records.
 [中文](README.md) · [Architecture](docs/ARCHITECTURE.md) · [Deploy](docs/DEPLOY.md) · [Comparison](docs/COMPARISON.md) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
 <p align="center">
-  <img src="docs/media/demo.gif" width="860" alt="BigRobot: console, chat, tool execution, audit">
+  <video src="docs/media/demo.mp4" width="860" autoplay muted loop playsinline aria-label="BigRobot: console, chat, tool execution, audit"></video>
 </p>
 
 ---
