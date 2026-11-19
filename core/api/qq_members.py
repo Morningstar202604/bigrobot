@@ -32,3 +32,26 @@ async def group_members(group_id: str):
         if isinstance(m, dict)
     ]
     return {"group_id": group_id, "count": len(members), "members": members}
+
+
+@router.get("/groups/{group_id}/files", dependencies=[Depends(require_admin)])
+async def group_files(group_id: str):
+    """群文件列表。OneBot 的返回是 {files:[...]}，字段名各协议端略有差异，统一成固定形状。"""
+    from gateway import bridge
+
+    payload = await bridge.call_onebot("get_group_root_files", {"group_id": group_id})
+    if payload is None:
+        raise HTTPException(409, "没有可用的协议端连接（先在渠道页启动并登录）")
+    files = (payload or {}).get("files") or []
+    items = [
+        {
+            "file_id": str(f.get("file_id") or ""),
+            "name": f.get("file_name") or f.get("name") or "",
+            "size": int(f.get("file_size") or f.get("size") or 0),
+            "uploader": str(f.get("uploader") or f.get("user_id") or ""),
+            "uploaded_at": f.get("upload_time") or f.get("modify_time"),
+        }
+        for f in files
+        if isinstance(f, dict)
+    ]
+    return {"group_id": group_id, "count": len(items), "files": items}

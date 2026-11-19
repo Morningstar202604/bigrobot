@@ -88,6 +88,22 @@ export default function SessionsCenter() {
   const [pulling, setPulling] = useState(false)
   const [members, setMembers] = useState<{ user_id: string; nickname: string; role: string }[] | null>(null)
   const [loadingMembers, setLoadingMembers] = useState(false)
+  const [files, setFiles] = useState<{ file_id: string; name: string; size: number }[] | null>(null)
+  const [loadingFiles, setLoadingFiles] = useState(false)
+
+  const loadFiles = async () => {
+    if (!pullGroup.trim()) return
+    setLoadingFiles(true)
+    try {
+      const r = await http.get<{ files: { file_id: string; name: string; size: number }[] }>(
+        `/api/channel/qq/groups/${pullGroup.trim()}/files`)
+      setFiles(r.files)
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setLoadingFiles(false)
+    }
+  }
 
   const loadMembers = async () => {
     if (!pullGroup.trim()) return
@@ -286,7 +302,21 @@ export default function SessionsCenter() {
                 <button className="btn ghost sm" onClick={() => void loadMembers()} disabled={loadingMembers || !pullGroup.trim()}>
                   {loadingMembers ? t('加载中…') : t('成员')}
                 </button>
+                <button className="btn ghost sm" onClick={() => void loadFiles()} disabled={loadingFiles || !pullGroup.trim()}>
+                  {loadingFiles ? t('加载中…') : t('文件')}
+                </button>
               </div>
+              {files && (
+                <div className="rounded border border-[var(--line,#e5e7eb)] p-2 max-h-40 overflow-auto text-[12px]">
+                  <div className="text-muted mb-1">{t('群文件')} {files.length}</div>
+                  {files.map((f) => (
+                    <div key={f.file_id || f.name} className="flex justify-between gap-2">
+                      <span className="truncate">{f.name}</span>
+                      <span className="text-muted shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {members && (
                 <div className="rounded border border-[var(--line,#e5e7eb)] p-2 max-h-40 overflow-auto text-[12px]">
                   <div className="text-muted mb-1">{t('群成员')} {members.length}</div>
