@@ -2008,6 +2008,8 @@ def create_app() -> FastAPI:
 
     @app.get("/api/debug/conn", dependencies=[Depends(require_admin)])
     def debug_conn():
+        if not os.environ.get("BIGROBOT_DEV"):
+            raise HTTPException(404, "调试接口默认关闭（设 BIGROBOT_DEV=1 打开）")
         return {
             "visitor_sessions": list(hub.visitor_conns.keys()),
             "visitor_total": sum(len(v) for v in hub.visitor_conns.values()),
