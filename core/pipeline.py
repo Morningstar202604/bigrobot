@@ -364,7 +364,7 @@ async def _prefetch_url(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
     if not m or not _READ_HINT.search(query or ""):
         return None
     url = m.group(0)
-    res = await tools_mod.invoke("read_webpage", {"url": url}, ctx.get("tool_ctx") or EMPTY)
+    res = await tools_mod.invoke("read_source", {"op": "url", "url": url}, ctx.get("tool_ctx") or EMPTY)
     if not res.get("found"):
         return None
     body = str(res.get("note") or "")
@@ -386,11 +386,11 @@ async def _prefetch_url(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
             # 之前这里是 pass，模型 Key 失效/额度耗尽/超时全都无迹可查，
             # 用户只看到"没接住"，排障只能靠猜。
             _logging.getLogger("cs.events").warning(
-                "read_webpage 后置润色失败，降级为工具原文: %s: %s", type(exc).__name__, str(exc)[:200])
+                "read_source 后置润色失败，降级为工具原文: %s: %s", type(exc).__name__, str(exc)[:200])
     return AgentReply(
         text=f"{url} 的内容：\n{body[:800]}",
         mode="rule_react", confidence=0.7,
-        tool_used="read_webpage", tool_result=res,
+        tool_used="read_source", tool_result=res,
     )
 
 
@@ -1124,7 +1124,7 @@ async def _run_body(message: ChannelMessage, history: list[dict], visitor_key: s
         return direct
 
     # 链接直读：消息里给了明确 URL 且要求看内容时，直接抓取再交给模型总结。
-    # 不能指望模型每轮都主动选 read_webpage——实测它会先吐槽"占位符网站"
+    # 不能指望模型每轮都主动选 read_source——实测它会先吐槽"占位符网站"
     # 而不是真去读（模型没有"必须调用工具"的硬约束）。
     web_reply = await _prefetch_url(query, ctx, cfg)
     if web_reply is not None:

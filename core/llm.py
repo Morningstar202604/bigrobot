@@ -341,7 +341,7 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
     # 能力事实必须写进 prompt：模型不知道自己「这一轮有没有联网」。
     # 不说清楚，它会反复说「我这就去查」却调不到工具（实测 u2-flash 稳定复现）。
     tool_names = {t.get("name") for t in (ctx.get("tools_schema") or []) if isinstance(t, dict)}
-    if "web_search" not in tool_names and "read_webpage" not in tool_names:
+    if "web_search" not in tool_names and "read_source" not in tool_names:
         tail += (
             "【能力边界】本轮没有联网能力，也没有网页读取能力。"
             "不要表示「我去查 / 正在查 / 稍等」，直接基于你已有的知识回答；"
@@ -349,7 +349,7 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
         )
     elif "web_search" not in tool_names:
         tail += (
-            "【能力边界】本轮没有联网搜索，只有网页直读（read_webpage）。"
+            "【能力边界】本轮没有联网搜索，只有网页直读（read_source）。"
             "需要具体页面时给出你确知的官方 URL 再读；不确定 URL 就直接用已有知识回答并标注时效。"
         )
     # 内容块额度必须同时满足三件事：装得下 persona、装得下固定尾巴、还留有内容空间。
