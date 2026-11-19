@@ -10,9 +10,10 @@ def test_qq_action_tools_registered():
     expected = {"qq_group_ban", "qq_group_kick", "qq_group_card", "qq_group_rename",
                 "qq_group_notice", "qq_recall", "qq_upload_file",
                 "qq_friend_handle", "qq_group_handle"}
+    # 合并后：旧名保留为调度别名（实现仍在），模型清单里则是合并后的工具
     assert expected <= set(tools._ASYNC_IMPLS)
     for name in expected:
-        assert name in tools.TOOL_META
+        assert tools._route_target(name) in tools.TOOL_META, f"{name} 合并后没有入口"
 
 
 def test_l2_action_tool_reports_pending_approval(monkeypatch):
@@ -62,7 +63,7 @@ def test_avatar_and_profile_tools_registered():
     """换头像/改资料也是可逆写动作，必须走同一套鉴权（不能绕过动作层直连协议端）。"""
     for name in ("qq_set_avatar", "qq_set_profile"):
         assert name in tools._ASYNC_IMPLS
-        assert name in tools.TOOL_META
+        assert tools._route_target(name) in tools.TOOL_META
     from core.actions import registry
 
     assert registry.REGISTRY["set_qq_avatar"].risk == 1
@@ -73,8 +74,9 @@ def test_interaction_tools_registered():
     """戳一戳/表情回应/精华/合并转发 都要变成模型可调用的工具。"""
     for name in ("qq_poke", "qq_emoji_like", "qq_essence", "qq_forward"):
         assert name in tools._ASYNC_IMPLS
-        assert name in tools.TOOL_META
-        assert tools.TOOL_META[name]["args"]
+        merged = tools._route_target(name)
+        assert merged in tools.TOOL_META
+        assert tools.TOOL_META[merged]["args"]
 
 
 def test_voice_tool_registered_and_privileged():

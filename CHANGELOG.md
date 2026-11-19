@@ -61,9 +61,28 @@ The authoritative version string lives in [`VERSION`](VERSION), mirrored by
   `catalog()` 输出 `ops`，`agent_loop.available_tools()` 只把当前主体能做的 op
   放进 JSON Schema 的 `enum` —— 这是后续把 51 个工具合并成 26 个的前置条件。
 
+### Changed（B2：工具 51 → 26）
+
+- **QQ 运营 20 个工具压成 6 个**（`qq_send` / `qq_group_admin` / `qq_lookup` /
+  `qq_message_op` / `qq_profile` / `qq_request`），每个都带 op。少于 20 个声明，
+  能力项反而更细：`qq_group_admin` 的 ban/kick 仍是 L2，card/notice/essence 是 L1/L0。
+- **通用工具合并 8 组**：`recall_memory(key|current)`、`reminders(list|cancel)`、
+  `read_source(url|path)`、`fs(list|read)`、`now(now|convert)`、`encode(base64|hash)`、
+  `format_text(json|regex)`、`random(pick|password)`。
+- **旧工具名保留为调度别名**：实现仍在 `_SYNC_IMPLS` / `_ASYNC_IMPLS`，
+  只是不再进模型清单——已有脚本、审批记录、外部调用不会断链。
+- **规则路由同步换入口**：`detect_tool()` 输出合并后的工具名并自动补 `op`，
+  能力开关按合并名判断；每轮只查一次开关表（20 处检查共用一份快照）。
+- **播种表彻底去重**：`core/store.py` 里手抄的 39 项 `_EXTRA_TOOLS` 删除，
+  改为从 `TOOL_META` 生成（仅 `write_file` 单独保留：不进模型清单但控制台可见、可直调）。
+- **老库自动迁移**：`_retire_builtin_tools()` 删除被吸收的 `builtin=1` 行，
+  把开关状态继承给合并后的工具；用户自建工具（`builtin=0`）永不删除。
+- **评测同步**：`scripts/tool_selection.py` 用例改用合并名，覆盖从 11 条恢复到 31 条 must 用例，
+  准确率 100%（此前 21 条因「工具未配置」被跳过）。
+
 ### 验证
 
-`pytest` 982 passed / 3 skipped，`ruff` 全过，`mypy` 92 文件 0 issue，
+`pytest` 986 passed / 3 skipped，`ruff` 全过，`mypy` 92 文件 0 issue，
 `oxlint` 0 error，`vitest` 16 passed，`vite build` 通过。
 
 ## [2.0.0] — 2026-11-19

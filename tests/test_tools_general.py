@@ -32,7 +32,8 @@ def test_all_general_tools_are_registered(db):
     from core import tools, tools_general
 
     active = set(tools.active_tools({"tools": {}}).keys())
-    expected = set(tools_general.SYNC_TOOLS) | set(tools_general.ASYNC_TOOLS)
+    expected = {tools._route_target(n)
+                for n in set(tools_general.SYNC_TOOLS) | set(tools_general.ASYNC_TOOLS)}
     missing = expected - active
     assert not missing, f"这些通用工具没有写进 tools 表：{sorted(missing)}"
 
@@ -166,7 +167,8 @@ def test_rule_routing_hits_general_tools(db):
     ]
     for query, expect in cases:
         got = tools.detect_tool(query)[0]
-        assert got == expect, f"{query!r} 应路由到 {expect}，实际 {got}"
+        target = tools._route_target(expect)
+        assert got == target, f"{query!r} 应路由到 {expect}（{target}），实际 {got}"
 
 
 def test_rule_routing_does_not_break_platform_actions(db):
@@ -175,8 +177,8 @@ def test_rule_routing_does_not_break_platform_actions(db):
 
     # 只断言项目实际支持的形态。「拍一拍我」本来就不在 qq_poke 的匹配规则里
     # （既有行为，与本次改动无关），拿它当断言会得到一个假的失败。
-    assert tools.detect_tool("戳一戳他")[0] == "qq_poke"
-    assert tools.detect_tool("戳一下")[0] == "qq_poke"
+    assert tools.detect_tool("戳一戳他")[0] == "qq_message_op"
+    assert tools.detect_tool("戳一下")[0] == "qq_message_op"
 
 
 def test_rule_routing_leaves_chitchat_alone(db):

@@ -256,93 +256,29 @@ def _ensure_action_schema(conn: sqlite3.Connection) -> None:
     )
 
 
-# 秘书向内置工具（第 2 批）：上下文 / 记忆 / 提醒 / 网页 / 文件 / 识图 / QQ。
-# 与业务工具不同，这些是"真能干活"的本地能力，默认全开。
-# 每项是 (tool_id, 显示名, 描述, args 示例) 四元组，由 _extra_tool_seeds() 解包成 dict。
-# 之前的注解写成 list[dict] 与实际结构不符，mypy 在这里报了 50 条 list-item 错误。
-_EXTRA_TOOLS: list[tuple[str, str, str, dict]] = [
-    ("current_context", "读当前对话", "查看这次对话最近说了什么、当前在哪个群", {}),
-    ("recall_memory", "回忆关于你的事", "读取长期记忆里保存的信息", {"key": "string"}),
-    ("remember", "记住一件事", "把用户的偏好或事实写入长期记忆",
-     {"key": "string", "value": "string"}),
-    ("remind", "设提醒", "在指定时间提醒用户（如 10分钟后 / 明天9点）",
-     {"text": "string", "when": "string"}),
-    ("list_reminders", "查看待提醒", "列出还没触发的提醒", {}),
-    ("cancel_reminder", "取消提醒", "按编号取消一条提醒", {"reminder_id": "string"}),
-    ("read_webpage", "读网页", "打开一个链接并读正文（仅公网地址）",
-     {"url": "string", "max_chars": "string"}),
-    ("web_search", "联网搜", "搜索实时信息", {"query": "string", "top_k": "string"}),
-    ("list_files", "列目录", "列出目录下的文件（受执行器策略白名单限制）",
-     {"path": "string", "depth": "string"}),
-    ("read_file", "读文件", "读取文本文件（受执行器策略白名单限制）",
-     {"path": "string", "max_chars": "string"}),
-    ("write_file", "写文件", "写入或追加文本到文件（受执行器策略白名单限制）",
-     {"path": "string", "content": "string", "append": "string"}),
-    ("describe_image", "看图", "识别图片内容或读取图中文字", {"source": "string", "question": "string"}),
-    ("search_emote", "找表情包", "在收藏的表情包里按关键词查找", {"keyword": "string"}),
-    ("qq_group_history", "读群记录", "读取群聊最近的聊天记录",
-     {"group_id": "string", "count": "string"}),
-    ("qq_send", "发QQ消息", "主动往群里或私聊发一条消息", {"text": "string", "target": "string"}),
-    ("now", "看时间", "查当前日期、时间和星期", {}),
-    ("calc", "算数", "计算数学表达式", {"expression": "string"}),
-    ("send_image", "发图片", "把一张图片发到当前会话", {"source": "string"}),
-    ("send_voice", "发语音", "把一段话合成语音发到当前会话（真发 QQ 语音）",
-     {"text": "string", "source": "string"}),
-    ("generate_image", "画图", "按描述生成一张图片并发出去", {"prompt": "string", "size": "string"}),
-    ("parse_document", "读文档", "解析 PDF/DOCX/XLSX/MD/TXT 并返回正文",
-     {"path": "string", "url": "string"}),
-    ("qq_group_members", "查群成员", "列出群成员，可按昵称筛选",
-     {"group_id": "string", "keyword": "string"}),
-    ("qq_groups", "查我的群", "列出机器人加入的 QQ 群", {}),
-    ("qq_friends", "查好友", "列出机器人的 QQ 好友", {}),
-    # QQ 全量接管：群管理动作也纳入工具注册表，权限仍由 actions 层裁决
-    ("qq_group_ban", "群禁言", "禁言成员（duration 秒，0=解禁）",
-     {"group_id": "string", "user_id": "string", "duration": "number"}),
-    ("qq_group_kick", "移出群成员", "把成员移出群（破坏性，需审批）",
-     {"group_id": "string", "user_id": "string"}),
-    ("qq_group_card", "改群名片", "修改成员群名片",
-     {"group_id": "string", "user_id": "string", "card": "string"}),
-    ("qq_group_rename", "改群名", "修改群名称",
-     {"group_id": "string", "group_name": "string"}),
-    ("qq_group_notice", "发群公告", "发布群公告",
-     {"group_id": "string", "content": "string"}),
-    ("qq_recall", "撤回消息", "撤回一条已发消息", {"message_id": "string"}),
-    ("qq_upload_file", "传群文件", "上传本机文件到群",
-     {"group_id": "string", "file": "string", "name": "string"}),
-    ("qq_friend_handle", "处理好友请求", "同意或拒绝加好友",
-     {"flag": "string", "approve": "boolean"}),
-    ("qq_group_handle", "处理入群请求", "同意或拒绝入群申请",
-     {"flag": "string", "sub_type": "string", "approve": "boolean"}),
-    ("qq_set_avatar", "换头像", "更换机器人 QQ 头像（本机图片路径或链接）",
-     {"file": "string"}),
-    ("qq_set_profile", "改资料", "改机器人 QQ 昵称 / 签名 / 性别",
-     {"nickname": "string", "personal_note": "string", "sex": "string"}),
-    ("qq_poke", "戳一戳", "戳一戳对方（群里或私聊）",
-     {"user_id": "string", "group_id": "string"}),
-    ("qq_emoji_like", "表情回应", "给某条消息贴一个表情回应",
-     {"message_id": "string", "emoji_id": "string"}),
-    ("qq_essence", "设群精华", "把一条消息设为群精华", {"message_id": "string"}),
-    ("qq_forward", "合并转发", "发合并转发的聊天记录",
-     {"group_id": "string", "messages": "string"}),
-]
+# 内置工具的播种清单不再手写：直接从 core/tools.py 的 TOOL_META 生成。
+# 原来这里有一份 39 项的 (id, 显示名, 描述, args) 手抄表，和 TOOL_META 各写一份，
+# 结果就是「代码里注册了但没播种」= 模型永远看不到（已经踩过）。
+_WRITE_FILE_SEED = {
+    "id": "write_file",
+    "name": "写文件",
+    "desc": "写入或追加文本到文件（受执行器策略白名单限制）",
+    "args_json": json.dumps({"path": "string", "content": "string", "append": "string"},
+                            ensure_ascii=False),
+    "builtin": 1,
+}
 
 
 def _extra_tool_seeds() -> list[dict]:
-    seeds = [
-        {"id": tid, "name": name, "desc": desc,
-         "args_json": json.dumps(args, ensure_ascii=False), "builtin": 1}
-        for tid, name, desc, args in _EXTRA_TOOLS
-    ]
-    # 通用工具（core/tools_general.py）也走同一条播种/补齐路径。
-    # 否则它们在代码里注册了、却因为没有写进 tools 表而永远不会被 active_tools 返回
-    # ——「工具存在但模型永远看不到」是最难发现的一类配置缺陷。
-    from core.tools_general import TOOL_META_EXTRA
+    """内置工具播种：TOOL_META 是唯一事实源（含 tools_general 合并进来的通用工具）。"""
+    from core.tools import TOOL_META as CODE_TOOLS
 
-    seeds += [
-        {"id": tid, "name": meta["name"], "desc": meta["desc"],
+    seeds = [
+        {"id": tid, "name": meta.get("name") or tid, "desc": meta.get("desc", ""),
          "args_json": json.dumps(meta.get("args") or {}, ensure_ascii=False), "builtin": 1}
-        for tid, meta in TOOL_META_EXTRA.items()
+        for tid, meta in CODE_TOOLS.items()
     ]
+    seeds.append(dict(_WRITE_FILE_SEED))   # 不进模型清单，但控制台可见、可直调
     return seeds
 
 
@@ -357,6 +293,33 @@ def _backfill_builtin_tools(conn: sqlite3.Connection) -> None:
             "VALUES (?, ?, ?, ?, 1, ?, ?)",
             (t["id"], t["name"], t["desc"], t["args_json"], t["builtin"], _now()),
         )
+
+
+def _retire_builtin_tools(conn: sqlite3.Connection) -> None:
+    """工具合并后的数据迁移：删掉被吸收的内置工具行，并把开关状态继承给合并后的工具。
+
+    规则：
+    - 只删 `builtin=1` 的行，用户自建的工具永远不动；
+    - 只在旧行**还存在**时继承开关（首次迁移），以后用户手动关掉合并工具，
+      重启不会被旧状态再覆盖回来。
+    """
+    from core.tools import MERGED_FROM, RETIRED_TOOL_IDS
+
+    rows = {}
+    for r in conn.execute("SELECT id, enabled, builtin FROM tools").fetchall():
+        rows[r["id"]] = {"enabled": r["enabled"], "builtin": r["builtin"]}
+
+    for merged, olds in MERGED_FROM.items():
+        present = [o for o in olds if o in rows]
+        if not present or merged not in rows:
+            continue
+        alive = any(rows[o]["enabled"] for o in present)
+        conn.execute("UPDATE tools SET enabled=?, updated_at=? WHERE id=?",
+                     (1 if alive else 0, _now(), merged))
+
+    for old in RETIRED_TOOL_IDS:
+        if old in rows and rows[old]["builtin"] == 1:
+            conn.execute("DELETE FROM tools WHERE id=?", (old,))
 
 
 def _seed_builtins(conn: sqlite3.Connection) -> None:
@@ -379,6 +342,7 @@ def _seed_builtins(conn: sqlite3.Connection) -> None:
     else:
         # 老库补齐新内置工具：只补缺失的 id，不改用户已改过的描述/开关
         _backfill_builtin_tools(conn)
+        _retire_builtin_tools(conn)
     existing_rules = conn.execute("SELECT COUNT(*) AS c FROM injection_rules").fetchone()["c"]
     if existing_rules == 0:
         default_exprs = [

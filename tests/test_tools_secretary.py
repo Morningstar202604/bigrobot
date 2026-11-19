@@ -237,7 +237,7 @@ def test_detect_tool_routes_reminder_intent():
 
 def test_detect_tool_routes_webpage_read():
     name, args = tools.detect_tool("帮我看看这个 https://example.com/a 讲了什么")
-    assert name == "read_webpage"
+    assert name == "read_source" and args["op"] == "url"
     assert args["url"].startswith("https://example.com")
 
 
@@ -361,8 +361,8 @@ def test_detect_tool_keeps_full_time_expression():
 
 
 def test_detect_tool_routes_group_history():
-    name, _ = tools.detect_tool("群里最近在聊什么")
-    assert name == "qq_group_history"
+    name, args = tools.detect_tool("群里最近在聊什么")
+    assert name == "qq_lookup" and args["op"] == "history"
 
 
 # ------------------------------------------------------------
@@ -383,13 +383,13 @@ def test_empty_list_reminders_does_not_escalate():
     async def run():
         return await pipeline._rule_react(
             "列一下我的待办",
-            {"hits": [], "tools": {"list_reminders": lambda: res}, "used": {}, "tool_ctx": ctx},
+            {"hits": [], "tools": {"reminders": lambda: res}, "used": {}, "tool_ctx": ctx},
             {"escalation": {"confidence_threshold": 0.6}},
         )
 
     reply = asyncio.run(run())
     assert reply.escalate is False, "空待办不能触发升级工单"
-    assert reply.tool_used == "list_reminders"
+    assert reply.tool_used == "reminders"
 
 
 def test_empty_result_contract_is_not_a_miss():
@@ -428,7 +428,7 @@ def test_direct_tool_empty_list_does_not_escalate():
 
     ctx = {
         "modules_on": {"tools": True},
-        "tools": {"list_reminders": lambda: tools.empty_result(
+        "tools": {"reminders": lambda: tools.empty_result(
             "list_reminders", "你现在没有待提醒的事。")},
         "tool_ctx": ToolContext(visitor_id="v-direct-empty"),
         "used": {},
@@ -436,7 +436,7 @@ def test_direct_tool_empty_list_does_not_escalate():
     reply = asyncio.run(pipeline._direct_tool("列一下我的待办", ctx, {"llm": {}}))
     assert reply is not None
     assert reply.escalate is False
-    assert reply.tool_used == "list_reminders"
+    assert reply.tool_used == "reminders"
 
 
 def test_rule_react_empty_list_does_not_escalate():
@@ -445,7 +445,7 @@ def test_rule_react_empty_list_does_not_escalate():
 
     ctx = {
         "hits": [],
-        "tools": {"list_reminders": lambda: tools.empty_result(
+        "tools": {"reminders": lambda: tools.empty_result(
             "list_reminders", "你现在没有待提醒的事。")},
         "tool_ctx": ToolContext(visitor_id="v-rule-empty"),
         "used": {},

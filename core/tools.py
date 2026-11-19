@@ -1449,7 +1449,7 @@ def _route_general(q: str) -> tuple[str | None, dict | None]:
     return None, None
 
 
-def detect_tool(query: str, tools: dict | None = None) -> tuple[str | None, dict | None]:
+def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None, dict | None]:
     """规则路由：只处理高置信度的确定性问法。
 
     其余交给模型自己决定（LLM 模式有 tool_args，规则模式不猜）。
@@ -1504,7 +1504,7 @@ def detect_tool(query: str, tools: dict | None = None) -> tuple[str | None, dict
             text = text.strip(" ，,。.；;：:")
             if text:
                 return "remind", {"text": text, "when": when}
-    if ("待办" in q or "提醒" in q) and ("列" in q or "有什" in q or "查看" in q) and "list_reminders" in enabled:
+    if ("待办" in q or "提醒" in q) and ("列" in q or "有什" in q or "查看" in q) and _has("list_reminders"):
         return "list_reminders", {}
 
     order_match = re.search(r"(?:订单|order|单号)\s*[:：]?\s*([A-Za-z0-9]{6,12})", q)
@@ -1518,7 +1518,7 @@ def detect_tool(query: str, tools: dict | None = None) -> tuple[str | None, dict
 
     if ("群里" in q or "群聊" in q or "大家" in q) and any(
             w in q for w in ("聊什么", "聊啥", "在聊", "说了什么", "说了啥", "最近")
-    ) and "qq_group_history" in enabled:
+    ) and _has("qq_group_history"):
         return "qq_group_history", {}
 
     # 现在几点/今天几号：模型没有时钟，必须交给工具（否则它会编日期）
@@ -1563,15 +1563,15 @@ def detect_tool(query: str, tools: dict | None = None) -> tuple[str | None, dict
         p = local_path.group(1).rstrip("\"'")
         if "write_file" in enabled and re.search(r"(写|写进|写入|保存|存到|追加)", q):
             return "write_file", {"path": p, "content": "", "append": ""}
-        if "parse_document" in enabled and re.search(r"(总结|解析|提取|读一下这|全文)", q)                 and re.search(r"\.(pdf|docx?|xlsx?|md|txt)$", p, re.I):
+        if _has("parse_document") and re.search(r"(总结|解析|提取|读一下这|全文)", q)                 and re.search(r"\.(pdf|docx?|xlsx?|md|txt)$", p, re.I):
             return "parse_document", {"path": p, "url": ""}
-        if "list_files" in enabled and re.search(r"(列|有哪些|有什么|看看|目录|文件)", q):
+        if _has("list_files") and re.search(r"(列|有哪些|有什么|看看|目录|文件)", q):
             return "list_files", {"path": p, "depth": "1"}
-        if "read_file" in enabled and re.search(r"(读|看|打开|内容)", q):
+        if _has("read_file") and re.search(r"(读|看|打开|内容)", q):
             return "read_file", {"path": p, "max_chars": "4000"}
 
     url = re.search(r"https?://[^\s，。；）)]+", q)
-    if url and ("看" in q or "读" in q or "打开" in q or "总结" in q or "内容" in q) and "read_webpage" in enabled:
+    if url and ("看" in q or "读" in q or "打开" in q or "总结" in q or "内容" in q) and _has("read_webpage"):
         return "read_webpage", {"url": url.group(0)}
 
     # ---- 下面这批是「模型经常不选、但用户表达极其明确」的补漏 ----
@@ -1579,7 +1579,7 @@ def detect_tool(query: str, tools: dict | None = None) -> tuple[str | None, dict
     # 判定原则：动作动词 + 对象名词同时出现才算，宁可不拦也别误伤闲聊。
 
     # 待办列表：不只「列一下待办」，还有「我有什么待办」「看看提醒」
-    if "list_reminders" in enabled and re.search(
+    if _has("list_reminders") and re.search(
             r"(待办|提醒).{0,6}(列表|清单|有什么|有啥|有哪些|查看|看看|列)" r"|"
             r"(列|看看|查看|显示).{0,4}(待办|提醒)", q):
         return "list_reminders", {}
@@ -1603,38 +1603,38 @@ def detect_tool(query: str, tools: dict | None = None) -> tuple[str | None, dict
                 return "remember", {"key": key, "value": value}
 
     # 群成员 / 群列表 / 好友列表
-    if "qq_group_members" in enabled and re.search(
+    if _has("qq_group_members") and re.search(
             r"(群里|群内|这个群).{0,6}(几个人|多少人|成员|都有谁|有谁)", q):
         return "qq_group_members", {}
-    if "qq_groups" in enabled and re.search(
+    if _has("qq_groups") and re.search(
             r"(我|机器人|你).{0,4}(加了|在).{0,4}(哪些|几个|什么).{0,3}群"
             r"|(群列表|群清单|有哪些群)", q):
         return "qq_groups", {}
-    if "qq_friends" in enabled and re.search(
+    if _has("qq_friends") and re.search(
             r"(好友|朋友).{0,4}(都有谁|有谁|列表|几个|多少)"
             r"|(我的|机器人的).{0,2}好友", q):
         return "qq_friends", {}
 
     # 群管理四件套
-    if "qq_group_ban" in enabled and re.search(
+    if _has("qq_group_ban") and re.search(
             r"(禁言|闭嘴|mute).{0,8}(\d+\s*(秒|分钟|小时))?"
             r"|(把|给).{0,10}禁言", q):
         return "qq_group_ban", {}
-    if "qq_group_rename" in enabled and re.search(
+    if _has("qq_group_rename") and re.search(
             r"(群名|群名称).{0,6}(改|换|设)|(改|换).{0,4}群名", q):
         return "qq_group_rename", {}
-    if "qq_group_notice" in enabled and re.search(
+    if _has("qq_group_notice") and re.search(
             r"(群公告|公告).{0,6}(发|写|拟|来)|(发|写).{0,4}公告", q):
         return "qq_group_notice", {}
-    if "qq_recall" in enabled and re.search(
+    if _has("qq_recall") and re.search(
             r"(撤回|撤了|回收).{0,6}(刚才|刚刚|这条|那条|上面|消息)?", q):
         return "qq_recall", {}
-    if "qq_essence" in enabled and re.search(r"(设为|设置|加).{0,4}(群)?精华", q):
+    if _has("qq_essence") and re.search(r"(设为|设置|加).{0,4}(群)?精华", q):
         return "qq_essence", {}
-    if "qq_poke" in enabled and re.search(r"(戳|拍)(一)?(戳|拍)?.{0,4}(他|她|你|我|一下)?", q) \
+    if _has("qq_poke") and re.search(r"(戳|拍)(一)?(戳|拍)?.{0,4}(他|她|你|我|一下)?", q) \
             and "戳" in q:
         return "qq_poke", {}
-    if "qq_emoji_like" in enabled and re.search(
+    if _has("qq_emoji_like") and re.search(
             r"(点赞|点个赞|给.{0,6}赞|表情回应|贴个表情)", q):
         return "qq_emoji_like", {}
 
@@ -1648,14 +1648,14 @@ def detect_tool(query: str, tools: dict | None = None) -> tuple[str | None, dict
         if m_send and m_send.group(1).strip():
             return "qq_send", {"text": m_send.group(1).strip()}
 
-    if "send_image" in enabled and re.search(
+    if _has("send_image") and re.search(
             r"(把|将).{0,8}(图|图片|照片).{0,6}(发|传|甩)", q):
         return "send_image", {}
     if "describe_image" in enabled and re.search(
             r"(这|那|刚)(张|个)?.{0,4}(图|图片|照片).{0,6}(是什么|啥|看看|看下|识别|内容)"
             r"|(看看|看下|识别).{0,4}(这张|这个)?(图|图片|照片)", q):
         return "describe_image", {}
-    if "parse_document" in enabled and re.search(
+    if _has("parse_document") and re.search(
             r"(总结|读|解析|看看).{0,6}(pdf|docx?|xlsx?|文档|文件)", q, re.I) \
             and re.search(r"[A-Za-z]:[\\/]|https?://", q):
         return "parse_document", {"path": "", "url": ""}
@@ -1666,7 +1666,7 @@ def detect_tool(query: str, tools: dict | None = None) -> tuple[str | None, dict
             r"(画|生成|做)(一)?(张|只|个)?.{0,6}(图|猫|狗|画)", q) \
             and not re.search(r"(漫画|动画|图画书)", q):
         return "generate_image", {"prompt": q}
-    if "send_voice" in enabled and re.search(
+    if _has("send_voice") and re.search(
             r"(发|来|说|录).{0,4}(条|句|段)?.{0,2}(语音|声音)|用语音(说|回|来)?", q):
         # 把要合成的内容解析出来（「用语音说：测试」→ text=测试）；
         # 解析不到再返回空参数，工具层会 need_context 追问，而不是每次都追问。
@@ -1766,3 +1766,305 @@ for _tool_name, _action in _TOOL_TO_ACTION.items():
     _args = {a: _ARG_JSON_TYPES.get(a, "string") for a in _spec.args}
     _ASYNC_IMPLS[_tool_name] = _qq_tool(_action, _tool_name, _desc, _args)
     TOOL_META[_tool_name] = {"name": _tool_name, "desc": _desc, "args": _args}
+
+
+# ======================= 合并工具（B2：51 → 26） =======================
+#
+# 为什么合并：51 个工具里 QQ 运营占了 20 个，每个都是「OneBot 一个 API 包一层」，
+# 模型要区分的是「发东西 / 管人 / 查资料 / 撤消息 / 改资料 / 处理请求」六件事，
+# 不是 20 个 API 名。合并后声明少了 25 个，能力反而更细（op 级风险、op 级权限）。
+#
+# 旧工具名**不删除**：仍留在 _SYNC_IMPLS / _ASYNC_IMPLS 里作为调度别名
+# （已有的脚本、审批记录、测试不会被断链），只是不再出现在模型的工具清单里。
+_MERGED_TOOLS: dict[str, dict] = {
+    "recall_memory": {
+        "desc": "读取长期记忆（op=key）或当前对话上下文（op=current）",
+        "args": {"op": "string", "key": "string"},
+        "default_op": "key",
+        "ops": {"key": ("recall_memory", {}), "current": ("current_context", {})},
+    },
+    "reminders": {
+        "desc": "管理提醒：列出现有提醒（op=list）或按编号取消（op=cancel）",
+        "args": {"op": "string", "reminder_id": "string"},
+        "default_op": "list",
+        "ops": {"list": ("list_reminders", {}), "cancel": ("cancel_reminder", {})},
+    },
+    "read_source": {
+        "desc": "读一份外部资料：网页链接（op=url）或本机文档 PDF/DOCX/XLSX（op=path）",
+        "args": {"op": "string", "url": "string", "path": "string", "max_chars": "string"},
+        "default_op": "url",
+        "ops": {"url": ("read_webpage", {}), "path": ("parse_document", {})},
+    },
+    "fs": {
+        "desc": "沙箱文件操作：列目录（op=list）或读文本文件（op=read）",
+        "args": {"op": "string", "path": "string", "depth": "string", "max_chars": "string"},
+        "default_op": "list",
+        "ops": {"list": ("list_files", {}), "read": ("read_file", {})},
+    },
+    "now": {
+        "desc": "当前日期时间（op=now），或时间戳与日期互转（op=convert）",
+        "args": {"op": "string", "value": "string", "action": "string"},
+        "default_op": "now",
+        "ops": {"now": ("now", {}), "convert": ("timestamp", {})},
+    },
+    "encode": {
+        "desc": "字符串变换：Base64 编解码（op=base64）或摘要计算（op=hash）",
+        "args": {"op": "string", "text": "string", "action": "string", "algorithm": "string"},
+        "default_op": "base64",
+        "ops": {"base64": ("base64", {}), "hash": ("hash", {})},
+    },
+    "format_text": {
+        "desc": "文本校验：JSON 格式化/压缩（op=json）或正则试跑（op=regex）",
+        "args": {"op": "string", "text": "string", "action": "string", "pattern": "string"},
+        "default_op": "json",
+        "ops": {"json": ("json_format", {}), "regex": ("regex_test", {})},
+    },
+    "random": {
+        "desc": "随机产出：从候选里抽签（op=pick）或生成强密码（op=password）",
+        "args": {"op": "string", "items": "string", "count": "string",
+                 "length": "string", "symbols": "string"},
+        "default_op": "pick",
+        "ops": {"pick": ("random_pick", {}), "password": ("password", {})},
+    },
+    "qq_send": {
+        "desc": "往群里或私聊发东西：文本 / 图片 / 语音 / 文件 / 表情（op=text|image|voice|file|emote）",
+        "args": {"op": "string", "target": "string", "group_id": "string", "user_id": "string",
+                 "text": "string", "source": "string", "file": "string", "name": "string",
+                 "keyword": "string"},
+        "default_op": "text",
+        "ops": {
+            "text": ("qq_send", {}),
+            "image": ("send_image", {}),
+            "voice": ("send_voice", {}),
+            "file": ("qq_upload_file", {}),
+            "emote": ("search_emote", {}),
+        },
+        "hide_from_child": ("op", "target", "user_id", "name", "file"),
+    },
+    "qq_group_admin": {
+        "desc": "群管理：禁言 / 踢人 / 改名片 / 改群名 / 发公告 / 设精华（op 见参数）",
+        "args": {"op": "string", "group_id": "string", "user_id": "string", "duration": "string",
+                 "card": "string", "group_name": "string", "content": "string",
+                 "message_id": "string", "reject_add_request": "string"},
+        "default_op": "notice",
+        "ops": {
+            "ban": ("qq_group_ban", {}),
+            "kick": ("qq_group_kick", {}),
+            "card": ("qq_group_card", {}),
+            "rename": ("qq_group_rename", {}),
+            "notice": ("qq_group_notice", {}),
+            "essence": ("qq_essence", {}),
+        },
+        "hide_from_child": ("op",),
+    },
+    "qq_lookup": {
+        "desc": "查 QQ 资料：群列表 / 群成员 / 好友 / 群聊天记录（op=groups|members|friends|history）",
+        "args": {"op": "string", "group_id": "string", "keyword": "string", "count": "string"},
+        "default_op": "groups",
+        "ops": {
+            "groups": ("qq_groups", {}),
+            "members": ("qq_group_members", {}),
+            "friends": ("qq_friends", {}),
+            "history": ("qq_group_history", {}),
+        },
+        "hide_from_child": ("op",),
+    },
+    "qq_message_op": {
+        "desc": "消息操作：撤回 / 戳一戳 / 表情回应 / 合并转发（op=recall|poke|emoji_like|forward）",
+        "args": {"op": "string", "message_id": "string", "user_id": "string", "group_id": "string",
+                 "emoji_id": "string", "set": "string", "messages": "string"},
+        "default_op": "recall",
+        "ops": {
+            "recall": ("qq_recall", {}),
+            "poke": ("qq_poke", {}),
+            "emoji_like": ("qq_emoji_like", {}),
+            "forward": ("qq_forward", {}),
+        },
+        "hide_from_child": ("op",),
+    },
+    "qq_profile": {
+        "desc": "改机器人资料：头像（op=set_avatar）或昵称/签名/性别（op=set_profile）",
+        "args": {"op": "string", "file": "string", "nickname": "string",
+                 "personal_note": "string", "sex": "string"},
+        "default_op": "set_profile",
+        "ops": {"set_avatar": ("qq_set_avatar", {}), "set_profile": ("qq_set_profile", {})},
+        "hide_from_child": ("op",),
+    },
+    "qq_request": {
+        "desc": "处理请求：加好友（op=friend）或加群/邀请（op=group）",
+        "args": {"op": "string", "flag": "string", "sub_type": "string",
+                 "approve": "string", "remark": "string", "reason": "string"},
+        "default_op": "friend",
+        "ops": {"friend": ("qq_friend_handle", {}), "group": ("qq_group_handle", {})},
+        "hide_from_child": ("op",),
+    },
+}
+
+# 合并后不再出现在模型清单、但实现仍然保留（调度别名）的旧工具名
+MERGED_FROM: dict[str, list[str]] = {
+    name: [child for child, _ in meta["ops"].values() if child != name]
+    for name, meta in _MERGED_TOOLS.items()
+}
+MERGED_FROM["recall_memory"] = ["current_context"]
+MERGED_FROM["reminders"] = ["list_reminders", "cancel_reminder"]
+MERGED_FROM["read_source"] = ["read_webpage", "parse_document"]
+MERGED_FROM["fs"] = ["list_files", "read_file"]
+MERGED_FROM["now"] = ["timestamp"]
+MERGED_FROM["encode"] = ["base64", "hash"]
+MERGED_FROM["format_text"] = ["json_format", "regex_test"]
+MERGED_FROM["random"] = ["random_pick", "password"]
+
+RETIRED_TOOL_IDS: frozenset[str] = frozenset(
+    old for olds in MERGED_FROM.values() for old in olds
+)
+
+
+def _merged_tool(name: str, meta: dict):
+    """把一组单点工具包成一个带 op 的工具。
+
+    子工具仍在 _SYNC_IMPLS/_ASYNC_IMPLS 里，所以合并只是「换个入口」，
+    不是重写实现：行为、错误话术、审计都沿用原来的那份。
+    """
+    ops: dict[str, tuple[str, dict]] = meta["ops"]
+    default_op: str = meta.get("default_op") or next(iter(ops))
+    hidden = set(meta.get("hide_from_child") or ())
+
+    async def run(ctx: ToolContext, **kw) -> dict:
+        op = str(kw.get("op") or default_op).strip()
+        child = ops.get(op)
+        if child is None:
+            return miss_result(name, f"未知 op「{op}」，可用：{'/'.join(ops)}")
+        child_name, rename = child
+        if rename:
+            args = {dst: kw[src] for dst, src in rename.items()
+                    if kw.get(src) not in (None, "", [])}
+        else:
+            args = {k: v for k, v in kw.items()
+                    if k not in hidden and k != "op" and v not in (None, "", [])}
+        try:
+            if child_name in _ASYNC_IMPLS:
+                res = _ASYNC_IMPLS[child_name](ctx=ctx, **args)
+            else:
+                res = _SYNC_IMPLS[child_name](**_adapt_kwargs(_SYNC_IMPLS[child_name], args, ctx))
+            if inspect.isawaitable(res):
+                res = await res
+            return res
+        except TypeError as e:
+            return miss_result(name, f"参数不对：{e}")
+
+    run.__name__ = f"tool_{name}"
+    return run
+
+
+
+# 控制台展示名（TOOL_META["name"] 是给人看的中文名）
+_MERGED_LABELS: dict[str, str] = {
+    "recall_memory": "读取记忆",
+    "reminders": "提醒管理",
+    "read_source": "读资料",
+    "fs": "文件",
+    "now": "时间",
+    "encode": "编解码",
+    "format_text": "文本校验",
+    "random": "随机",
+    "qq_send": "QQ 发送",
+    "qq_group_admin": "群管理",
+    "qq_lookup": "查 QQ 资料",
+    "qq_message_op": "消息操作",
+    "qq_profile": "改资料",
+    "qq_request": "处理请求",
+}
+
+for _merged_name, _merged_meta in _MERGED_TOOLS.items():
+    # 同名旧实现（qq_send / now / recall_memory）先退位：入口换成合并版
+    _TOOL_META_OLD = TOOL_META.pop(_merged_name, None)
+    _ASYNC_IMPLS.pop(_merged_name, None)
+    _SYNC_IMPLS.pop(_merged_name, None)
+    TOOL_META[_merged_name] = {
+        "name": _MERGED_LABELS.get(_merged_name, _merged_name),
+        "desc": _merged_meta["desc"],
+        "args": dict(_merged_meta["args"]),
+    }
+    _ASYNC_IMPLS[_merged_name] = _merged_tool(_merged_name, _merged_meta)
+
+# 从模型清单里摘掉被吸收的旧名（实现保留 = 调度别名）
+for _old in RETIRED_TOOL_IDS:
+    TOOL_META.pop(_old, None)
+
+# 包装了特权子工具的新名字必须进特权集，否则权限闸门对合并入口等于失效
+PRIVILEGED_TOOLS = PRIVILEGED_TOOLS | frozenset({"fs", "read_source"})
+
+
+# 规则路由产出的是「合并前」的工具名：模型清单只剩 26 个，路由也必须跟着换入口，
+# 否则规则模式（无 Key 部署）会因为 "read_webpage" 不在 enabled 里而整个失配。
+_ROUTE_ALIAS: dict[str, tuple[str, str]] = {
+    "base64": ("encode", "base64"),
+    "hash": ("encode", "hash"),
+    "cancel_reminder": ("reminders", "cancel"),
+    "list_reminders": ("reminders", "list"),
+    "current_context": ("recall_memory", "current"),
+    "json_format": ("format_text", "json"),
+    "regex_test": ("format_text", "regex"),
+    "list_files": ("fs", "list"),
+    "read_file": ("fs", "read"),
+    "read_webpage": ("read_source", "url"),
+    "parse_document": ("read_source", "path"),
+    "random_pick": ("random", "pick"),
+    "password": ("random", "password"),
+    "timestamp": ("now", "convert"),
+    "qq_groups": ("qq_lookup", "groups"),
+    "qq_group_members": ("qq_lookup", "members"),
+    "qq_friends": ("qq_lookup", "friends"),
+    "qq_group_history": ("qq_lookup", "history"),
+    "qq_group_ban": ("qq_group_admin", "ban"),
+    "qq_group_kick": ("qq_group_admin", "kick"),
+    "qq_group_card": ("qq_group_admin", "card"),
+    "qq_group_rename": ("qq_group_admin", "rename"),
+    "qq_group_notice": ("qq_group_admin", "notice"),
+    "qq_essence": ("qq_group_admin", "essence"),
+    "qq_poke": ("qq_message_op", "poke"),
+    "qq_recall": ("qq_message_op", "recall"),
+    "qq_emoji_like": ("qq_message_op", "emoji_like"),
+    "qq_forward": ("qq_message_op", "forward"),
+    "qq_set_avatar": ("qq_profile", "set_avatar"),
+    "qq_set_profile": ("qq_profile", "set_profile"),
+    "qq_friend_handle": ("qq_request", "friend"),
+    "qq_group_handle": ("qq_request", "group"),
+    "qq_upload_file": ("qq_send", "file"),
+    "send_image": ("qq_send", "image"),
+    "send_voice": ("qq_send", "voice"),
+    "search_emote": ("qq_send", "emote"),
+}
+
+
+def _route_target(old: str) -> str:
+    """旧工具名 → 现在承载它的工具名。"""
+    return _ROUTE_ALIAS.get(old, (old, ""))[0]
+
+
+_ROUTE_ENABLED: set[str] = set()
+
+
+def _has(old: str) -> bool:
+    """该能力是否可用（按合并后的工具名判断开关）。"""
+    return _route_target(old) in _ROUTE_ENABLED
+
+
+def _translate_route(name: str | None, args: dict | None) -> tuple[str | None, dict | None]:
+    if not name:
+        return name, args
+    merged = _ROUTE_ALIAS.get(name)
+    if merged is None:
+        return name, args
+    new_name, op = merged
+    out = dict(args or {})
+    if op:
+        out["op"] = op
+    return new_name, out
+
+
+def detect_tool(query: str, tools: dict | None = None) -> tuple[str | None, dict | None]:
+    # 每轮只查一次开关表：规则里有 20 处能力检查，逐次查库会把路由变成性能热点
+    global _ROUTE_ENABLED
+    _ROUTE_ENABLED = set(tools if tools is not None else active_tools({"tools": {}}))
+    return _translate_route(*_detect_tool_raw(query, tools))

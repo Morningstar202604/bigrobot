@@ -38,44 +38,44 @@ MUST: list[tuple[str, str, str]] = [
     ("今天几号", "now", "日期"),
     ("算一下 128*37", "calc", "算式"),
     ("99 乘 99 等于多少", "calc", "算式"),
-    ("发个表情包给我", "search_emote", "表情包"),
-    ("来个猫咪表情包", "search_emote", "表情包"),
+    ("发个表情包给我", "qq_send", "表情包"),
+    ("来个猫咪表情包", "qq_send", "表情包"),
     ("10分钟后提醒我喝水", "remind", "提醒"),
     ("明天早上八点提醒我开会", "remind", "提醒"),
     ("帮我记住我喜欢喝美式", "remember", "记忆"),
     ("我上次说我喜欢喝什么", "recall_memory", "回忆"),
-    ("列一下我的待办", "list_reminders", "待办"),
-    ("发条语音说晚安", "send_voice", "语音"),
+    ("列一下我的待办", "reminders", "待办"),
+    ("发条语音说晚安", "qq_send", "语音"),
     ("给我画一只猫", "generate_image", "生图"),
-    ("把这张图发群里", "send_image", "发图"),
-    ("群里刚才在聊什么", "qq_group_history", "群记录"),
-    ("群里有几个人", "qq_group_members", "群成员"),
-    ("我加了哪些群", "qq_groups", "群列表"),
-    ("我的好友都有谁", "qq_friends", "好友"),
-    ("把张三禁言十分钟", "qq_group_ban", "群管理"),
-    ("把群名改成摸鱼大队", "qq_group_rename", "群管理"),
-    ("发个群公告说明天放假", "qq_group_notice", "群公告"),
-    ("撤回刚才那条消息", "qq_recall", "撤回"),
-    ("把这条设为群精华", "qq_essence", "精华"),
-    ("戳一下他", "qq_poke", "互动"),
-    ("给这条点个赞", "qq_emoji_like", "互动"),
-    ("读一下 C:/tmp/a.txt", "read_file", "读文件"),
-    ("列一下 D:/work 里有什么", "list_files", "列目录"),
+    ("把这张图发群里", "qq_send", "发图"),
+    ("群里刚才在聊什么", "qq_lookup", "群记录"),
+    ("群里有几个人", "qq_lookup", "群成员"),
+    ("我加了哪些群", "qq_lookup", "群列表"),
+    ("我的好友都有谁", "qq_lookup", "好友"),
+    ("把张三禁言十分钟", "qq_group_admin", "群管理"),
+    ("把群名改成摸鱼大队", "qq_group_admin", "群管理"),
+    ("发个群公告说明天放假", "qq_group_admin", "群公告"),
+    ("撤回刚才那条消息", "qq_message_op", "撤回"),
+    ("把这条设为群精华", "qq_group_admin", "精华"),
+    ("戳一下他", "qq_message_op", "互动"),
+    ("给这条点个赞", "qq_message_op", "互动"),
+    ("读一下 C:/tmp/a.txt", "fs", "读文件"),
+    ("列一下 D:/work 里有什么", "fs", "列目录"),
     ("把这段写进 D:/work/note.md", "write_file", "写文件"),
-    ("总结一下这个 PDF D:/a.pdf", "parse_document", "文档"),
-    ("看一下这个链接 https://example.com 讲了什么", "read_webpage", "读网页"),
+    ("总结一下这个 PDF D:/a.pdf", "read_source", "文档"),
+    ("看一下这个链接 https://example.com 讲了什么", "read_source", "读网页"),
     ("帮我搜一下今天有什么科技新闻", "web_search", "搜索"),
     ("看看我刚发的这张图是什么", "describe_image", "识图"),
 ]
 
 # 闲聊/知识类：绝不能调用这些「有副作用」的工具
 NEVER: list[tuple[str, set[str], str]] = [
-    ("今天好累啊", {"send_voice", "generate_image", "qq_send", "write_file", "remind"}, "闲聊"),
+    ("今天好累啊", {"qq_send", "generate_image", "qq_send", "write_file", "remind"}, "闲聊"),
     ("你是谁", {"generate_image", "qq_send", "write_file"}, "身份"),
-    ("你怎么看中美关系", {"qq_send", "write_file", "qq_group_ban"}, "政治"),
-    ("哈哈哈笑死我了", {"write_file", "qq_group_ban", "remind"}, "玩梗"),
+    ("你怎么看中美关系", {"qq_send", "write_file", "qq_group_admin"}, "政治"),
+    ("哈哈哈笑死我了", {"write_file", "qq_group_admin", "remind"}, "玩梗"),
     ("Python 的 GIL 是什么", {"write_file", "qq_send", "generate_image"}, "知识"),
-    ("我失恋了", {"generate_image", "write_file", "qq_group_ban"}, "情绪"),
+    ("我失恋了", {"generate_image", "write_file", "qq_group_admin"}, "情绪"),
     ("你好呀", {"generate_image", "write_file", "remind"}, "打招呼"),
 ]
 
@@ -117,8 +117,8 @@ async def main() -> None:
         if rule_name:
             return rule_name, "rule"
         # 2) 表情包直通：意图命中就由网关挑图，不需要模型选工具
-        if intent_mod.classify(q).name == intent_mod.INTENT_EMOTE and "search_emote" in tools_map:
-            return "search_emote", "intent"
+        if intent_mod.classify(q).name == intent_mod.INTENT_EMOTE and "qq_send" in tools_map:
+            return "qq_send", "intent"
         # 3) 模型层：原生 function calling
         ctx = ctx_for(cfg["context"]["persona"], q)
         ctx["tools_schema"] = schema
