@@ -104,6 +104,15 @@ def add_message(session_id: str, role: str, content: str, refs: list | None = No
         return cur.lastrowid or 0
 
 
+def find_external_message(session_id: str, external_id: str) -> int | None:
+    """平台消息是否已经落过库：返回本地 id，未落过返回 None。"""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM messages WHERE session_id = ? AND external_id = ?",
+            (session_id, external_id)).fetchone()
+    return int(row["id"]) if row else None
+
+
 def get_messages(session_id: str, limit: int | None = None,
                  include_deleted: bool = True) -> list[dict]:
     """读取会话消息，按时间正序。
