@@ -1039,6 +1039,95 @@ def create_app() -> FastAPI:
         )
         return {"ticket_id": ticket_id, "status": "pending_agent"}
 
+    class SessionOpIn(BaseModel):
+        op: str
+        visitor_id: str = ""
+        content: str = ""
+        image: str | None = None
+        rating: str = ""
+        message_id: int | None = None
+        comment: str = ""
+
+    @app.post("/api/sessions/{sid}/op")
+    async def session_op(sid: str, body: SessionOpIn, request: Request):
+        """会话的全部写操作：转人工 / 接管 / 回复 / 关闭 / 评分。
+
+        这五件事都是「对同一次会话做一次状态变更」，分成五个 URL 后权限模型反而更乱
+        （两个走 session secret、三个走 admin token）。先按 op 判权限，
+        旧路径暂时保留，等调用方全部迁完再删。
+        """
+        op = (body.op or "").strip()
+        if op not in ("escalate", "feedback", "take", "reply", "close"):
+            raise HTTPException(400, f"未知 op：{op}")
+        if op in ("escalate", "feedback"):
+            _require_session_secret(sid, request.headers.get("X-Session-Secret"))
+        else:
+            require_admin(request.headers.get("X-Admin-Token"))
+
+        sess = store.get_session(sid)
+        if not sess:
+            raise HTTPException(404, "会话不存在")
+
+        if op == "escalate":
+            if sess["status"] == "closed":
+                raise HTTPException(409, "会话已关闭")
+            store.mark_escalated(sid, "visitor_requested")
+            ticket_id = store.create_ticket(sid)
+            store.add_message(sid, "agent", "这儿就我一个人盯着，没别人可转。有问题直接说。")
+            await hub.broadcast_to_operators(
+                {"type": "new_pending", "session_id": sid, "ticket_id": ticket_id,
+                 "reason": "visitor_requested"})
+            return {"ticket_id": ticket_id, "status": "pending_agent"}
+
+        if op == "take":
+            if sess["status"] == "closed":
+                raise HTTPException(409, "会话已关闭，不能接管")
+            store.set_status(sid, "agent_handled", assignee=body.visitor_id)
+            await hub.publish(sid, {"type": "agent_handled", "operator": body.visitor_id, "session_id": sid})
+            await hub.broadcast_to_operators(
+                {"type": "session_updated", "session_id": sid, "status": "agent_handled"})
+            return {"session_id": sid, "status": "agent_handled", "assignee": body.visitor_id}
+
+        if op == "reply":
+            content = (body.content or "").strip()
+            if not content:
+                raise HTTPException(400, "消息内容不能为空")
+            if sess["status"] == "closed":
+                raise HTTPException(409, "会话已关闭，不能再回复")
+            store.add_message(sid, "operator", content)
+            await hub.publish(sid, {"type": "operator_message", "role": "operator",
+                                    "content": content, "session_id": sid})
+            await hub.broadcast_to_operators(
+                {"type": "operator_replied", "session_id": sid, "content": content})
+            return {"role": "operator", "content": content}
+
+        if op == "close":
+            store.close_session(sid)
+            store.append_audit("operator", "session.closed", {"session_id": sid})
+            await hub.publish(sid, {"type": "session_closed", "session_id": sid})
+            await hub.broadcast_to_operators(
+                {"type": "session_updated", "session_id": sid, "status": "closed"})
+            return {"session_id": sid, "status": "closed"}
+
+        if body.rating not in ("helpful", "not_helpful"):
+            raise HTTPException(400, "反馈值必须是 helpful 或 not_helpful")
+        if body.message_id:
+            msgs = store.get_messages(sid)
+            target = next((m for m in msgs if m["id"] == body.message_id), None)
+            if target is None:
+                raise HTTPException(400, "message_id 不属于该会话")
+            if target["role"] != "agent":
+                raise HTTPException(400, "只能对 Agent 回复评分")
+            store.upsert_feedback(sid, body.message_id, body.rating, body.comment)
+        else:
+            store.add_feedback(sid, 0, body.rating, body.comment)
+        if body.rating == "not_helpful" and sess["status"] == "ongoing":
+            store.mark_escalated(sid, "feedback_not_helpful")
+            ticket_id = store.create_ticket(sid)
+            store.add_message(sid, "agent", "没帮上忙，抱歉。换个问法再试试？", tool_used="feedback")
+            return {"rating": body.rating, "escalated": True, "ticket_id": ticket_id}
+        return {"rating": body.rating, "escalated": False}
+
     @app.get("/api/operator/queues", dependencies=[Depends(require_admin)])
     def operator_queues():
         return store.pending_queues()
