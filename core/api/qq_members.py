@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from core.api.deps import require_admin
 
@@ -73,3 +73,46 @@ async def group_file_url(group_id: str, file_id: str, busid: int = 0):
     if not url:
         raise HTTPException(404, "协议端没有返回下载地址（文件可能已过期）")
     return {"url": url}
+
+
+@router.post("/groups/{group_id}/upload", dependencies=[Depends(require_admin)])
+async def upload_group_file(group_id: str, file: UploadFile):
+    """群文件上传：先落临时文件再交给协议端传路径（OneBot 不接受字节流）。"""
+    import os
+    import tempfile
+
+    from gateway import bridge
+
+    name = file.filename or "upload.bin"
+    data = await file.read()
+    if len(data) > 100 * 1024 * 1024:
+        raise HTTPException(413, "文件超过 100MB，请用其他方式传输")
+    fd, path = tempfile.mkstemp(prefix="bigrobot-up-", suffix=os.path.splitext(name)[1])
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        payload = await bridge.call_onebot(
+            "upload_group_file", {"group_id": group_id, "file": path, "name": name})
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    if payload is None:
+        raise HTTPException(409, "没有可用的协议端连接（先在渠道页启动并登录）")
+    return {"ok": True, "name": name, "size": len(data)}
+
+
+@router.get("/friends", dependencies=[Depends(require_admin)])
+async def friend_list():
+    from gateway import bridge
+
+    payload = await bridge.call_onebot("get_friend_list", {})
+    if payload is None:
+        raise HTTPException(409, "没有可用的协议端连接（先在渠道页启动并登录）")
+    items = [
+        {"user_id": str(f.get("user_id") or ""), "nickname": f.get("nickname") or "", "remark": f.get("remark") or ""}
+        for f in (payload or [])
+        if isinstance(f, dict)
+    ]
+    return {"count": len(items), "friends": items}

@@ -79,3 +79,34 @@ def test_file_url_expired_is_404(client, monkeypatch):
 
     monkeypatch.setattr(bridge, "call_onebot", fake)
     assert client.get("/api/channel/qq/groups/410001/files/f1/url").status_code == 404
+
+
+def test_friend_list(client, monkeypatch):
+    from gateway import bridge
+
+    async def fake(action, params):
+        assert action == "get_friend_list"
+        return [{"user_id": 20001, "nickname": "阿伟", "remark": "同事"}, "bad"]
+
+    monkeypatch.setattr(bridge, "call_onebot", fake)
+    body = client.get("/api/channel/qq/friends").json()
+    assert body["count"] == 1 and body["friends"][0]["remark"] == "同事"
+
+
+def test_upload_passes_local_path_and_cleans_up(client, monkeypatch, tmp_path):
+    from gateway import bridge
+
+    seen = {}
+
+    async def fake(action, params):
+        seen.update(params)
+        assert action == "upload_group_file"
+        import os
+        assert os.path.exists(params["file"])   # 传给协议端时文件必须真实存在
+        return {}
+
+    monkeypatch.setattr(bridge, "call_onebot", fake)
+    r = client.post("/api/channel/qq/groups/410001/upload",
+                    files={"file": ("周报.txt", b"hello", "text/plain")})
+    assert r.status_code == 200 and r.json()["name"] == "周报.txt"
+    assert seen["name"] == "周报.txt"
