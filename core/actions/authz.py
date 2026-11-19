@@ -145,6 +145,22 @@ class Decision:
     risk: int
 
 
+def _can_request_destructive(principal: Principal) -> bool:
+    """该主体是否有资格**发起**一次破坏性动作（不代表放行，仍需审批）。
+
+    为什么单独判：L2 分支过去跑在主体判定之前，于是陌生人触发的 Agent
+    （有效档位 T0）也能生成「踢人 / 退群」审批单，审批队列可以被无关成员刷满。
+    审批是给人做决定的，但**发起**审批必须先有资格。
+    """
+    if principal.is_trusted_human():
+        return True
+    if principal.kind == PRINCIPAL_QQ:
+        return principal.ident in authorized_qq()
+    if principal.kind == PRINCIPAL_AGENT:
+        return effective_agent_tier(principal) >= 1
+    return False
+
+
 def decide(spec: ActionSpec, principal: Principal) -> Decision:
     """判定一次动作调用是否放行、是否需要审批。"""
     risk = spec.risk
@@ -154,6 +170,9 @@ def decide(spec: ActionSpec, principal: Principal) -> Decision:
     if risk == RISK_L2:
         if not l2_enabled():
             return Decision(False, False, "L2 动作未启用（ACTION_L2_ENABLED=false）", tier, risk)
+        # 先判主体资格，再判审批：陌生人不能靠"造一张审批单"进入人工视野
+        if not _can_request_destructive(principal):
+            return Decision(False, False, "无权发起破坏性动作（需授权用户或 T1 以上主体）", tier, risk)
         if spec.name in FORCED_APPROVAL_ALWAYS:
             return Decision(True, True, "高影响动作，必须人工确认", tier, risk)
         # 即便 T3 且在白名单，也仍需审批

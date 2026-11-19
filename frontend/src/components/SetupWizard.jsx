@@ -31,7 +31,7 @@ function api(path, init) {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { 'X-Admin-Token': token } : {}),
-      ...(init?.headers || {}),
+      ...init?.headers,
     },
   })
 }

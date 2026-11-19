@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
@@ -137,11 +138,17 @@ async def import_kb_document(file: UploadFile):
     if len(data) > 10 * 1024 * 1024:
         raise HTTPException(400, "文档超过 10MB 上限")
     fname = file.filename or "doc"
-    try:
-        text = docparse.extract_text(fname, data)
-        blocks = docparse.chunk_document(text, fname.rsplit(".", 1)[0])
-    except RuntimeError as e:  # 可选依赖缺失/文件损坏：转可读 400
-        raise HTTPException(400, str(e))
+
+    def _parse() -> list[tuple[str, str]]:
+        try:
+            text = docparse.extract_text(fname, data)
+            return docparse.chunk_document(text, fname.rsplit(".", 1)[0])
+        except RuntimeError as e:  # 可选依赖缺失/文件损坏：转可读 400
+            raise HTTPException(400, str(e)) from e
+
+    # 文档解析是纯 CPU + 同步 IO（实测 291 段 docx 要 2.2s）：
+    # 留在事件循环里会卡死整站（期间 /healthz 峰值 2.2s），必须下线程池。
+    blocks = await run_in_threadpool(_parse)
     if not blocks:
         raise HTTPException(400, "未能从文档中解析出内容")
 
@@ -158,7 +165,7 @@ async def import_kb_document(file: UploadFile):
             })
         return None, items
 
-    _, items = kb_store.store.mutate(op)
+    _, items = await run_in_threadpool(kb_store.store.mutate, op)
     return {"added": len(blocks), "total": len(items), "file": fname}
 
 

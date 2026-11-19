@@ -206,13 +206,15 @@ def fs_delete(policy: Policy, path: str, mode: str = "trash") -> dict:
         else:
             os.remove(p)
         return {"path": p, "deleted": "permanent", **stats}
-    # 回收站：优先 send2trash，缺失时退化为移动到同目录 .zhtrash
+    # 回收站：优先 send2trash，缺失时退化为移动到同目录 .zhtrash。
+    # OSError 一并接住：容器/精简系统里常没有可写的 XDG trash，
+    # 回收站不可用不该让「删除」这个动作整体失败（实测 NotADirectoryError 直接抛出）。
     try:
         from send2trash import send2trash
 
         send2trash(p)
         return {"path": p, "deleted": "trash", "recoverable": True, **stats}
-    except ImportError:
+    except (ImportError, OSError):
         trash_dir = os.path.join(os.path.dirname(p) or ".", ".zhtrash")
         os.makedirs(trash_dir, exist_ok=True)
         target = os.path.join(trash_dir, f"{int(time.time())}_{os.path.basename(p)}")

@@ -40,17 +40,6 @@ _IMMUTABLE = "public, max-age=31536000, immutable"
 _NO_CACHE = "no-cache, must-revalidate"
 
 
-def _precompressed(path: str, accept_encoding: str) -> tuple[str, str]:
-    """返回 (实际文件路径, Content-Encoding)；没有预压缩文件时用原文件。"""
-    ae = (accept_encoding or "").lower()
-    for enc, ext in (("br", ".br"), ("gzip", ".gz")):
-        if enc in ae:
-            candidate = path + ext
-            if os.path.isfile(candidate):
-                return candidate, enc
-    return path, ""
-
-
 def mount_spa(app: FastAPI, static_dir: str) -> bool:
     """挂载 SPA。目录不存在返回 False（不注册路由，避免抢掉 API 404）。
 

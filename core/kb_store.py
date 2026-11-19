@@ -42,7 +42,7 @@ class KbStore:
 
                 while True:
                     try:
-                        msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+                        msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)  # type: ignore[attr-defined]
                         break
                     except OSError:
                         time.sleep(0.05)
@@ -59,7 +59,7 @@ class KbStore:
                     import msvcrt
 
                     fh.seek(0)
-                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
                 else:
                     import fcntl
 

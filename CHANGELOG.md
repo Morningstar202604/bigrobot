@@ -17,6 +17,42 @@ The authoritative version string lives in [`VERSION`](VERSION), mirrored by
 
 ---
 
+## [2.0.1] — 未发布
+
+**正确性批（B0）。** 没有新功能，只修「会把人坑进去」的东西：一条越权路径、
+一处卡死整站的同步调用、一个复活的路由、三个版本冲突的静态检查。
+
+### Fixed
+
+- **陌生人能刷审批队列（越权）。** `core/actions/authz.py:decide()` 的 L2 分支原先跑在
+  主体判定之前，于是任何群成员触发一次 `set_group_kick` 都能生成一张待批单。
+  新增 `_can_request_destructive()`：先判「有没有资格发起」，再判「要不要审批」。
+  回归用例 `test_l2_stranger_cannot_raise_approval`（陌生人/未知主体一律 `allowed=False`）。
+- **文档导入卡死整站。** `/api/kb/import/document` 在 `async def` 里同步跑 docx 解析 +
+  SQLite 落库：实测导入 291 段文档期间 `/healthz` 峰值 **2218ms**（空闲 p50 1.48ms）。
+  解析与落库改走 `run_in_threadpool`，同样场景 p50 **1.3ms** / p95 **2.0ms**。
+  护栏用例 `tests/test_api_responsiveness.py`（长任务进行中打 `/healthz`，看 p50/p95 而不是 max）。
+- **`/actions` 审批页被重定向走。** 前端路由把它指到 `/runs`，审批中心实际打不开；
+  已改回 `<ActionsCenter />`，并在侧栏「审计」组补入口。
+- **删除动作在容器里直接失败。** `executor/capabilities.py:fs_delete()` 只接
+  `ImportError`，回收站不可用时 `send2trash` 抛的 `OSError`（`NotADirectoryError`）会穿透，
+  「可恢复删除」变成删除失败。已改为 `(ImportError, OSError)` 一并退化到 `.zhtrash`。
+- **静态检查三处红灯。** mypy 4 处（`kb_store` 的 `msvcrt` 属性、`llm` 的 payload 推断）
+  + oxlint 1 处（`SetupWizard.jsx` 无用兜底 `|| {}`）全部清零。
+
+### Changed
+
+- **工具数量两个口径分开报。** `/api/agent/health` 新增 `tool_declared`（`TOOL_META` 代码声明数，
+  51），`tool_count` 保留运行时生效数（按配置/DB，通常 55）。此前只有一个数，
+  于是文档写 42、运行报 55，谁也说不清哪个对。
+- 删除 `core/spa.py:_precompressed()`：全仓无人调用、`dist` 里也没有 `.br/.gz`。
+  构建期预压缩挪到性能批（2.4）连同测试一起做。
+
+### 验证
+
+`pytest` 980 passed / 3 skipped，`ruff` 全过，`mypy` 92 文件 0 issue，
+`oxlint` 0 error，`vitest` 16 passed，`vite build` 通过。
+
 ## [2.0.0] — 2026-11-19
 
 **品牌与定位重置。** 项目从「知客 / Zhike」更名为 **BigRobot**，定位从「自托管私人秘书」

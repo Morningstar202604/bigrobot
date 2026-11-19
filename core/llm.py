@@ -14,6 +14,8 @@ import time
 
 import logging
 
+from typing import Any
+
 import httpx
 
 from core.http_pool import get_client
@@ -702,7 +704,7 @@ async def react_stream(query: str, ctx: dict, cfg: dict, image_b64: str = ""):
     native = bool(llm_cfg.get("tool_calling", True)) and bool(ctx.get("tools_schema"))
     tools_payload = _openai_tools(ctx.get("tools_schema") or []) if native else []
     messages, model = _build_messages(query, ctx, cfg, image_b64, native_tools=native)
-    payload = {
+    payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": llm_cfg.get("temperature", 0.2),

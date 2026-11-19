@@ -1139,6 +1139,9 @@ def create_app() -> FastAPI:
             "model": llm_cfg.get("model", "") if llm_cfg.get("has_key") else "",
             "kb_entries": len(retrieval.load_kb()),
             "tool_count": len(active),
+            # 两个口径分开报：TOOL_META 是代码声明数，active 是按配置/DB 生效数。
+            # 以前只报一个数，于是文档写 42、运行报 55，没人知道哪个对。
+            "tool_declared": len(tools_mod.TOOL_META),
             "injection_rules": len(store.list_injection_rules(enabled_only=True)),
             "kb_top_k": cfg.get("retrieval", {}).get("kb_top_k"),
             "history_turns": cfg.get("context", {}).get("history_turns"),

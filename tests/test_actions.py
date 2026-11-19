@@ -138,6 +138,28 @@ def test_unknown_principal_denied():
     assert d.allowed is False
 
 
+def test_l2_stranger_cannot_raise_approval(monkeypatch):
+    """L2 必须先判主体资格：陌生人不能靠造审批单把队列刷满。
+
+    回归的是真实缺陷：decide() 的 L2 分支原先跑在主体判定之前，
+    于是任何群成员触发一次 set_group_kick 都会生成一张待批单。
+    """
+    monkeypatch.setenv("ACTION_L2_ENABLED", "true")
+    monkeypatch.setenv("AGENT_TIER", "3")
+    monkeypatch.setenv("ALLOW_TIER3", "true")
+    monkeypatch.setenv("AUTHORIZED_QQ", "999")
+    spec = registry.get_spec("set_group_kick")
+
+    for principal in ("agent@qq:111", "qq:111", "hacker:1"):
+        d = authz.decide(spec, _p(principal))
+        assert d.allowed is False, f"{principal} 不应有权发起 L2"
+        assert d.needs_approval is False, f"{principal} 不应生成审批单"
+
+    # 有资格的主体仍然只能"发起审批"，不能直接放行
+    assert authz.decide(spec, _p("admin")).needs_approval is True
+    assert authz.decide(spec, _p("agent@qq:999")).needs_approval is True
+
+
 # ---------- 打码 ----------
 
 def test_redact_masks_sensitive_keys():
