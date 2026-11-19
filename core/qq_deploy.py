@@ -143,6 +143,19 @@ def _deploy_worker() -> None:
 _proc: "subprocess.Popen | None" = None
 
 
+def status_card() -> dict:
+    """控制台状态卡的完整数据：部署态 + 进程 + 守护。给 API 与测试共用。"""
+    st = deploy_status()
+    st.update({"pid": proc_pid(), "alive": proc_alive(), "watchdog": _watchdog_status()})
+    return st
+
+
+def _watchdog_status() -> dict:
+    from core import qq_watchdog
+
+    return qq_watchdog.status()
+
+
 def proc_pid() -> int | None:
     """协议端进程号；没起或已退出返回 None。"""
     if _proc is None:

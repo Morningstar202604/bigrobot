@@ -7,20 +7,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from core.api.deps import require_admin
-from core import qq_deploy, qq_watchdog
+from core import qq_deploy
 
 router = APIRouter(prefix="/api/channel/qq", tags=["qq-deploy"])
 
 
 @router.get("/deploy-status")
 async def deploy_status(_admin: None = Depends(require_admin)):
-    st = qq_deploy.deploy_status()
-    st.update({
-        "pid": qq_deploy.proc_pid(),
-        "alive": qq_deploy.proc_alive(),
-        "watchdog": qq_watchdog.status(),
-    })
-    return st
+    return qq_deploy.status_card()
 
 
 @router.post("/deploy")
