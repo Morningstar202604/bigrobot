@@ -1437,6 +1437,7 @@ def create_app() -> FastAPI:
     from core.api import qq_deploy as qq_deploy_api
     from core.api import qq_login as qq_login_api
     from core.api import reminders as reminders_api
+    from core.api import observe as observe_api
     from core.api import setup as setup_api
 
     app.include_router(kb_api.router)
@@ -1445,32 +1446,7 @@ def create_app() -> FastAPI:
     app.include_router(reminders_api.router)
     # 首次启动向导：只对回环开放，老实例自动豁免（见 core/api/setup.py）
     app.include_router(setup_api.router)
-
-    @app.get("/api/admin/overview", dependencies=[Depends(require_admin)])
-    def admin_overview():
-        with store.get_conn() as conn:
-            sessions_count = conn.execute("SELECT COUNT(*) c FROM sessions").fetchone()["c"]
-            messages = conn.execute("SELECT COUNT(*) c FROM messages").fetchone()["c"]
-            tickets = conn.execute("SELECT COUNT(*) c FROM tickets").fetchone()["c"]
-            pending = conn.execute("SELECT COUNT(*) c FROM sessions WHERE status='pending_agent'").fetchone()["c"]
-        return {
-            "sessions": sessions_count,
-            "messages": messages,
-            "tickets": tickets,
-            "pending": pending,
-            "feedback": store.feedback_summary(),
-            "kb_count": len(retrieval.load_kb()),
-            "injection": len(store.injection_log(50)),
-        }
-
-    @app.get("/api/admin/stats", dependencies=[Depends(require_admin)])
-    def admin_stats():
-        return store.admin_stats()
-
-    @app.get("/api/admin/report", dependencies=[Depends(require_admin)])
-    def admin_report(days: int = 7):
-        """经营报表：近 N 天日序列 + 命中率/升级率/CSAT 汇总。"""
-        return store.admin_report(days)
+    app.include_router(observe_api.router)
 
     @app.post("/v1/gateway/heartbeat", dependencies=[Depends(require_channel)])
     def gateway_heartbeat(body: HeartbeatIn):
@@ -1528,10 +1504,6 @@ def create_app() -> FastAPI:
         if not any(c["channel"] == "onebot_v11" for c in channels):
             channels.append({"channel": "onebot_v11", "status": "offline", "last_seen": None, "detail": {}})
         return {"channels": channels}
-
-    @app.get("/api/admin/logs", dependencies=[Depends(require_admin)])
-    def admin_logs(limit: int = 200, level: str | None = None):
-        return {"entries": events_log.entries(limit=limit, level=level)}
 
     # ============================================================
     # 模型厂商：预设 / 发现 / 能力匹配 / 连接测试
@@ -1598,10 +1570,6 @@ def create_app() -> FastAPI:
     @app.get("/api/admin/llm-models", dependencies=[Depends(require_admin)])
     async def llm_models():
         return await llm.list_models()
-
-    @app.get("/api/admin/injection-log", dependencies=[Depends(require_admin)])
-    def admin_injection_log():
-        return {"entries": store.injection_log(50)}
 
     @app.get("/api/admin/memory", dependencies=[Depends(require_admin)])
     def admin_memory():
@@ -1736,15 +1704,6 @@ def create_app() -> FastAPI:
     @app.get("/api/admin/audit/verify", dependencies=[Depends(require_admin)])
     def audit_verify(from_id: int | None = None):
         return store.verify_audit_chain(from_id)
-
-    @app.get("/api/admin/audit/entries", dependencies=[Depends(require_admin)])
-    def audit_entries(limit: int = 100):
-        with store.get_conn() as conn:
-            rows = conn.execute(
-                "SELECT id, ts, actor, kind, payload, hash FROM audit_chain ORDER BY id DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        return {"entries": [dict(r) for r in rows]}
 
     @app.get("/api/executor/health", dependencies=[Depends(require_admin)])
     async def executor_health():

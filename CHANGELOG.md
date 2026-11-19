@@ -108,6 +108,14 @@ The authoritative version string lives in [`VERSION`](VERSION), mirrored by
 - **旧路径全部保留一版重定向**：dashboard / qq-scan / operator / annotations /
   actions / runs / logs / emotes / persona / settings/kb。
 
+### Changed（B3-2：admin 六个拼装接口 → observe 两个聚合接口）
+
+- `admin/overview` + `admin/stats` + `admin/report` → **`GET /api/observe/overview?days=`**
+  （响应含 `stats` 与 `report` 两个子对象，前端各自 `select` 取用）
+- `admin/logs` + `admin/injection-log` + `admin/audit/entries` → **`GET /api/observe/logs?source=events|injection|audit`**
+- 路由唯一路径 **97 → 93**；控制台首屏统计从 3 个请求变 1 个，日志页从 2 个变 1 个
+- 新模块 `core/api/observe.py`：直接从 `create_app` 闭包里搬出，`main.py` 继续减重
+
 ### 验证
 
 `pytest` 986 passed / 3 skipped，`ruff` 全过，`mypy` 92 文件 0 issue，

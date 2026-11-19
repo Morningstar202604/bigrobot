@@ -213,7 +213,7 @@ def test_purge_endpoint(client):
     assert r.status_code == 200
     assert "removed" in r.json()
     # 清理动作本身要进审计
-    entries = client.get("/api/admin/audit/entries").json()["entries"]
+    entries = client.get("/api/observe/logs?source=audit").json()["entries"]
     assert any(e["kind"] == "data.purge" for e in entries)
 
 

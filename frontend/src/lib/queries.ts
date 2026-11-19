@@ -176,12 +176,12 @@ export function useInjectionRuleMutations() {
 
 // ---- admin ----
 export function useAdminOverview() {
-  return useQuery({ queryKey: qk.admin.overview, queryFn: () => http.get<AdminOverview>('/api/admin/overview') })
+  return useQuery({ queryKey: qk.admin.overview, queryFn: () => http.get<AdminOverview & { stats: AdminStats; report: unknown }>('/api/observe/overview') })
 }
 export function useAdminStats() {
   return useQuery({
     queryKey: qk.admin.stats,
-    queryFn: () => http.get<AdminStats>('/api/admin/stats'),
+    queryFn: () => http.get<AdminOverview & { stats: AdminStats }>('/api/observe/overview').then((d) => d.stats),
     refetchInterval: 30_000,
   })
 }
@@ -191,7 +191,7 @@ export function useAdminMemory() {
 export function useAdminLogs() {
   return useQuery({
     queryKey: qk.admin.logs,
-    queryFn: () => http.get<{ entries: LogEntry[] }>('/api/admin/logs?limit=300'),
+    queryFn: () => http.get<{ entries: LogEntry[] }>('/api/observe/logs?source=events&limit=300'),
     refetchInterval: 3000,
   })
 }
@@ -238,17 +238,17 @@ export function useLlmModels() {
 export function useAdminReport() {
   return useQuery({
     queryKey: ['admin', 'report'],
-    queryFn: () => http.get<{
+    queryFn: () => http.get<{ report: {
       days: number
       daily: { day: string; sessions: number; agent_replies: number; kb_hits: number; escalations: number }[]
       totals: { sessions: number; agent_replies: number; kb_hits: number; escalations: number; kb_hit_rate: number | null; escalate_rate: number | null; csat: number | null; csat_n: number }
-    }>('/api/admin/report?days=7'),
+    } }>('/api/observe/overview?days=7').then((d) => d.report),
     refetchInterval: 60_000,
   })
 }
 
 export function useAdminInjection() {
-  return useQuery({ queryKey: qk.admin.injection, queryFn: () => http.get<{ entries: InjectionLogEntry[] }>('/api/admin/injection-log') })
+  return useQuery({ queryKey: qk.admin.injection, queryFn: () => http.get<{ entries: InjectionLogEntry[] }>('/api/observe/logs?source=injection') })
 }
 
 // ---- 动作层 ----
@@ -543,7 +543,7 @@ export interface AuditEntry {
 export function useAuditEntries(limit = 100) {
   return useQuery({
     queryKey: ['audit', 'entries', limit],
-    queryFn: () => http.get<{ entries: AuditEntry[] }>(`/api/admin/audit/entries?limit=${limit}`),
+    queryFn: () => http.get<{ entries: AuditEntry[] }>(`/api/observe/logs?source=audit&limit=${limit}`),
     staleTime: 15_000,
   })
 }

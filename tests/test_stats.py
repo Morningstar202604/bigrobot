@@ -13,9 +13,9 @@ def test_admin_stats_shape_and_counts(client):
     client.post(f"/api/sessions/{sid1}/feedback", json={"rating": "helpful", "message_id": first_msg},
                 headers={"X-Session-Secret": secret1})
 
-    r = client.get("/api/admin/stats")
+    r = client.get("/api/observe/overview")
     assert r.status_code == 200
-    stats = r.json()
+    stats = r.json()["stats"]
 
     assert len(stats["messages_by_hour"]) == 24
     assert sum(m["visitor"] for m in stats["messages_by_hour"]) == 2
@@ -31,9 +31,9 @@ def test_admin_stats_shape_and_counts(client):
 
 
 def test_admin_stats_empty_db(client):
-    r = client.get("/api/admin/stats")
+    r = client.get("/api/observe/overview")
     assert r.status_code == 200
-    stats = r.json()
+    stats = r.json()["stats"]
     assert len(stats["messages_by_hour"]) == 24
     assert len(stats["sessions_by_day"]) == 7
     assert stats["tool_usage"] == []
@@ -45,6 +45,6 @@ def test_admin_stats_requires_token(client, monkeypatch):
     # 注意：client fixture 已固化了 ADMIN/CHANNEL 默认值，这里验证的是「不带 header 时 401」
     # 用一个裸 TestClient 风格：剥离默认 header
     client.headers.pop("X-Admin-Token", None)
-    assert client.get("/api/admin/stats").status_code == 401
-    assert client.get("/api/admin/stats", headers={"X-Admin-Token": "abc"}).status_code == 200
+    assert client.get("/api/observe/overview").status_code == 401
+    assert client.get("/api/observe/overview", headers={"X-Admin-Token": "abc"}).status_code == 200
     client.headers.update({"X-Admin-Token": "test-admin-token"})

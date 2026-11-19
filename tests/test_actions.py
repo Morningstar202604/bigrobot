@@ -506,7 +506,7 @@ def test_admin_endpoint_rejects_wrong_admin_token(client):
     """错误管理员令牌必须 401，证明校验真的生效。"""
     client.headers["X-Admin-Token"] = "definitely-wrong"
     try:
-        assert client.get("/api/admin/overview").status_code == 401
+        assert client.get("/api/observe/overview").status_code == 401
     finally:
         client.headers.update({"X-Admin-Token": ADMIN})
 

@@ -15,9 +15,9 @@ def test_admin_report_totals(client, monkeypatch, tmp_path):
     sid = create_web_session(client, "rep-v1")[0]
     client.post(f"/api/sessions/{sid}/messages", json={"content": "退货政策是什么"})
     store.add_feedback(sid, None, "helpful")
-    r = client.get("/api/admin/report?days=7")
+    r = client.get("/api/observe/overview?days=7")
     assert r.status_code == 200
-    d = r.json()
+    d = r.json()["report"]
     assert len(d["daily"]) == 7
     t = d["totals"]
     assert t["sessions"] >= 1 and t["agent_replies"] >= 1

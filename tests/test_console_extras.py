@@ -54,7 +54,7 @@ def test_stats_funnel(client):
     _msg(client, sid, "查一下退改政策")  # lookup_policy 工具
     _msg(client, sid, "帮我查一下根本不存在的神秘服务")  # 兜底转人工
 
-    funnel = client.get("/api/admin/stats").json()["funnel"]
+    funnel = client.get("/api/observe/overview").json()["stats"]["funnel"]
     # 转人工会话的最后一条只落库、不产生 Agent 回复，所以按实际落库消息数断言
     total = client.get(f"/api/sessions/{sid}/messages").json()["messages"]
     assert funnel["messages"] == len(total)
@@ -68,7 +68,7 @@ def test_admin_logs_ring(client):
     sid = create_web_session(client, "log-1")[0]
     _msg(client, sid, "怎么开发票")
 
-    entries = client.get("/api/admin/logs?limit=50").json()["entries"]
+    entries = client.get("/api/observe/logs?source=events&limit=50").json()["entries"]
     assert entries, "日志环为空"
     ids = [e["id"] for e in entries]
     assert ids == sorted(ids, reverse=True)
@@ -78,7 +78,7 @@ def test_admin_logs_ring(client):
 
 def test_console_admin_endpoints_require_token(client, monkeypatch):
     monkeypatch.setenv("ADMIN_TOKEN", "t1")
-    for path in ("/api/admin/sessions", "/api/admin/channels", "/api/admin/logs"):
+    for path in ("/api/admin/sessions", "/api/admin/channels", "/api/observe/logs?source=events"):
         assert client.get(path).status_code == 401, path
         assert client.get(path, headers={"X-Admin-Token": "t1"}).status_code == 200, path
     assert client.post("/v1/gateway/heartbeat", json={"gateway": "x", "status": "online"}).status_code == 200

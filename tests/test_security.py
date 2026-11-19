@@ -14,7 +14,7 @@ def test_admin_token_required(monkeypatch, tmp_path):
     with TestClient(app) as c:
         assert c.get("/api/operator/queues").status_code == 401
         assert c.get("/api/operator/queues", headers={"X-Admin-Token": "abc"}).status_code == 200
-        assert c.get("/api/admin/overview", headers={"X-Admin-Token": "abc"}).status_code == 200
+        assert c.get("/api/observe/overview", headers={"X-Admin-Token": "abc"}).status_code == 200
 
 
 def test_admin_open_mode_warns(caplog, monkeypatch, tmp_path):
