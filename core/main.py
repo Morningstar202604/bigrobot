@@ -334,6 +334,9 @@ def create_app() -> FastAPI:
         group_name: str = ""
         # 触发消息的 OneBot message_id（模型可以用它做「点赞这条/撤回这条/设精华」）
         message_id: str = ""
+        # 收到这条消息的那个机器人账号（OneBot self_id）。有了它，会话才知道自己属于哪个号：
+        # 同一个群被两个号同时监听时，历史不会混成一条。
+        self_id: str = ""
 
     # ---- 入参体积护栏（统一实现见 core/api/deps.py）----
     _check_payload = deps.check_payload
@@ -562,7 +565,8 @@ def create_app() -> FastAPI:
                               "mode": "not_allowed", "tool_used": None,
                               "tool_result": None, "thought": ""},
                 }
-        sid = sessions.resolve_session(f"{body.channel_type}:{chat_key}", identity)
+        account = f"{body.channel_type}:{body.self_id}" if body.self_id.strip() else None
+        sid = sessions.resolve_session(f"{body.channel_type}:{chat_key}", identity, account_id=account)
         if _is_human_handled(sid):
             # 已由坐席接管：机器人不回话，消息落库并推给坐席台
             await _route_to_operator(sid, text, body.image_b64, identity)

@@ -36,7 +36,7 @@ def _is_fresh(row: dict | None) -> bool:
     return age <= idle_ttl()
 
 
-def resolve_session(channel: str, visitor_id: str) -> str:
+def resolve_session(channel: str, visitor_id: str, account_id: str | None = None) -> str:
     row = store.get_channel_session(channel)
     # _is_fresh 内部已保证 row 非空（not row → False），但 mypy 无法跨函数收窄，
     # 这里显式判一次：既让类型检查通过，也避免将来 _is_fresh 语义变化时踩空。
@@ -46,7 +46,7 @@ def resolve_session(channel: str, visitor_id: str) -> str:
         return row["session_id"]
 
     sid = uuid.uuid4().hex
-    store.create_session(sid, visitor_id)
+    store.create_session(sid, visitor_id, account_id=account_id)
 
     if row is None:
         # 无映射：原子认领，保证并发只建一个
