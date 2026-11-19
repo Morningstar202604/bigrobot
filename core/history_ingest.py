@@ -46,3 +46,44 @@ def ingest_history(session_id: str, rows: Iterable[dict], *, account_id: str = "
     logger.info("history ingest session=%s added=%s skipped=%s account=%s",
                 session_id, added, skipped, account_id)
     return {"added": added, "skipped": skipped, "total": added + skipped}
+
+def onebot_segments_to_text(message) -> str:
+    """OneBot 的 message 可能是字符串，也可能是 [{type,data}] 段数组。"""
+    if isinstance(message, str):
+        return message
+    parts = []
+    for seg in message or []:
+        if not isinstance(seg, dict):
+            continue
+        data = seg.get("data") or {}
+        if seg.get("type") == "text":
+            parts.append(str(data.get("text") or ""))
+        elif seg.get("type") == "image":
+            parts.append("[图片]")
+        elif seg.get("type") == "face":
+            parts.append("[表情]")
+        elif seg.get("type") == "record":
+            parts.append("[语音]")
+    return "".join(parts)
+
+
+def onebot_history_rows(payload: dict) -> list[dict]:
+    """把 get_group_msg_history 的返回转成 ingest_history 认识的扁平行。"""
+    rows = []
+    for m in (payload or {}).get("messages") or []:
+        ext = str(m.get("message_id") or "").strip()
+        if not ext:
+            continue
+        sender = (m.get("sender") or {}).get("nickname") or ""
+        rows.append({
+            "external_id": ext,
+            "sender": sender,
+            "content": onebot_segments_to_text(m.get("message")),
+        })
+    return rows
+
+
+def ingest_group_history(session_id: str, group_id: str, call_api, *, limit: int = 50) -> dict:
+    """拉一页群历史并落库。`call_api` 注入，便于测试替身与不同协议端复用。"""
+    payload = call_api("get_group_msg_history", {"group_id": group_id, "count": limit})
+    return ingest_history(session_id, onebot_history_rows(payload or {}))
