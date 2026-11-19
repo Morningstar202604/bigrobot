@@ -84,6 +84,25 @@ export default function SessionsCenter() {
     }
   }
 
+  const [pullGroup, setPullGroup] = useState('')
+  const [pulling, setPulling] = useState(false)
+
+  const pullHistory = async () => {
+    if (!active || !pullGroup.trim()) return
+    setPulling(true)
+    try {
+      const r = await http.post<{ added: number; skipped: number }>(
+        `/api/sessions/${active.id}/history/pull`,
+        { group_id: pullGroup.trim(), limit: 50 })
+      await open(active)
+      alert(`已拉取 ${r.added} 条，跳过重复 ${r.skipped} 条`)
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setPulling(false)
+    }
+  }
+
   const open = async (s: SessionRow) => {
     setActive(s)
     setLoadingDialog(true)
@@ -237,6 +256,18 @@ export default function SessionsCenter() {
               </div>
             </div>
             <div className="drawer-body space-y-3 max-h-[60vh] overflow-auto">
+              <div className="flex gap-2 items-center">
+                <input
+                  className="tb-search-input"
+                  placeholder={t('群号，拉取 QQ 历史')}
+                  value={pullGroup}
+                  onChange={(e) => setPullGroup(e.target.value)}
+                  aria-label={t('群号')}
+                />
+                <button className="btn ghost sm" onClick={() => void pullHistory()} disabled={pulling || !pullGroup.trim()}>
+                  {pulling ? t('拉取中…') : t('拉取历史')}
+                </button>
+              </div>
               {close.error && <ErrorBanner message={(close.error as Error).message} onRetry={() => sessions.refetch()} />}
               {loadingDialog && <Spinner label={t('加载对话…')} />}
               {!loadingDialog && dialog.length === 0 && <div className="empty">{t('该会话暂无消息')}</div>}
@@ -246,6 +277,7 @@ export default function SessionsCenter() {
                     <div className="bubble">
                       <span className="text-[10px] text-muted mr-2">
                         {m.role === 'visitor' ? '用户' : m.role === 'operator' ? '管理员' : '秘书'}
+                        {(m as AgentMsg & { source?: string }).source === 'platform' && ' · QQ 历史'}
                       </span>
                       {m.role === 'visitor' ? m.content : <Markdown text={m.content} />}
                     </div>
