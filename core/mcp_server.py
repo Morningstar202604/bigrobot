@@ -1,7 +1,7 @@
 """MCP (Model Context Protocol) 工具暴露层。
 
 协议：Model Context Protocol（Anthropic 提出，OpenAI/Google/主流 Agent 运行时均支持）。
-把知客的内置工具以 MCP tool 形式暴露，任何 MCP 客户端（Claude Desktop / Cursor /
+把BigRobot的内置工具以 MCP tool 形式暴露，任何 MCP 客户端（Claude Desktop / Cursor /
 其他 Agent 运行时）都能直接调用，不必把工具绑死在本进程内。
 
 同时兼容两代官方 SDK：
@@ -13,14 +13,14 @@
 - 只暴露「无会话上下文也能正确工作」的工具。依赖当前会话（发消息、发图、给某个人设提醒）
   的工具不暴露——MCP 客户端没有「当前会话」，硬暴露只会得到必然 need_context 的死工具。
 - 写类工具默认不暴露：MCP 调用不经控制台审批，等于绕过 L0/L1/L2 闸门。
-  需要时显式设 ZHIKE_MCP_ALLOW_WRITE=1。
+  需要时显式设 BIGROBOT_MCP_ALLOW_WRITE=1。
 
 启动（可选，不随 core 一起起）：
     pip install -r requirements-mcp.txt
     python -m core.mcp_server
 
 MCP 客户端配置：
-    "zhike": { "command": ["python", "-m", "core.mcp_server"] }
+    "bigrobot": { "command": ["python", "-m", "core.mcp_server"] }
 """
 from __future__ import annotations
 
@@ -85,7 +85,7 @@ def _build_mcp():
         raise RuntimeError(
             "mcp 未安装。请先 `pip install -r requirements-mcp.txt`，再启动本模块。"
         )
-    mcp = ServerClass("zhike-tools")
+    mcp = ServerClass("bigrobot-tools")
 
     def register(name: str, description: str) -> None:
         # 用显式签名（**kwargs）注册，参数说明由 docstring 承载；
@@ -100,7 +100,7 @@ def _build_mcp():
     for name, desc in READONLY_TOOLS.items():
         register(name, desc)
 
-    if os.environ.get("ZHIKE_MCP_ALLOW_WRITE", "").lower() in ("1", "true", "yes", "on"):
+    if os.environ.get("BIGROBOT_MCP_ALLOW_WRITE", "").lower() in ("1", "true", "yes", "on"):
         for name, desc in WRITE_TOOLS.items():
             register(name, desc)
 

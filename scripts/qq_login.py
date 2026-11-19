@@ -85,10 +85,10 @@ def main() -> int:
     if code != 0 or "true" not in out.lower():
         print(f"容器 {args.container} 不在运行。先执行：")
         print(f"  docker start {args.container}")
-        print("或首次创建：见 docs/QQ-LOGIN.md")
+        print("或首次创建：见 docs/DEPLOY.md §4")
         return 2
 
-    out_path = args.out or os.path.join(os.environ.get("TEMP", "/tmp"), "zhike-qq-qr.png")
+    out_path = args.out or os.path.join(os.environ.get("TEMP", "/tmp"), "bigrobot-qq-qr.png")
     code, out = run(["docker", "cp", f"{args.container}:{QR_IN_CONTAINER}", out_path])
     if code != 0:
         print("取二维码失败（QQ 可能还没开始登录流程，等 10 秒再试）：")
@@ -142,7 +142,7 @@ def main() -> int:
                  "sys.exit(0 if s.connect_ex(('127.0.0.1',3001))==0 else 1)"])
     if rc == 0:
         print("OneBot WS 已就绪：ws://127.0.0.1:3001")
-        print("下一步：启动网关 → python gateway/bot.py（见 docs/QQ-LOGIN.md）")
+        print("下一步：启动网关 → python gateway/bot.py（见 docs/DEPLOY.md §4）")
         return 0
     print("登录成功但 3001 未监听：检查 NapCat「网络配置」里 WS 服务端是否启用（端口 3001）。")
     return 1

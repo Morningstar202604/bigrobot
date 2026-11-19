@@ -18,7 +18,7 @@ from pathlib import Path
 __all__ = ["VERSION", "version_info", "version_tuple"]
 
 #: 语义化版本字符串，例如 ``1.2.0``
-VERSION = "1.8.1"
+VERSION = "2.0.0"
 
 
 def version_tuple(version: str = VERSION) -> tuple[int, int, int]:
@@ -63,7 +63,7 @@ def _self_check() -> None:
     """
     import os
 
-    if os.environ.get("ZHIKE_VERSION_STRICT", "").strip().lower() not in ("1", "true", "yes", "on"):
+    if os.environ.get("BIGROBOT_VERSION_STRICT", "").strip().lower() not in ("1", "true", "yes", "on"):
         return
     file_version = _read_version_file()
     if file_version and file_version != VERSION:

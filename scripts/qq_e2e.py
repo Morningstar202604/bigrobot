@@ -6,7 +6,7 @@
 3. 私聊「转人工」 → 实话实说没人可转，不假装转接
 4. 逐动作 echo ack（OneBot v11 动作协议）
 
-用法：.venv/bin/python scripts/qq_e2e.py   （真机 QQ 登录验收清单见 DEPLOY.md §QQ 渠道）
+用法：.venv/bin/python scripts/qq_e2e.py   （真机验收清单见 docs/DEPLOY.md §5.2）
 """
 import asyncio
 import base64
@@ -160,7 +160,7 @@ def _msg_text(action: dict | None) -> str:
 async def main() -> int:
     runtime_dir = _new_runtime_dir()
     tmp = str(runtime_dir)
-    env = {**os.environ, "CS_AGENT_DB": os.path.join(tmp, "e2e.db")}
+    env = {**os.environ, "BIGROBOT_DB": os.path.join(tmp, "e2e.db")}
     env.pop("USER_LLM_API_KEY", None)  # 规则模式，行为确定性
     # CHANNEL_TOKEN：core 现在强制要求渠道令牌（未设置则 /v1/ingest 返回 503）。
     # 演练里统一设一个固定值，core 与 gateway 共用，保证链路能打通。

@@ -37,8 +37,8 @@ if paths.IS_FROZEN:
 else:
     _KB_DEFAULT = pathlib.Path(__file__).parent / "data" / "kb.json"
     _RETRIEVAL_DEFAULT = pathlib.Path(__file__).parent / "data" / "retrieval.db"
-KB_PATH = pathlib.Path(os.environ.get("CS_AGENT_KB") or _KB_DEFAULT)
-RETRIEVAL_DB = pathlib.Path(os.environ.get("CS_AGENT_RETRIEVAL_DB") or _RETRIEVAL_DEFAULT)
+KB_PATH = pathlib.Path(os.environ.get("BIGROBOT_KB") or _KB_DEFAULT)
+RETRIEVAL_DB = pathlib.Path(os.environ.get("BIGROBOT_RETRIEVAL_DB") or _RETRIEVAL_DEFAULT)
 
 # 分词方案版本：索引结构或切词算法变化时递增，触发全量重建
 TOKENIZER_VERSION = 2

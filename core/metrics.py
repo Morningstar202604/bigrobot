@@ -7,8 +7,8 @@
 3. **标准命名与 exposition**：Grafana 现成模板、Prometheus 抓取规则、告警表达式可直接用；
 4. **活跃请求/异常计数**：Gauge 与 Counter 类型语义明确，不靠 Python 字典模拟。
 
-保留旧口径：`zhike_http_requests_total{method,path,status}` 名字与标签完全不变，
-已有看板与测试无需改动；新增 `zhike_http_request_duration_seconds` 直方图。
+保留旧口径：`bigrobot_http_requests_total{method,path,status}` 名字与标签完全不变，
+已有看板与测试无需改动；新增 `bigrobot_http_request_duration_seconds` 直方图。
 
 标签基数控制：path 先模板化（/api/sessions/{id}/messages），并限制标签值长度。
 """
@@ -28,44 +28,44 @@ _KB_RE = re.compile(r"/KB[-_]?[A-Za-z0-9]+", re.IGNORECASE)
 _NUM_RE = re.compile(r"/\d{2,}(?=/|$)")
 
 REQUEST_COUNT = Counter(
-    "zhike_http_requests_total",
+    "bigrobot_http_requests_total",
     "HTTP requests by route and status.",
     ["method", "path", "status"],
     registry=REGISTRY,
 )
 REQUEST_DURATION = Histogram(
-    "zhike_http_request_duration_seconds",
+    "bigrobot_http_request_duration_seconds",
     "HTTP request latency in seconds.",
     ["method", "path"],
     buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
     registry=REGISTRY,
 )
 IN_FLIGHT = Gauge(
-    "zhike_http_in_flight_requests",
+    "bigrobot_http_in_flight_requests",
     "Requests currently being served.",
     registry=REGISTRY,
 )
 LLM_CALLS = Counter(
-    "zhike_llm_calls_total",
+    "bigrobot_llm_calls_total",
     "LLM calls by result.",
     ["result"],
     registry=REGISTRY,
 )
 LLM_LATENCY = Histogram(
-    "zhike_llm_latency_seconds",
+    "bigrobot_llm_latency_seconds",
     "LLM call latency in seconds.",
     ["model"],
     buckets=(0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 40.0, 80.0),
     registry=REGISTRY,
 )
 TOOL_CALLS = Counter(
-    "zhike_tool_calls_total",
+    "bigrobot_tool_calls_total",
     "Tool invocations by tool and status.",
     ["tool", "status"],
     registry=REGISTRY,
 )
 RETRIEVAL_LATENCY = Histogram(
-    "zhike_retrieval_latency_seconds",
+    "bigrobot_retrieval_latency_seconds",
     "Knowledge-base retrieval latency.",
     ["backend"],
     buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
@@ -73,7 +73,7 @@ RETRIEVAL_LATENCY = Histogram(
 )
 
 _STARTED = time.time()
-_UPTIME = Gauge("zhike_uptime_seconds", "Process uptime in seconds.", registry=REGISTRY)
+_UPTIME = Gauge("bigrobot_uptime_seconds", "Process uptime in seconds.", registry=REGISTRY)
 _UPTIME.set_function(lambda: time.time() - _STARTED)
 
 # ---- 兼容旧接口（tests/test_security_gaps.py 直接调用） ----

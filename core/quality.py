@@ -182,7 +182,7 @@ def critique(text: str, query: str = "", *, channel: str = "", persona: str = ""
         # 问"你是谁"时，回复里必须出现这个角色自己的身份锚点。
         #
         # 早期这里写死了「猫」：只对默认角色「零」成立。一旦用户切到「老陈」
-        # （技术支持）或「知客」（秘书），任何正常回答都因为不含「猫」被判 high
+        # （技术支持）或「BigRobot」（秘书），任何正常回答都因为不含「猫」被判 high
         # 并被强制重写一次——既浪费一次模型调用，又可能把正确答案改坏。
         # 现在锚点从角色卡推断，没有角色卡时回退到通用判定（不误伤）。
         anchors = _identity_anchors(persona)
@@ -203,7 +203,7 @@ def needs_rewrite(issues: list[dict]) -> bool:
 def _rewrite_prompt(text: str, issues: list[dict], persona: str, query: str) -> str:
     problems = "\n".join(f"- {i['detail']}" for i in issues)
     voice = persona.strip()[:1200] if persona else ""
-    # 身份那句不能写死"一只叫零的猫娘"：切到「老陈」（技术支持）或「知客」（秘书）
+    # 身份那句不能写死"一只叫零的猫娘"：切到「老陈」（技术支持）或「BigRobot」（秘书）
     # 时，这句话等于在重写阶段把角色又拉回猫娘，越改越偏。
     # 有角色提示词就交给它自己定义身份，没有才用通用说法。
     identity_rule = ("1. 不许自称 AI、机器人、助手、语言模型；保持下面这个角色自己的身份。\n"

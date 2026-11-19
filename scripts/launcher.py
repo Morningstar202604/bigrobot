@@ -1,4 +1,4 @@
-"""知客一键启动器：把「拉仓库 → 起核心 → 起网关 → 连协议端」收进一个本地网页。
+"""BigRobot一键启动器：把「拉仓库 → 起核心 → 起网关 → 连协议端」收进一个本地网页。
 
 浏览器打开 http://127.0.0.1:8020 即可操作；只绑定 127.0.0.1，不需要令牌。
 
@@ -101,7 +101,7 @@ def start_core() -> str:
     uvicorn = VENV / "uvicorn.exe"
     if not uvicorn.exists():
         return "X .venv/Scripts/uvicorn.exe 不存在——先点「装依赖」"
-    env = dict(os.environ, CS_AGENT_STATIC_DIR="frontend/dist")
+    env = dict(os.environ, BIGROBOT_STATIC_DIR="frontend/dist")
     log_fh = open(LOGS / "core.log", "ab")
     procs["core"] = subprocess.Popen(
         [str(uvicorn), "core.main:app", "--host", "127.0.0.1", "--port", str(CORE_PORT)],
@@ -357,7 +357,7 @@ def _qq_running() -> bool:
 # ---------------- HTTP 服务 ----------------
 
 PAGE = """<!doctype html><html lang="zh"><head><meta charset="utf-8">
-<title>知客启动器</title><style>
+<title>BigRobot启动器</title><style>
 :root{--bg:#f6f7f9;--panel:#fff;--line:#e4e7ec;--tx:#1a1f27;--mut:#667085;--ok:#16a34a;--bad:#dc2626;--warn:#d97706;--brand:#2563eb}
 *{box-sizing:border-box}body{margin:0;font:14px/1.6 system-ui,'Microsoft YaHei',sans-serif;background:var(--bg);color:var(--tx)}
 .wrap{max-width:860px;margin:0 auto;padding:24px 16px}
@@ -376,7 +376,7 @@ button.p:hover{opacity:.9;color:#fff}
 pre{background:#f1f3f7;border-radius:8px;padding:10px;font-size:11px;max-height:180px;overflow:auto;white-space:pre-wrap}
 input{border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;width:130px}
 </style></head><body><div class="wrap">
-<h1>知客启动器</h1><div class="sub">仓库 → 核心 → 网关 → 协议端，一键串起来</div>
+<h1>BigRobot启动器</h1><div class="sub">仓库 → 核心 → 网关 → 协议端，一键串起来</div>
 
 <div class="card"><h2><span id="d-git" class="dot"></span>仓库</h2>
 <div class="row"><span class="meta" id="commit"></span>

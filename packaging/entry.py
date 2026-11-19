@@ -26,10 +26,10 @@ if str(BASE) not in sys.path:
     sys.path.insert(0, str(BASE))
 
 # 单文件 exe 的默认前端目录：包内的 frontend/dist
-if getattr(sys, "frozen", False) and not os.environ.get("CS_AGENT_STATIC_DIR"):
+if getattr(sys, "frozen", False) and not os.environ.get("BIGROBOT_STATIC_DIR"):
     dist = BASE / "frontend" / "dist"
     if dist.is_dir():
-        os.environ["CS_AGENT_STATIC_DIR"] = str(dist)
+        os.environ["BIGROBOT_STATIC_DIR"] = str(dist)
 
 from core.cli import main  # noqa: E402
 
@@ -40,7 +40,7 @@ if __name__ == "__main__":
         from core import paths
 
         if not (paths.writable_dir() / ".env").exists():
-            print("知客 Zhike · 首次运行，正在初始化…\n")
+            print("BigRobot BigRobot · 首次运行，正在初始化…\n")
             code = main(["init"])
             if code != 0:
                 input("\n初始化未完成，按回车退出…")

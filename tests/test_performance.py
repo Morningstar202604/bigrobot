@@ -27,12 +27,12 @@ def test_connection_is_reused_within_thread(client):
 
 def test_connection_rebuilt_when_db_path_changes(tmp_path, monkeypatch):
     """切换数据库路径必须重建连接，不能读到旧库。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "a.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "a.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     store.create_session("s-a", "v")
 
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "b.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "b.db"))
     store.init_db()
     assert store.get_session("s-a") is None, "换库后不应读到旧库数据"
 
@@ -358,13 +358,13 @@ def test_websearch_unavailable_without_config(monkeypatch):
     """显式关闭自动启用、且未配置任何后端时，必须明确返回不可用。
 
     行为变更：默认会自动启用免 Key 的 ddgs（装了即用，开箱可用优先）。
-    内网/离线部署用 CS_AGENT_SEARCH_AUTO=0 显式关闭，此时才回到"无搜索"。
+    内网/离线部署用 BIGROBOT_SEARCH_AUTO=0 显式关闭，此时才回到"无搜索"。
     """
     from core import websearch
 
     for k in ("SEARCH_PROVIDER", "TAVILY_API_KEY", "SERPER_API_KEY", "SEARXNG_URL"):
         monkeypatch.delenv(k, raising=False)
-    monkeypatch.setenv("CS_AGENT_SEARCH_AUTO", "0")
+    monkeypatch.setenv("BIGROBOT_SEARCH_AUTO", "0")
     assert websearch.available() is False
     assert websearch.provider() == ""
     result = asyncio.run(websearch.search("测试"))
@@ -378,7 +378,7 @@ def test_websearch_auto_enables_keyless_backend(monkeypatch):
 
     for k in ("SEARCH_PROVIDER", "TAVILY_API_KEY", "SERPER_API_KEY", "SEARXNG_URL"):
         monkeypatch.delenv(k, raising=False)
-    monkeypatch.setenv("CS_AGENT_SEARCH_AUTO", "1")
+    monkeypatch.setenv("BIGROBOT_SEARCH_AUTO", "1")
     assert websearch.provider() in ("ddgs", "bing", "")
     if websearch.provider():
         assert websearch.available() is True

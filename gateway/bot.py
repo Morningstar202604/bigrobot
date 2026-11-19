@@ -141,7 +141,7 @@ def _preflight_ws() -> None:
         "  4) Windows 本机：确认桌面 QQ 没有占着账号（同号互斥，"
         "桌面端在跑时 NapCat 注入的 QQ 会秒退）",
         "  5) 确认 NapCat 版本适配当前 QQ 版本：python scripts/napcat_local.py status",
-        "  详见 docs/QQ-LOGIN.md",
+        "  详见 docs/DEPLOY.md §4",
     ]
     logger.error(chr(10).join(lines))
     sys.exit(2)
@@ -169,7 +169,7 @@ def _preflight_core() -> None:
             "  网关会把消息 POST 到 CORE_BASE_URL/v1/ingest，连不上就等于群里没响应。\n"
             "  1) core 是否在跑：curl " + CORE_BASE_URL + "/healthz\n"
             '  2) 端口是否一致：core 默认 8010，用 CORE_BASE_URL 显式指定\n'
-            "  详见 DEPLOY.md"
+            "  详见 docs/DEPLOY.md"
         )
         sys.exit(2)
     if r.status_code != 200:
@@ -198,7 +198,7 @@ nonebot.init(**_init_kwargs)
 driver = nonebot.get_driver()
 driver.register_adapter(OneBotV11Adapter)
 
-# 默认必须与 core 实际监听端口一致（8010，见 DEPLOY.md / compose / .env.example）。
+# 默认必须与 core 实际监听端口一致（8010，见 docs/DEPLOY.md / compose / .env.example）。
 # 早期写成 8000，而 core 一直跑在 8010：网关照样启动、照样连上 NapCat，
 # 但每条消息 POST /v1/ingest 都打到空端口，表现为「QQ 群里 @ 了没反应，
 # 网关日志也没有明显报错」——排查成本极高，所以这里对齐并加启动自检。

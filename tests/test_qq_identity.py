@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 @pytest.fixture()
 def fresh_db(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "identity.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "identity.db"))
     from core import store
 
     store._SCHEMA_READY.clear()

@@ -5,7 +5,7 @@
 演示数据建议先用 scripts/seed_demo.py 生成独立库并单独起服务：
 
     python scripts/seed_demo.py
-    CS_AGENT_DB=.demo/cs_agent.db CS_AGENT_STATIC_DIR=frontend/dist \
+    BIGROBOT_DB=.demo/cs_agent.db BIGROBOT_STATIC_DIR=frontend/dist \
       ADMIN_TOKEN=demo-admin CHANNEL_TOKEN=demo-chan \
       python -m uvicorn core.main:app --port 8012
     ADMIN_TOKEN=demo-admin python scripts/take_screenshots.py http://127.0.0.1:8012

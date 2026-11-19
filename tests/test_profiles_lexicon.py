@@ -4,7 +4,7 @@ from core import profiles
 
 
 def test_profile_created_and_stats_accumulate(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "p.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "p.db"))
     from core import store
     store._SCHEMA_READY.clear()
     store.init_db()
@@ -19,7 +19,7 @@ def test_profile_created_and_stats_accumulate(monkeypatch, tmp_path):
 
 
 def test_group_profile_and_block(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "p2.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "p2.db"))
     from core import store
     store._SCHEMA_READY.clear()
     store.init_db()
@@ -30,7 +30,7 @@ def test_group_profile_and_block(monkeypatch, tmp_path):
 
 
 def test_lexicon_learn_from_definition(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "p3.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "p3.db"))
     from core import store
     store._SCHEMA_READY.clear()
     store.init_db()
@@ -43,7 +43,7 @@ def test_lexicon_learn_from_definition(monkeypatch, tmp_path):
 
 
 def test_lexicon_ignores_plain_chat(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "p4.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "p4.db"))
     from core import store
     store._SCHEMA_READY.clear()
     store.init_db()
@@ -52,7 +52,7 @@ def test_lexicon_ignores_plain_chat(monkeypatch, tmp_path):
 
 
 def test_lexicon_hits_increment(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "p5.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "p5.db"))
     from core import store
     store._SCHEMA_READY.clear()
     store.init_db()
@@ -82,7 +82,7 @@ def test_pipeline_auto_creates_profile(monkeypatch, tmp_path):
     """每轮对话都要给用户/群自动建档并累加消息数：只读不写等于没建档。"""
     import asyncio
 
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "auto.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "auto.db"))
     from core import config as config_mod
     from core import pipeline, store
     from core.pipeline import ChannelMessage

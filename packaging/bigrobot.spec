@@ -1,14 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller 打包配置：把知客打成单个 Windows exe。
+"""PyInstaller 打包配置：把BigRobot打成单个 Windows exe。
 
 ## 打包策略
 
-- **单文件（onefile）**：用户拿到一个 zhike.exe 就能跑，不需要装 Python。
+- **单文件（onefile）**：用户拿到一个 bigrobot.exe 就能跑，不需要装 Python。
   代价是启动时要解包到临时目录（首次约 3-5 秒），但换来的分发体验最重要——
   这是「个人自托管工具」，不是常驻服务器进程，启动慢一点可以接受。
-- **控制台程序**（console=True）：CLI 是主入口（`zhike init` / `zhike run`），
+- **控制台程序**（console=True）：CLI 是主入口（`bigrobot init` / `bigrobot run`），
   必须能打印输出。用 GUI 子系统会让命令行窗口里看不到任何提示。
-- **前端产物一起打进去**：`CS_AGENT_STATIC_DIR` 默认指向包内 `frontend/dist`，
+- **前端产物一起打进去**：`BIGROBOT_STATIC_DIR` 默认指向包内 `frontend/dist`，
   用户双击 exe 就有完整的 Web 控制台，不用自己 npm build。
 
 ## 数据文件
@@ -23,8 +23,8 @@
 数百 MB 压到可接受的量级。需要向量检索的用户用 pip 安装完整版。
 
 用法：
-    pyinstaller packaging/zhike.spec --noconfirm
-产物：dist/zhike.exe
+    pyinstaller packaging/bigrobot.spec --noconfirm
+产物：dist/bigrobot.exe
 """
 from pathlib import Path
 
@@ -100,7 +100,7 @@ exe = EXE(  # noqa: F821
     a.binaries,
     a.datas,
     [],
-    name="zhike",
+    name="bigrobot",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -113,5 +113,5 @@ exe = EXE(  # noqa: F821
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(ROOT / "packaging" / "zhike.ico") if (ROOT / "packaging" / "zhike.ico").exists() else None,
+    icon=str(ROOT / "packaging" / "bigrobot.ico") if (ROOT / "packaging" / "bigrobot.ico").exists() else None,
 )

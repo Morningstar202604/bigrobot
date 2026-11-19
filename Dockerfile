@@ -23,11 +23,11 @@ COPY executor ./executor
 COPY scripts ./scripts
 COPY --from=ui /ui/dist ./frontend/dist
 # 单端口模式：core 直接托管控制台
-ENV CS_AGENT_STATIC_DIR=/app/frontend/dist
+ENV BIGROBOT_STATIC_DIR=/app/frontend/dist
 
 # 非 root 运行：容器逃逸后拿到的也只是普通用户；数据卷由 compose 挂载前创建。
-RUN useradd --create-home --uid 10001 zhike     && mkdir -p /data && chown -R zhike:zhike /app /data
-USER zhike
+RUN useradd --create-home --uid 10001 bigrobot     && mkdir -p /data && chown -R bigrobot:bigrobot /app /data
+USER bigrobot
 
 EXPOSE 8010
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3   CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8010/healthz', timeout=3)"

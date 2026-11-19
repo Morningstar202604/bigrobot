@@ -1,6 +1,6 @@
 [project]
-name = "zhike"
-version = "1.8.1"
+name = "bigrobot"
+version = "2.0.0"
 description = "Self-hosted personal assistant agent harness: QQ + Web, ReAct loop, RAG, reminders, tiered action permissions, audit."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -36,7 +36,7 @@ dev = ["pytest~=9.0", "pytest-cov~=7.0", "pytest-asyncio~=1.0", "ruff~=0.17",
 build = ["pyinstaller~=6.22"]
 
 [project.scripts]
-zhike = "core.cli:main"
+bigrobot = "core.cli:main"
 
 [tool.setuptools]
 # 只打包真正的 Python 包；frontend/deploy/logs 是资源与产物，不属于发行包。

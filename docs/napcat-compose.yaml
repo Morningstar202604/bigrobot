@@ -34,7 +34,7 @@ services:
       # MODE=ws 让 NapCat 监听 3001（正向 WS）。
       # 默认模板是 nonebot（主动外连协议端），方向相反，网关会连不上。
       MODE: ws
-      WEBUI_TOKEN: ${NAPCAT_WEBUI_TOKEN:-zhike-local}
+      WEBUI_TOKEN: ${NAPCAT_WEBUI_TOKEN:-bigrobot-local}
     ports:
       # 只绑 127.0.0.1：WebUI 与 OneBot 都不该暴露到公网。
       - "127.0.0.1:6099:6099"

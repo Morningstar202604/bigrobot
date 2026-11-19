@@ -17,6 +17,52 @@ The authoritative version string lives in [`VERSION`](VERSION), mirrored by
 
 ---
 
+## [2.0.0] — 2026-11-19
+
+**品牌与定位重置。** 项目从「知客 / Zhike」更名为 **BigRobot**，定位从「自托管私人秘书」
+改为一台**接管账号的机器人平台**：接模型 API、接协议端，治理能力做在引擎里。
+本地部署不再是卖点，只是三种部署方式之一。
+
+### Changed（不兼容）
+
+- **包名、命令、配置前缀全部换新。** `zhike` → `bigrobot`（`pip` 包名、CLI 命令、
+  PyInstaller spec 与产物 `dist/bigrobot.exe`）；环境变量前缀 `CS_AGENT_*` / `ZHIKE_*`
+  → `BIGROBOT_*`。
+- **兼容层：旧前缀自动映射。** `core/env.py:alias_legacy_env()` 在 `load_env()` 之后把旧
+  前缀映射为新前缀，已存在的新变量不覆盖 —— 老 `.env`、老 compose、老 systemd 单元
+  不用改也能起。
+- **改名不丢数据。** `core/paths.py:_candidates()` 发现旧目录 `zhike-data/`（或
+  `%LOCALAPPDATA%\Zhike`）存在时**优先复用**，而不是直接建 `bigrobot-data/`。
+- **前端本地存储键统一。** 新增 `frontend/src/lib/storage.ts`：键名只在一处定义
+  （`bigrobot-admin-token` / `-lang` / `-theme` / `-sessions` / `-persona-roles` / `-canned`），
+  读取旧键（`cs-agent-app`、`cs_sessions`、`zhike-theme`、`zhike-lang`…）时自动迁移并删除旧键。
+  zustand persist 键同步改为 `bigrobot-admin-token`。
+
+### Docs（去重：3556 行 → 门面 + 4 份专题）
+
+- **README 重写，不再以「本地 / 自托管 / 不需要 Docker」为卖点。** 首屏改为「接 API 的机器人平台」，
+  Docker 作为推荐部署方式，源码与 exe 降为可选路径。
+- **`BENCHMARK.md` + `COMPETITIVE-RESEARCH.md` → `docs/COMPARISON.md`**：只留差异、矩阵与证据，
+  删掉逐项目复述；补上「与 AstrBot 的差别在新增能力的单位成本」这一节。
+- **`DEPLOY.md` + `QQ-LOGIN.md` + `QQ-LOCAL.md` + `audit/DEPLOY-VERIFY.md` → `docs/DEPLOY.md`**：
+  一份部署手册，协议端三条路径（容器 / 控制台扫码 / 本机注入）列在一张表里。
+- **历史文档进 `docs/archive/`**（`CODE-AUDIT`、旧 benchmark、旧部署记录等），不再对外宣称。
+- **修正长期漂移的数字**：工具声明 42 → **51（`TOOL_META`）/ 55（`/api/agent/health` 计数）**，路由 110 → **114 条 REST + 2 WS**，表 16 → **28**，
+  i18n 覆盖 36% → **0 缺失**（`scripts/i18n_gap.py`：msgid 438 / en.ts 751）。
+
+### Fixed
+
+- README 标题重复（`BigRobot BigRobot`）与 `.env` 章节里失效的 `CS_AGENT_` 说明。
+
+### Known issues（2.0 未修，已进 ROADMAP）
+
+- `ActionsCenter` 被 `/actions → /runs` 重定向吞掉，控制台没有入口审批 L2 动作。
+- 7 条 `async def` 路由同步跑 SQLite/文档解析，导入大文档时全站卡顿（实测 `/healthz` 峰值 2.2s）。
+- `PluginManifest` / `PluginRegistry` 只被测试引用，网关启动流程未接入。
+- L2 审批分支跑在主体判定之前，陌生群成员也能生成审批单。
+
+---
+
 ## [1.4.1] — 2026-11-03
 
 ### Fixed
@@ -243,16 +289,16 @@ Delivery layer: the project becomes installable, shippable, and self-explanatory
 
 ### Added
 
-- **`zhike` CLI** (`core/cli.py`): `init`, `run`, `doctor`, `status`, `version`. `init` creates
+- **`bigrobot` CLI** (`core/cli.py`): `init`, `run`, `doctor`, `status`, `version`. `init` creates
   `.env`, generates 32-byte admin/channel tokens and creates the database; `run` starts the
   server and auto-initializes on first use; `doctor` reports what is actually true (deps, tokens,
   ports, database, frontend build, live service health) instead of making users guess.
-  Registered as `[project.scripts] zhike` and installable via `pip install -e .`.
+  Registered as `[project.scripts] bigrobot` and installable via `pip install -e .`.
 - **Single-file Windows exe** (`packaging/`, `scripts/build_exe.py`): 60 MB, no Python needed on
   the target machine. `build_exe.py` verifies `/healthz`, `/readyz`, the console page, and a real
   tool call before declaring success.
 - **`core/paths.py`**: one place that resolves read-only assets (bundled in `_MEIPASS`) versus
-  writable data (`zhike-data/` next to the exe, or `%LOCALAPPDATA%\Zhike`). Previously every
+  writable data (`bigrobot-data/` next to the exe, or `%LOCALAPPDATA%\BigRobot`). Previously every
   module computed `Path(__file__).parent` independently, which cannot survive packaging.
 - **First-run setup wizard** (`core/api/setup.py` + `SetupWizard.jsx`): four steps (welcome,
   model, optional QQ, self-check), resumable, skippable, local-only, auto-skipped for existing
@@ -272,11 +318,11 @@ Delivery layer: the project becomes installable, shippable, and self-explanatory
 - **The protocol-end downloader hardcoded a proxy at `127.0.0.1:7897`.** On any machine without
   that proxy running, all six parallel ranges failed with `ConnectError` and the download stalled
   with no actionable message. Proxies are now opt-in via `NAPCAT_DL_PROXY`.
-- **`zhike init` could leave two `ADMIN_TOKEN` entries in `.env`** by appending instead of filling
+- **`bigrobot init` could leave two `ADMIN_TOKEN` entries in `.env`** by appending instead of filling
   the existing empty key in place.
 - **CLI crashed on Windows GBK consoles** at the first `✓` (`UnicodeEncodeError`), which made the
   exe fail on its very first command. Output now degrades to ASCII when UTF-8 is unavailable.
-- **`zhike status`/`doctor` misreported healthy checks as failures** (`configured` was read as a
+- **`bigrobot status`/`doctor` misreported healthy checks as failures** (`configured` was read as a
   boolean `ok`).
 - **`report_demo.py` clicked an element that only exists in a non-default tab** of the runs page,
   so demo recording failed. It now switches to the action-audit view first.
@@ -307,7 +353,7 @@ were silently broken rather than visibly broken.
 - **`logger.debug()` never reached the log ring.** `events_log.attach()` hardcoded
   `setLevel(INFO)` on both `core` and `cs.events`, so the diagnostics worth having —
   retrieval scores, rule-layer hits, model fallbacks — were dropped before reaching the
-  in-memory ring and `/api/admin/logs`. New `CS_AGENT_LOG_LEVEL` (default `INFO`) makes the
+  in-memory ring and `/api/admin/logs`. New `BIGROBOT_LOG_LEVEL` (default `INFO`) makes the
   level configurable; the console's log page gained a `DEBUG` filter and per-row
   `request_id` (click to copy).
 - **Protocol-end download could hang forever.** `napcat_fetch._download_part()` reset its
@@ -440,7 +486,7 @@ a single blob of prompt text, and replies are checked against it before they lea
 ### Fixed
 
 - **Identity rewrite criteria were hard-coded to the cat persona.** The gate demanded the word
-  「猫」 in any reply to "who are you", so switching to 老陈 (tech support) or 知客 (secretary)
+  「猫」 in any reply to "who are you", so switching to 老陈 (tech support) or BigRobot (secretary)
   forced a pointless rewrite of every correct answer. Anchors are now inferred from the persona
   itself (`quality._identity_anchors`), and rewrite prompts no longer re-assert the cat persona.
 - **Fallback lines spoke in the wrong character's voice.** When a rewrite fails, the fallback

@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import Logo from './Logo'
 import { LANGS, setLang } from '../i18n'
+import { K, read, write } from '../lib/storage'
 
 /** 分组导航（Codex 式）：组名小字居上，条目紧凑排布。
  *  match 可选：自定义激活判定（默认 startsWith，end 表示全等）。 */
@@ -50,10 +51,10 @@ const Ctx = React.createContext({ drawerOpen: false, setDrawerOpen: () => {}, mo
 export const useShell = () => useContext(Ctx)
 
 function useTheme() {
-  const [theme, setTheme] = useState(() => localStorage.getItem('zhike-theme') || 'light')
+  const [theme, setTheme] = useState(() => read(K.theme, 'light'))
   React.useEffect(() => {
     document.documentElement.dataset.theme = theme
-    localStorage.setItem('zhike-theme', theme)
+    write(K.theme, theme)
   }, [theme])
   return [theme, () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))]
 }
@@ -100,7 +101,7 @@ function Brand({ onToggleTheme, theme }) {
   return (
     <div className="shell-brand">
       <div className="shell-brand-main">
-        <Logo size={30} onDark withText name={t('知客')} subtitle={t('私人秘书')} />
+        <Logo size={30} onDark withText name={t('BigRobot')} subtitle={t('私人秘书')} />
       </div>
       <div className="shell-brand-actions">
         <select
@@ -190,7 +191,7 @@ export default function ResponsiveShell({ children }) {
                 </button>
                 <Brand onToggleTheme={toggleTheme} theme={theme} />
                 <SideNav onNav={() => setDrawerOpen(false)} />
-                <div className="shell-foot">{t('知客 · MIT 开源')}</div>
+                <div className="shell-foot">{t('BigRobot · MIT 开源')}</div>
               </div>
             </>
           )}
@@ -211,7 +212,7 @@ export default function ResponsiveShell({ children }) {
             <Command size={12} /> <span>K</span>
           </button>
           <div className="shell-foot">
-            {t('知客')}<br />{t('你的私人秘书 · MIT')}
+            {t('BigRobot')}<br />{t('你的私人秘书 · MIT')}
           </div>
         </aside>
         <main className={mainClass}>{children}</main>

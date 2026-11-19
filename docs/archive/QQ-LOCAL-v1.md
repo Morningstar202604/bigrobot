@@ -13,7 +13,7 @@
 | NapCat Framework（LiteLoaderQQNT 注入） | ✅ 完全免扫 | 把插件装进桌面 QQ 客户端本体，用它现成的登录态 | 需修改 QQ 安装、QQ 升级易失效、主号直接暴露给注入框架 | 不自动做；想要的人自己按官方文档装 |
 | LLOneBot（同为 LiteLoaderQQNT 插件） | ✅ 完全免扫 | 同上 | 同上 | 同上 |
 | Lagrange.Core / go-cqhttp | ❌ | 独立协议实现，要自己的登录（密码+签名服务器/已停更） | go-cqhttp 已停更，密码登录历史协议封号风险最高 | 不采用 |
-| QQ 官方机器人开放平台 | ✅ | 官方 API，无风控风险 | 功能受限（戳一戳/精华/群管理等高级动作没有），要注册审核 | 与知客工具集不匹配，不采用 |
+| QQ 官方机器人开放平台 | ✅ | 官方 API，无风控风险 | 功能受限（戳一戳/精华/群管理等高级动作没有），要注册审核 | 与BigRobot工具集不匹配，不采用 |
 
 风控要点（来自 NapCat 官方安全说明与社区实测）：
 
@@ -28,7 +28,7 @@
 以下都已就位（脚本自动完成，重装时按此检查）：
 
 1. **NapCat Shell v4.18.41** 解压在 `.local/napcat/`（QQ 安装沿用系统里的 QQNT，不改 Program Files）。
-2. **`config/webui.json`**：WebUI 固定 `127.0.0.1:6099`，令牌 `zhike-local-6099`（只本机可访问）。
+2. **`config/webui.json`**：WebUI 固定 `127.0.0.1:6099`，令牌 `bigrobot-local-6099`（只本机可访问）。
 3. **`config/onebot11.json`**（全局默认网络配置）：WebSocket 服务端 `127.0.0.1:3001`。
    NapCat 对没有专属配置的账号会**回退读这份全局配置**并自动另存为 `onebot11_<QQ号>.json`
    （从 v4.18.41 产物源码验证：`read()` 先找账号配置，缺省回落全局并落盘）——所以登录后无需在
@@ -57,7 +57,7 @@ curl -H "X-Admin-Token: <ADMIN_TOKEN>" http://127.0.0.1:8010/api/gateway/health
 # {"online":true,"connected":true,"self_id":"<QQ号>","bots":1,...}
 ```
 
-网关日志出现 `Bot <QQ号> connected` 即接入完成；之后别人在群里 @机器人 / 私聊它就会走知客管线。
+网关日志出现 `Bot <QQ号> connected` 即接入完成；之后别人在群里 @机器人 / 私聊它就会走BigRobot管线。
 
 ## 四、首次登录如何做到零扫码（原理）
 

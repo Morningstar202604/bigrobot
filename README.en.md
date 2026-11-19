@@ -1,226 +1,146 @@
-# Zhike
+# BigRobot
 
-**A self-hosted personal secretary for QQ and the Web — running on hardware you own.**
+**A bot platform that takes over the account.** One process, many model APIs, many protocol
+endpoints — running in group chats, DMs and on the web. The model picks; the harness executes,
+validates, gates and records.
 
-[中文](README.md) · [Architecture](docs/ARCHITECTURE.md) · [Deploy](DEPLOY.md) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
-
-<p align="center">
-  <img src="docs/media/demo.gif" width="860" alt="Zhike in action: console, chat, tool execution, audit">
-</p>
+[中文](README.md) · [Architecture](docs/ARCHITECTURE.md) · [Deploy](docs/DEPLOY.md) · [Comparison](docs/COMPARISON.md) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
 <p align="center">
-  <a href="#quick-start"><b>Quick start</b></a> ·
-  <a href="#what-it-does">What it does</a> ·
-  <a href="#screenshots">Screenshots</a> ·
-  <a href="#cli">CLI</a> ·
-  <a href="#windows-exe">Windows exe</a> ·
-  <a href="#honest-limits">Honest limits</a>
+  <img src="docs/media/demo.gif" width="860" alt="BigRobot: console, chat, tool execution, audit">
 </p>
 
 ---
 
-## Quick start
+## What it is
 
-Three commands. Python 3.12+ only; no Node, no Docker, no config file to hand-edit.
+Not a chat box wrapped around an API key. BigRobot is an **agent harness**: a tool-calling
+loop, graded action permissions, hash-chain audit, hybrid retrieval and multi-endpoint model
+fallback — all in one process, all managed from one console.
+
+Model, channels, knowledge base, persona and action policy are **runtime configuration**:
+edit in the console, effective immediately, no restart, no code change.
+
+## 30 seconds
+
+Docker is the recommended path (the only external dependency is a model API):
 
 ```bash
-pip install -e .
-zhike init
-zhike run
+docker run -d --name bigrobot -p 8010:8010 \
+  -e ADMIN_TOKEN=change-me -e CHANNEL_TOKEN=change-me-too \
+  -v bigrobot-data:/app/.tmp bigrobot
 ```
 
-Open <http://127.0.0.1:8010>. `init` generates the admin and channel tokens for you and prints
-the admin token once; `run` starts the server and tells you if the port is taken.
+Open <http://127.0.0.1:8010>, sign in with `ADMIN_TOKEN`. First start offers a wizard for the
+model key, an optional protocol endpoint and a self-check.
 
-Prefer the console? A first-run wizard walks you through model setup, the optional QQ channel,
-and a self-check. It appears only on the machine hosting Zhike, and only once.
+From source (Python 3.12+):
 
-## Screenshots
+```bash
+pip install -e . && bigrobot init && bigrobot run
+```
 
-<table>
-<tr>
-<td width="50%"><img src="docs/screenshots/en-dashboard.png" alt="Dashboard"><br><sub><b>Dashboard</b> — traffic, escalations, tool ranking</sub></td>
-<td width="50%"><img src="docs/screenshots/visitor-chat.png" alt="Chat"><br><sub><b>Chat</b> — citations, latency, engine mode</sub></td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/sessions.png" alt="Sessions"><br><sub><b>Sessions</b> — filter, search, replay</sub></td>
-<td><img src="docs/screenshots/operator.png" alt="Operator desk"><br><sub><b>Operator desk</b> — live human handoff</sub></td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/persona.png" alt="Personas"><br><sub><b>Personas</b> — 15 presets, structured character cards</sub></td>
-<td><img src="docs/screenshots/kb.png" alt="Knowledge"><br><sub><b>Knowledge</b> — import, edit, trial recall</sub></td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/reminders.png" alt="Reminders"><br><sub><b>Reminders</b> — natural-language scheduling</sub></td>
-<td><img src="docs/screenshots/logs.png" alt="Logs"><br><sub><b>Logs</b> — live events with request IDs</sub></td>
-</tr>
-</table>
-
----
+Full deployment (source / image / reverse proxy / troubleshooting): [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## What it does
 
-Zhike is an agent harness, not a chat wrapper. The loop selects tools, executes them, checks
-budgets, and records every step.
-
 | | |
 |---|---|
-| **Executes, not advises** | 42 registered tools. The model picks; the loop runs, validates, and detects repeated actions. |
-| **Tiered permissions** | Every mutating action is L0/L1/L2. Destructive actions require explicit approval — nothing escalates silently. |
-| **Hash-chained audit** | Who asked, what ran, what changed. Tamper-evident and verifiable from the console. |
-| **Hybrid retrieval** | SQLite FTS5 BM25 fused with optional `sqlite-vec` vectors via RRF; degrades to keyword search when no embedding model is present. |
-| **Runs without an LLM key** | Rules and retrieval keep working. QQ replies continue in rule mode instead of going silent. |
-| **Multi-provider failover** | Parallel racing with cooldown, plus content-level failover when a reply is empty or truncated. |
-| **QQ-first** | NapCat / OneBot v11 gateway with group throttling, bot-to-bot loop guard, emote learning, voice in and out. |
+| **Real execution** | 55 built-in tools: the model only picks; the loop executes, validates params and detects repeated actions. |
+| **Graded action permission** | Every write carries an L0/L1/L2 risk level and a T0–T3 subject tier; destructive actions require human approval — no silent escalation. |
+| **Hash-chain audit** | Who asked, what ran, what changed — tamper-evident and verifiable from the console. |
+| **Hybrid retrieval** | SQLite FTS5 BM25 fused with optional `sqlite-vec` vectors via RRF; degrades cleanly to keyword search without an embedding model. |
+| **Multi-endpoint model fallback** | Endpoint racing + cooldown breaker, plus content-level fallback: retry with another model when a reply is empty or truncated. |
+| **Protocol-native** | OneBot v11 gateway with group throttling, bot-vs-bot loop guard, sticker learning, voice in/out. |
+| **Never mute without a key** | Rules and retrieval keep working; group chats reply in explicit rule mode instead of going silent. |
 
 | Area | Included |
 |---|---|
-| **Channels** | QQ groups and private chat (OneBot v11), embedded web chat, operator desk over WebSocket |
-| **Agent** | Multi-step ReAct, native function calling with JSON fallback, per-run token and wall-clock budgets, cancellation |
-| **Knowledge** | Markdown / text / PDF / DOCX / XLSX import, trial-recall playground, export, per-entry CRUD |
-| **Memory** | Long-term preferences and session notes; opt-out is respected and persisted |
-| **Reminders** | Chinese natural time (`十分钟后`, `每天八点`, `每月三十一号`) plus ISO timestamps and recurrence rules |
-| **Voice** | faster-whisper transcription and edge-tts synthesis, both optional |
-| **Personas** | 15 presets across 6 categories, each with a structured character card and a drift guard |
-| **Ops** | Prometheus metrics, request IDs, `/healthz` and `/readyz`, multi-stage Docker image, non-root |
+| **Channels** | QQ groups/DMs (OneBot v11), embedded web chat, WebSocket operator desk; WeCom / Official Account are adapter skeletons |
+| **Agent** | Multi-step ReAct, native function calling with JSON fallback, per-run token/wall-clock budget, cancellable |
+| **Knowledge** | Markdown / text / PDF / DOCX / XLSX import, trial recall, export, per-entry edit |
+| **Memory & reminders** | Long-term preferences, session notes; Chinese natural time (`十分钟后`, `每天八点`) and cron rules |
+| **Persona** | 6 categories, 15 presets, structured role cards with drift guard, import/export |
+| **Ops** | Prometheus metrics, request correlation IDs, `/healthz`, `/readyz`, multi-stage image, non-root |
 
----
+## What it connects to
+
+- **Models** — any OpenAI-compatible endpoint; endpoint racing so one bad vendor doesn't stall the site.
+- **Protocol endpoints** — OneBot v11 (NapCat and friends). The endpoint owns login and protocol;
+  BigRobot owns the brain and the governance.
+- **External tools** — an MCP server exposes capabilities; business systems plug in over HTTP tools.
+- **Web** — embedded chat and operator desk share the same sessions and audit trail.
+
+## Console
+
+One login, one interface: sessions, tools, action approvals, knowledge base, persona, models,
+channels, audit, logs. `/actions` is the single place pending approvals live — the place you
+approve is the place they are raised.
+
+> 2.0 is merging 28 pages into 7 (instances / sessions / capabilities / policy / observability /
+> settings / reminders). Screenshots below are 1.x and only illustrate scope.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/dashboard.png" alt="Overview"><br><sub><b>Overview</b></sub></td>
+<td width="50%"><img src="docs/screenshots/visitor-chat.png" alt="Web chat"><br><sub><b>Web chat</b></sub></td>
+</tr>
+</table>
 
 ## CLI
 
 ```
-zhike init      # create .env, generate tokens, create the database
-zhike run       # start the server (--gateway also starts the QQ gateway)
-zhike doctor    # check deps, tokens, ports, database, frontend, service health
-zhike status    # show current config and live service state
-zhike version   # version and paths
+bigrobot init      # create .env, generate tokens, init DB
+bigrobot run       # start the server (--gateway also starts the protocol gateway)
+bigrobot doctor    # check deps, tokens, port, DB, frontend, service health
+bigrobot status    # current config and live service state
+bigrobot version   # version and paths
 ```
 
-`zhike doctor` is the first thing to run when something looks wrong. It reports what is
-actually true — whether the port is taken, whether the service answering on it is this version,
-and whether a model key is configured — instead of making you guess from a blank page.
-
-```bash
-$ zhike doctor
-✓ .env exists
-✓ ADMIN_TOKEN set (64 chars)
-✓ Python dependencies present
-✓ database exists (0.8 MB)
-✓ frontend build present
-! no model API key — running in rule mode
-✓ port 8010 free
-```
-
----
-
-## Windows exe
-
-A single-file executable built with PyInstaller; no Python required on the target machine.
-
-```bash
-python scripts/build_exe.py          # build + smoke test
-dist-exe/zhike.exe                   # 60 MB, self-contained
-```
-
-Double-clicking the exe with no arguments initializes on first launch and starts the server.
-Writable data (database, logs, `.env`) goes to `zhike-data/` next to the exe, or
-`%LOCALAPPDATA%\Zhike` when that directory is read-only. Read-only assets (knowledge seed,
-character cards, console build) ship inside the binary.
-
-> PyInstaller is a deliberate choice for a single-file download, not the industry default —
-> most comparable projects ship Electron/Tauri shells or Docker only. The build script verifies
-> `/healthz`, `/readyz`, the console page, and a real tool call before declaring success.
-
----
-
-## Docker
-
-```bash
-docker build -t zhike .
-docker run -d -p 8010:8010 \
-  -e ADMIN_TOKEN=change-me -e CHANNEL_TOKEN=change-me-too \
-  -v zhike-data:/app/.tmp zhike
-```
-
----
-
-## Connect QQ
-
-QQ is optional; the web console works without it.
-
-```bash
-python scripts/qq_doctor.py     # tells you which path fits this machine
-```
-
-```bash
-# A. Containerized (recommended) — host QQ version is irrelevant, scan a QR once
-docker compose -f docs/napcat-compose.yaml up -d
-
-# B. Local injection — reuses desktop QQ credentials, no QR, but version-sensitive
-python scripts/napcat_local.py start --qq <your-account>
-```
-
-The console also deploys and starts the protocol end from the UI (Settings → Channels → QQ).
-
-> Local injection breaks silently after a QQ auto-update: the process is alive, no port answers,
-> and the log only says `Process resumed`. If that repeats, switch to the container path.
-> See [docs/QQ-LOGIN.md](docs/QQ-LOGIN.md) and [docs/QQ-LOCAL.md](docs/QQ-LOCAL.md).
-
----
+When something is wrong, run `bigrobot doctor` first: it reports the *actual* state — who holds
+the port, whether the model key is really configured.
 
 ## Configuration
 
-Three layers resolve in order: **code defaults → environment → database**. The console writes
-the database layer, so tuning takes effect without a restart. Every supported key is documented
-in [`.env.example`](.env.example).
-
----
+Three layers: **code defaults → env vars → database**. The console writes the database layer,
+so changes apply immediately. All keys in [`.env.example`](.env.example). Since 2.0 every env
+var uses the `BIGROBOT_*` prefix; legacy `CS_AGENT_*` / `ZHIKE_*` are mapped automatically.
 
 ## Verify it works
 
 ```bash
-pytest tests -q                                   # unit and integration suite
-ruff check core executor gateway scripts tests     # lint
-python scripts/harness_all.py                     # offline regression: personas, version, emotes
-cd frontend && npm test && npm run build          # frontend tests and build
+pytest tests -q                                   # 976 passed
+ruff check core executor gateway scripts tests    # 0 errors
+python scripts/harness_all.py                     # offline regression
+cd frontend && npm test && npm run build          # frontend
+python scripts/e2e_check.py --base-url <isolated instance>
 ```
 
-`scripts/e2e_check.py` exercises a **running instance** end to end: retrieval, tools, guardrails,
-memory, rate limiting, human handoff, config hot-reload, knowledge CRUD, and WebSocket push.
-
-> It writes sessions, messages, and tickets, then removes its test data. Run it against an
-> isolated instance only — never against production or a real QQ group.
-
----
+> `e2e_check.py` writes sessions, messages and tickets, then cleans up. **Isolated instances only.**
 
 ## Honest limits
 
-These are real boundaries, not disclaimers:
+- **External services are external.** Models, search, protocol delivery and voice depend on the
+  network and vendor availability. "Configured" in the console does not mean "reachable now".
+- **Reminder time zones** depend on the entry point and server TZ — verify in the target env.
+- **Budgets are checked before and after** each call, not a hard per-request cap.
+- **WeCom / Official Account** are adapter skeletons, not production integrations.
+- **File / shell / process** operations need explicit policy and approval, off by default.
 
-- **External services stay external.** Models, web search, QQ delivery, vision, voice, and business
-  tools all depend on network, credentials, and vendor availability. The console reports
-  "configured", which is not the same as "reachable right now".
-- **Reminder time zones.** Natural-language parsing and delivery depend on the entry point and the
-  server time zone. Verify in the target environment before relying on it.
-- **Budgets are checked around calls**, not enforced as a hard per-request ceiling.
-- **WeCom and WeChat Official Account are adapter skeletons**, not production-ready integrations.
-- **File operations require a separate executor** and an explicit policy; disabled by default.
+## Docs
 
----
+One topic per document, no duplication:
 
-## Project
-
-- [CHANGELOG.md](CHANGELOG.md) — per-release changes, Keep a Changelog format
-- [ROADMAP.md](ROADMAP.md) — what is planned, and what is explicitly not
-- [docs/RELEASING.md](docs/RELEASING.md) — release process and branch policy
-- [docs/research/COMPETITIVE-RESEARCH.md](docs/research/COMPETITIVE-RESEARCH.md) — how this compares to 12 comparable projects
-- [CONTRIBUTING.md](CONTRIBUTING.md) — development setup and commit conventions
-- [SECURITY.md](SECURITY.md) — how to report issues privately
-
-`main` is the only long-lived branch. The version string lives in `VERSION`, `core/version.py`,
-and `pyproject.toml`, kept in sync by `scripts/check_version.py`.
+| Doc | Sole responsibility |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Code map: modules, data flow, invariants, extension points |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Deployment and protocol endpoint setup |
+| [docs/COMPARISON.md](docs/COMPARISON.md) | How it differs from peers, with evidence |
+| [ROADMAP.md](ROADMAP.md) | What we will and will not do |
+| [CHANGELOG.md](CHANGELOG.md) | Per-version changes |
+| [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) | Development and private reporting |
 
 ## License
 
-[MIT](LICENSE). NapCat is an independent, unofficial protocol implementation — check its license
-and platform rules before commercial use.
+[MIT](LICENSE). NapCat is an independent unofficial protocol implementation — check its license
+and the platform rules before commercial use.

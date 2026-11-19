@@ -1085,7 +1085,7 @@ def _fallback_for(issues: list[dict], persona: str = "") -> str:
 
 
 async def run(message: ChannelMessage, history: list[dict], visitor_key: str) -> AgentReply:
-    with tracing.span("zhike.pipeline.run", {"channel": message.channel_type, "visitor": visitor_key}):
+    with tracing.span("bigrobot.pipeline.run", {"channel": message.channel_type, "visitor": visitor_key}):
         prepared = await _prepare(message, history, visitor_key)
         if isinstance(prepared, AgentReply):
             return prepared
@@ -1147,7 +1147,7 @@ async def _run_body(message: ChannelMessage, history: list[dict], visitor_key: s
         return AgentReply(text="", confidence=0.0, mode="no_model", ctx_used=ctx["used"])
     llm_reply = None
     if mode in ("llm", "auto") and cfg.get("llm", {}).get("has_key"):
-        with tracing.span("zhike.llm", {"model": cfg["llm"].get("model", "")}):
+        with tracing.span("bigrobot.llm", {"model": cfg["llm"].get("model", "")}):
             try:
                 llm_reply = await _llm_answer_best(query, ctx, cfg,
                                                    image_b64=message.image_b64,

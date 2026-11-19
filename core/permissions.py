@@ -7,7 +7,7 @@
 1. **可改层**（界面可编辑，改完即时生效）：模型端点、采样参数、检索、上下文、
    技能、钩子、人设、群白名单、拟人节奏、工具开关、Agent 档位 T0–T2。
 2. **锁定层**（界面只读，必须改环境变量 + 重启）：鉴权令牌（ADMIN/CHANNEL/AGENT）、
-   密钥与加密盐（ZHIKE_SECRET_KEY）、破坏性动作总开关（ACTION_L2_ENABLED）、
+   密钥与加密盐（BIGROBOT_SECRET_KEY）、破坏性动作总开关（ACTION_L2_ENABLED）、
    数据清空（/api/admin/purge）、执行器允许根目录（allow_roots）。
 
 为什么这五项锁定：它们一旦被页面改掉，等于把「谁能进来/能删什么」交给了一个
@@ -22,7 +22,7 @@ from __future__ import annotations
 # 核心锁定项：id → (界面名称, 改法说明)
 LOCKED_ITEMS: dict[str, tuple[str, str]] = {
     "auth": ("鉴权令牌", "改 ADMIN_TOKEN / CHANNEL_TOKEN / AGENT_TOKEN 环境变量后重启"),
-    "secrets": ("密钥与加密盐", "改 ZHIKE_SECRET_KEY / USER_LLM_API_KEY 环境变量后重启"),
+    "secrets": ("密钥与加密盐", "改 BIGROBOT_SECRET_KEY / USER_LLM_API_KEY 环境变量后重启"),
     "destructive_actions": ("破坏性动作总开关", "改 ACTION_L2_ENABLED 环境变量后重启"),
     "data_purge": ("数据清空接口", "该接口只在服务端调用，界面不提供入口"),
     "executor_roots": ("执行器允许根目录", "改 policy.json 的 fs.allow_roots 后重启执行器"),

@@ -221,7 +221,7 @@ def test_kb_write_is_atomic(monkeypatch, tmp_path):
 # ---------- T0-10 WAL ----------
 
 def test_wal_enabled(tmp_path, monkeypatch):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "wal.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "wal.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     with store.get_conn() as conn:
@@ -230,7 +230,7 @@ def test_wal_enabled(tmp_path, monkeypatch):
 
 
 def test_concurrent_writes_do_not_lock(tmp_path, monkeypatch):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "conc.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "conc.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     errors: list[Exception] = []

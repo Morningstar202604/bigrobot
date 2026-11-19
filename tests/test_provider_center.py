@@ -190,7 +190,7 @@ def test_skills_api_roundtrip(client):
 def test_hooks_api_roundtrip(client):
     r = client.put("/api/hooks", json={"items": [{
         "id": "h-api", "name": "签名", "event": "post_reply",
-        "match": "", "action": "append", "value": "— 由知客回复",
+        "match": "", "action": "append", "value": "— 由BigRobot回复",
     }]})
     assert r.status_code == 200, r.text
     assert r.json()["items"][0]["name"] == "签名"
@@ -226,10 +226,10 @@ def test_post_reply_append_is_idempotent():
 
     cfg = {"hooks": {"items": [{
         "id": "sig", "name": "落款", "event": "post_reply", "match": "",
-        "action": "append", "value": "—— 知客 · 你的私人秘书", "enabled": True,
+        "action": "append", "value": "—— BigRobot · 你的私人秘书", "enabled": True,
     }]}}
     once = hooks.run_post_reply("好的", cfg)
-    assert once["text"].count("—— 知客") == 1
+    assert once["text"].count("—— BigRobot") == 1
     twice = hooks.run_post_reply(once["text"], cfg)
-    assert twice["text"].count("—— 知客") == 1, "已经有落款就不能再追加"
+    assert twice["text"].count("—— BigRobot") == 1, "已经有落款就不能再追加"
     assert twice["action"] == "pass"

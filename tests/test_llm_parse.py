@@ -14,8 +14,8 @@ def test_fenced_json_passes():
 
 
 def test_prose_becomes_answer():
-    d = _parse_llm_answer("我是知客，您的智能在线客服。")
-    assert d["answer"] == "我是知客，您的智能在线客服。"
+    d = _parse_llm_answer("我是BigRobot，您的智能在线客服。")
+    assert d["answer"] == "我是BigRobot，您的智能在线客服。"
     assert d["confidence"] == 0.62 and d["escalate"] is False
 
 

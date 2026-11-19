@@ -72,14 +72,14 @@ jobs:
           context: .
           push: false
           load: true
-          tags: zhike-core:ci
+          tags: bigrobot-core:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Smoke test container
         run: |
-          docker run -d --name zhike-ci -p 8010:8010 \
+          docker run -d --name bigrobot-ci -p 8010:8010 \
             -e ADMIN_TOKEN=ci-admin-token -e CHANNEL_TOKEN=ci-channel-token \
-            zhike-core:ci
+            bigrobot-core:ci
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8010/healthz; then break; fi
             sleep 2
@@ -87,5 +87,5 @@ jobs:
           curl -fsS http://127.0.0.1:8010/healthz | grep -q '"ok":true'
           curl -fsS http://127.0.0.1:8010/readyz | grep -q '"ok":true'
           curl -fsS http://127.0.0.1:8010/ | grep -qi '<div id="root">'
-          docker logs zhike-ci | tail -30
-          docker rm -f zhike-ci
+          docker logs bigrobot-ci | tail -30
+          docker rm -f bigrobot-ci

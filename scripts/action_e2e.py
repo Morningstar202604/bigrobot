@@ -134,12 +134,12 @@ def main() -> int:
 
     core = f"http://127.0.0.1:{CORE_PORT}"
     admin_h = {"X-Admin-Token": args.admin_token}
-    tmp = tempfile.mkdtemp(prefix="zhike_act_")
+    tmp = tempfile.mkdtemp(prefix="bigrobot_act_")
     env = {
         **os.environ,
-        "CS_AGENT_DB": os.path.join(tmp, "act.db"),
-        "CS_AGENT_KB": os.path.join(tmp, "kb.json"),
-        "CS_AGENT_RETRIEVAL_DB": os.path.join(tmp, "idx.db"),
+        "BIGROBOT_DB": os.path.join(tmp, "act.db"),
+        "BIGROBOT_KB": os.path.join(tmp, "kb.json"),
+        "BIGROBOT_RETRIEVAL_DB": os.path.join(tmp, "idx.db"),
         "ADMIN_TOKEN": args.admin_token,
         "CHANNEL_TOKEN": args.channel_token,
         "ACTION_L2_ENABLED": "true",

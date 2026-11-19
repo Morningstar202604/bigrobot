@@ -22,7 +22,7 @@ def test_local_token_bootstrap_returns_admin_token_locally(client):
 
 
 def test_local_token_bootstrap_can_be_disabled(client, monkeypatch):
-    monkeypatch.setenv("CS_AGENT_LOCAL_TOKEN_BOOTSTRAP", "0")
+    monkeypatch.setenv("BIGROBOT_LOCAL_TOKEN_BOOTSTRAP", "0")
     r = client.get("/api/bootstrap/local-token")
     assert r.status_code == 403
 

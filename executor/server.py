@@ -76,7 +76,7 @@ CAPABILITIES: dict[str, Callable[..., dict]] = {
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Zhike Executor", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="BigRobot Executor", docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.get("/healthz")
     def healthz():

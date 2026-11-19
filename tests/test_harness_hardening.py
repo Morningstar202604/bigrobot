@@ -45,7 +45,7 @@ def test_rate_limited_uses_configured_short_cooldown(monkeypatch):
 
 def test_reminder_due_compares_real_instants(monkeypatch, tmp_path):
     """修复前：ISO 字符串直接比较，+08:00 的已过期提醒会被判成未到期。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "r.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "r.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     rec = store.reminder_add(
@@ -61,7 +61,7 @@ def test_reminder_due_compares_real_instants(monkeypatch, tmp_path):
 
 def test_reminder_claim_is_atomic(monkeypatch, tmp_path):
     """修复前：只 SELECT 不认领，多 worker 会把同一条提醒推送多次。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "r2.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "r2.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     rec = store.reminder_add(visitor_id="v", chat_key="webchat:v", text="x",
@@ -74,7 +74,7 @@ def test_reminder_claim_is_atomic(monkeypatch, tmp_path):
 
 def test_web_reminder_uses_visitor_latest_session(monkeypatch, tmp_path):
     """修复前：把 chat_key 里的 visitor_id 当 session_id 查，网页提醒永远投递失败。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "r3.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "r3.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     store.create_session("real-sid", "visitor-1")
@@ -90,7 +90,7 @@ def test_web_reminder_uses_visitor_latest_session(monkeypatch, tmp_path):
 
 def test_reminder_tick_skips_already_claimed(monkeypatch, tmp_path):
     """tick 必须先认领：已被别的进程抢占的行不能再投递。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "r4.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "r4.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     rec = store.reminder_add(visitor_id="v", chat_key="webchat:v", text="x",
@@ -191,7 +191,7 @@ def test_retrieval_falls_back_when_index_raises(monkeypatch):
 
 def test_expired_channel_session_is_closed(monkeypatch, tmp_path):
     """修复前：TTL 过期只覆盖映射，旧会话永久停在 ongoing。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "s.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "s.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     from core import sessions

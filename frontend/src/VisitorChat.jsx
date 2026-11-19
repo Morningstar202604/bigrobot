@@ -28,6 +28,7 @@ import { useShell } from './components/ResponsiveShell'
 import { http, useWebSearchStatus } from './lib/queries'
 import './pages.css'
 import { t } from './lib/t'
+import { K, readJson, writeJson } from './lib/storage'
 const SCENES = [
   { icon: <Package size={16} />, bg: 'var(--brand-soft)', color: 'var(--brand)', title: t('查订单物流'), text: t('我的订单 ORD12345678 什么时候发货？') },
   { icon: <Undo2 size={16} />, bg: 'var(--ok-soft)', color: '#1a8f52', title: t('申请退款'), text: t('我想申请退款，怎么操作？') },
@@ -36,15 +37,11 @@ const SCENES = [
 ]
 
 function loadSessions() {
-  try {
-    return JSON.parse(localStorage.getItem('cs_sessions') || '[]')
-  } catch {
-    return []
-  }
+  return readJson(K.sessions, [])
 }
 
 function saveSessions(list) {
-  localStorage.setItem('cs_sessions', JSON.stringify(list.slice(0, 30)))
+  writeJson(K.sessions, list.slice(0, 30))
 }
 
 // 消息行：memo 避免长列表时整列重渲染
@@ -240,7 +237,7 @@ export default function VisitorChat() {
   // 改走 Sec-WebSocket-Protocol 子协议，与协作台一致。
   const wsSecret = sessionId ? useAppStore.getState().getSessionSecret(sessionId) || '' : ''
   const wsPath = sessionId ? `/ws/${sessionId}` : null
-  const wsSubs = sessionId && wsSecret ? ['zhike-visitor', wsSecret] : undefined
+  const wsSubs = sessionId && wsSecret ? ['bigrobot-visitor', wsSecret] : undefined
   const { state: wsState } = useWs(
     wsPath,
     (p) => {
@@ -639,7 +636,7 @@ export default function VisitorChat() {
           <div className="sh-left">
             <Avatar kind="agent" size={36} />
             <div>
-              <div className="sh-title">{t('知客 · 私人秘书')}</div>
+              <div className="sh-title">{t('BigRobot · 私人秘书')}</div>
               <div className="sh-sub">
                 {sessionId ? `会话 #${sessionId.slice(0, 8)}` : '未开始对话'}
               </div>
@@ -667,10 +664,10 @@ export default function VisitorChat() {
           {!hasMessages && !loading && (
             <div className="welcome">
               <div className="welcome-logo">
-                <img src="/character.png" alt={t('知客')} width={96} height={96}
+                <img src="/character.png" alt={t('BigRobot')} width={96} height={96}
                      style={{ borderRadius: 22, display: 'block' }} />
               </div>
-              <h2>{t('你好，我是知客，你的私人秘书')}</h2>
+              <h2>{t('你好，我是BigRobot，你的私人秘书')}</h2>
               <p>
                 日程、资料、待办、查东西，都可以交给我；答不上来我会直说，不糊弄你。
                 也可以上传截图，或从下面选一个场景开始。

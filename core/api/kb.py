@@ -193,7 +193,7 @@ def export_kb():
     return PlainTextResponse(
         kb_store.export_markdown(retrieval.load_kb()),
         media_type="text/markdown; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=zhike-kb.md"},
+        headers={"Content-Disposition": "attachment; filename=bigrobot-kb.md"},
     )
 
 

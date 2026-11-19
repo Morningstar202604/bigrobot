@@ -40,8 +40,8 @@ def provider() -> str:
     if os.environ.get("SEARXNG_URL"):
         return "searxng"
     # 都没配：ddgs 是免 Key 的多引擎聚合，装了就该能用（开箱可用优先）。
-    # 可用 CS_AGENT_SEARCH_AUTO=0 关掉自动启用（内网/离线部署不希望外联时）。
-    if (os.environ.get("CS_AGENT_SEARCH_AUTO") or "1").strip().lower() in ("1", "true", "yes", "on"):
+    # 可用 BIGROBOT_SEARCH_AUTO=0 关掉自动启用（内网/离线部署不希望外联时）。
+    if (os.environ.get("BIGROBOT_SEARCH_AUTO") or "1").strip().lower() in ("1", "true", "yes", "on"):
         try:
             import ddgs  # noqa: F401
 

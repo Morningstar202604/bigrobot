@@ -7,7 +7,7 @@ from core import guardrail, sessions, store
 
 
 def _fresh_db(monkeypatch, tmp_path, name):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / name))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / name))
     store.init_db()
     guardrail._CACHE = None  # 隔离其他用例留下的缓存
 

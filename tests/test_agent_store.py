@@ -5,7 +5,7 @@ from core import store
 
 @pytest.fixture(autouse=True)
 def _db(tmp_path, monkeypatch):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "agent.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "agent.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
 

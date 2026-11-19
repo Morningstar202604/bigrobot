@@ -10,9 +10,9 @@ import pytest
 
 
 def test_events_log_writes_to_file(tmp_path, monkeypatch):
-    """配了 CS_AGENT_LOG_FILE 就必须真落盘：否则重启后历史告警无从追溯。"""
+    """配了 BIGROBOT_LOG_FILE 就必须真落盘：否则重启后历史告警无从追溯。"""
     log_file = tmp_path / "app.log"
-    monkeypatch.setenv("CS_AGENT_LOG_FILE", str(log_file))
+    monkeypatch.setenv("BIGROBOT_LOG_FILE", str(log_file))
     from core import events_log
 
     previous = events_log._FILE_HANDLER
@@ -86,7 +86,7 @@ def test_no_token_in_access_log_pattern():
 def test_file_path_reports_actual_path(tmp_path, monkeypatch):
     """health 的 log_path 必须反映真实落盘位置，不能只看环境变量。"""
     log_file = tmp_path / "custom.log"
-    monkeypatch.setenv("CS_AGENT_LOG_FILE", str(log_file))
+    monkeypatch.setenv("BIGROBOT_LOG_FILE", str(log_file))
     from core import events_log
 
     previous = events_log._FILE_HANDLER
@@ -107,7 +107,7 @@ def test_file_path_reports_actual_path(tmp_path, monkeypatch):
 
 
 def test_file_path_empty_when_disabled(monkeypatch):
-    monkeypatch.setenv("CS_AGENT_LOG_FILE", "off")
+    monkeypatch.setenv("BIGROBOT_LOG_FILE", "off")
     from core import events_log
 
     previous = events_log._FILE_HANDLER
@@ -127,16 +127,16 @@ def test_log_level_defaults_to_info_and_accepts_override(monkeypatch):
 
     from core import events_log
 
-    monkeypatch.delenv("CS_AGENT_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("BIGROBOT_LOG_LEVEL", raising=False)
     assert events_log.log_level() == "INFO"
 
-    monkeypatch.setenv("CS_AGENT_LOG_LEVEL", "debug")
+    monkeypatch.setenv("BIGROBOT_LOG_LEVEL", "debug")
     assert events_log.log_level() == "DEBUG", "大小写不应影响结果"
 
-    monkeypatch.setenv("CS_AGENT_LOG_LEVEL", "verbose")
+    monkeypatch.setenv("BIGROBOT_LOG_LEVEL", "verbose")
     assert events_log.log_level() == "INFO", "非法值必须回落到 INFO 而不是让服务起不来"
 
-    monkeypatch.setenv("CS_AGENT_LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("BIGROBOT_LOG_LEVEL", "DEBUG")
     events_log.attach()
     assert logging.getLogger("core").level == logging.DEBUG
 
@@ -147,7 +147,7 @@ def test_debug_entries_reach_ring_when_level_enabled(monkeypatch):
 
     from core import events_log
 
-    monkeypatch.setenv("CS_AGENT_LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("BIGROBOT_LOG_LEVEL", "DEBUG")
     events_log.attach()
     logger = logging.getLogger("core.selftest")
     logger.setLevel(logging.DEBUG)

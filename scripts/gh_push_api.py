@@ -16,8 +16,8 @@
 全程不打印 token。失败时如实报错，不做重试风暴。
 
 用法：
-    python scripts/gh_push_api.py --repo badhope/zhike
-    python scripts/gh_push_api.py --repo badhope/zhike --dry-run
+    python scripts/gh_push_api.py --repo badhope/bigrobot
+    python scripts/gh_push_api.py --repo badhope/bigrobot --dry-run
 """
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def _req(method: str, url: str, token: str, body: dict | None = None) -> dict:
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
         "Content-Type": "application/json",
-        "User-Agent": "zhike-push",
+        "User-Agent": "bigrobot-push",
     })
     try:
         with urllib.request.urlopen(req, timeout=120) as r:

@@ -42,7 +42,7 @@ def _get_tracer():
         provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
         from opentelemetry import trace as _trace
         _trace.set_tracer_provider(provider)
-        _TRACER = _trace.get_tracer("zhike")
+        _TRACER = _trace.get_tracer("bigrobot")
         logger.info("OpenTelemetry tracing enabled")
     except Exception as e:
         logger.info("tracing init failed: %s", str(e)[:100])

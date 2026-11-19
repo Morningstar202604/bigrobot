@@ -7,7 +7,7 @@ from core import retrieval
 
 def _client(monkeypatch, tmp_path):
     # KB 文件与缓存全部隔离到临时目录，绝不碰仓库真实数据
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "kbi.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "kbi.db"))
     monkeypatch.setenv("ADMIN_TOKEN", "kb-admin")
     monkeypatch.setenv("CHANNEL_TOKEN", "kb-channel")
     kb_file = tmp_path / "kb.json"

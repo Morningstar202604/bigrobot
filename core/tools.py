@@ -274,7 +274,7 @@ async def tool_read_webpage(url: str, max_chars: str = "2000", **_kw) -> dict:
         from core.http_pool import get_client
         client = get_client(timeout=15)
         resp = await client.get(safe_url, headers={
-            "User-Agent": "Mozilla/5.0 (compatible; Zhike/1.0)",
+            "User-Agent": "Mozilla/5.0 (compatible; BigRobot/1.0)",
             "Accept-Language": "zh-CN,zh;q=0.9",
         })
         resp.raise_for_status()

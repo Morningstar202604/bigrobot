@@ -1,7 +1,7 @@
 services:
   napcat:
     image: mlikiowa/napcat-docker:latest
-    container_name: zhike-napcat
+    container_name: bigrobot-napcat
     environment:
       - ACCOUNT=${NAPCAT_QQ:-}
       - TZ=Asia/Shanghai
@@ -18,29 +18,29 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: zhike-core:latest
-    container_name: zhike-core
+    image: bigrobot-core:latest
+    container_name: bigrobot-core
     command: python -m uvicorn core.main:app --host 0.0.0.0 --port 8010 --workers 1
     # .env 由 scripts/deploy.sh 生成在仓库根，与 compose 文件同级的上一层
     env_file:
       - ../.env
     environment:
-      - CS_AGENT_DB=/data/cs_agent.db
+      - BIGROBOT_DB=/data/cs_agent.db
       # 知识库与检索索引也放持久卷，否则容器重建会退回镜像内种子
-      - CS_AGENT_KB=/data/kb.json
-      - CS_AGENT_RETRIEVAL_DB=/data/retrieval.db
-      - CS_AGENT_STATIC_DIR=/app/frontend/dist
+      - BIGROBOT_KB=/data/kb.json
+      - BIGROBOT_RETRIEVAL_DB=/data/retrieval.db
+      - BIGROBOT_STATIC_DIR=/app/frontend/dist
       - EXECUTOR_URL=http://executor:8020
       - TZ=Asia/Shanghai
     volumes:
       - core_data:/data
     # 镜像以 uid 10001 运行；命名卷首次创建时由 Docker 用镜像内 /data 属主初始化，
     # 若从旧版本（root 运行）升级，先执行一次：
-    #   docker run --rm -v zhike_core_data:/data alpine chown -R 10001:10001 /data
+    #   docker run --rm -v bigrobot_core_data:/data alpine chown -R 10001:10001 /data
     user: "10001:10001"
     ports:
-      # 安全默认：仅本机可达（配合 CF Tunnel / 反代）；显式设 ZHIKE_BIND=0.0.0.0 才公网暴露
-      - "${ZHIKE_BIND:-127.0.0.1}:8010:8010"
+      # 安全默认：仅本机可达（配合 CF Tunnel / 反代）；显式设 BIGROBOT_BIND=0.0.0.0 才公网暴露
+      - "${BIGROBOT_BIND:-127.0.0.1}:8010:8010"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8010/healthz', timeout=3)"]
       interval: 30s
@@ -57,8 +57,8 @@ services:
 
   gateway:
     # 复用 core 构建出的镜像，不重复构建（同一 Dockerfile、同一上下文）
-    image: zhike-core:latest
-    container_name: zhike-gateway
+    image: bigrobot-core:latest
+    container_name: bigrobot-gateway
     command: python gateway/bot.py
     env_file:
       - ../.env
@@ -77,8 +77,8 @@ services:
   # 电脑执行器：与 core 同机、仅容器网络内可达。
   # 需要授权宿主目录时，在 .env 里设 EXECUTOR_WORKDIR（宿主路径），挂载为 /work。
   executor:
-    image: zhike-core:latest
-    container_name: zhike-executor
+    image: bigrobot-core:latest
+    container_name: bigrobot-executor
     command: python -m executor.main
     env_file:
       - ../.env

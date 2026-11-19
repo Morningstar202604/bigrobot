@@ -14,7 +14,7 @@ _CACHE_LOCK = threading.Lock()
 
 
 def _db_key() -> str:
-    return os.path.abspath(os.environ.get("CS_AGENT_DB", "cs_agent.db"))
+    return os.path.abspath(os.environ.get("BIGROBOT_DB", "cs_agent.db"))
 
 
 def _copy_rows(rows: list[dict]) -> list[dict]:

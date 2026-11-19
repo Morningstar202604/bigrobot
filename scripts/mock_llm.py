@@ -1,6 +1,6 @@
 """本地 Mock LLM：OpenAI 兼容 /v1/chat/completions + /v1/models，纯标准库零依赖。
 
-用途：没有真实 LLM Key 时验通 知客 的 LLM 管线（react 解析/工具路由/降级）。
+用途：没有真实 LLM Key 时验通 BigRobot 的 LLM 管线（react 解析/工具路由/降级）。
 
 用法：
     python scripts/mock_llm.py [port]        # 默认 9099

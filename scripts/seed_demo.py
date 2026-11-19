@@ -6,7 +6,7 @@
 
 用法：
     python scripts/seed_demo.py                    # 默认写 .demo/cs_agent.db
-    CS_AGENT_DB=/tmp/demo.db python scripts/seed_demo.py
+    BIGROBOT_DB=/tmp/demo.db python scripts/seed_demo.py
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-DB = Path(os.environ.get("CS_AGENT_DB") or ROOT / ".demo" / "cs_agent.db")
+DB = Path(os.environ.get("BIGROBOT_DB") or ROOT / ".demo" / "cs_agent.db")
 DB.parent.mkdir(parents=True, exist_ok=True)
 # 不用 unlink：Windows 上服务还开着时文件被占用，直接 delete 会 PermissionError。
 # 原地清空所有表更稳，也避免留下 -wal/-shm 残片。
@@ -35,9 +35,9 @@ if DB.exists():
     _c.commit()
     _c.close()
 
-os.environ["CS_AGENT_DB"] = str(DB)
-os.environ.setdefault("CS_AGENT_KB", str(ROOT / "core" / "data" / "kb.json"))
-os.environ.setdefault("CS_AGENT_RETRIEVAL_DB", str(DB.parent / "retrieval.db"))
+os.environ["BIGROBOT_DB"] = str(DB)
+os.environ.setdefault("BIGROBOT_KB", str(ROOT / "core" / "data" / "kb.json"))
+os.environ.setdefault("BIGROBOT_RETRIEVAL_DB", str(DB.parent / "retrieval.db"))
 
 from core import store  # noqa: E402
 from core.migrations import migrate  # noqa: E402

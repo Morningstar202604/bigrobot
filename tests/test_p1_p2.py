@@ -49,7 +49,7 @@ def test_kb_save_note_empty_rejected(client):
 
 
 def test_query_rewrite_uses_last_topic(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "rw.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "rw.db"))
     from core import store as store_mod
 
     store_mod.init_db()
@@ -104,7 +104,7 @@ def test_react_fallback_model_engaged(monkeypatch, tmp_path):
 def test_run_stream_silent_failure_retries_non_stream(monkeypatch, tmp_path):
     """流式空手而归（未发 delta）→ 走非流式兜底；已发过 delta 则直接回规则，不重复请求。"""
     store_mod = store
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "sf.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "sf.db"))
     store_mod.init_db()
     import core.config as config_mod
     monkeypatch.setattr(config_mod, "get_config", lambda: {

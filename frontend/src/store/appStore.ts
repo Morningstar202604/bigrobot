@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { K, read } from '../lib/storage'
 
 export interface AppStore {
   sessionId: string | null
@@ -22,6 +23,9 @@ export interface AppStore {
   setDraft: (page: string, value: string) => void
   resetDraft: (page: string) => void
 }
+
+// 改名后 zustand 会忽略旧的 'cs-agent-app' 键，先触发一次搬迁（命中即写入新键）
+read(K.token)
 
 const rand = () => Math.random().toString(36).slice(2, 10)
 
@@ -47,7 +51,7 @@ export const useAppStore = create<AppStore>()(
       resetDraft: (page: string) => set((s: AppStore) => ({ draft: { ...s.draft, [page]: '' } })),
     }),
     {
-      name: 'cs-agent-app',
+      name: K.token,
       partialize: (s: AppStore) => ({
         visitorId: s.visitorId,
         visitorToken: s.visitorToken,

@@ -45,10 +45,10 @@ def test_version_info_shape():
 
 
 def test_version_strict_mode_raises_on_mismatch(monkeypatch):
-    """开启 ZHIKE_VERSION_STRICT 后不一致必须直接拒绝启动，而不是只打日志。"""
+    """开启 BIGROBOT_VERSION_STRICT 后不一致必须直接拒绝启动，而不是只打日志。"""
     from core import version
 
-    monkeypatch.setenv("ZHIKE_VERSION_STRICT", "1")
+    monkeypatch.setenv("BIGROBOT_VERSION_STRICT", "1")
     monkeypatch.setattr(version, "_read_version_file", lambda: "9.9.9")
     with pytest.raises(RuntimeError, match="版本不一致"):
         version._self_check()
@@ -58,7 +58,7 @@ def test_version_strict_mode_passes_when_consistent(monkeypatch):
     """strict 模式下版本一致就不应该报错（否则等于永远起不来）。"""
     from core import version
 
-    monkeypatch.setenv("ZHIKE_VERSION_STRICT", "1")
+    monkeypatch.setenv("BIGROBOT_VERSION_STRICT", "1")
     monkeypatch.setattr(version, "_read_version_file", lambda: version.VERSION)
     version._self_check()
 
@@ -67,7 +67,7 @@ def test_version_strict_mode_ignores_missing_file(monkeypatch):
     """打包后 VERSION 文件可能不存在，strict 模式也不能因此拒绝启动。"""
     from core import version
 
-    monkeypatch.setenv("ZHIKE_VERSION_STRICT", "1")
+    monkeypatch.setenv("BIGROBOT_VERSION_STRICT", "1")
     monkeypatch.setattr(version, "_read_version_file", lambda: None)
     version._self_check()
 
@@ -76,7 +76,7 @@ def test_version_strict_off_tolerates_mismatch(monkeypatch):
     """默认（非 strict）不因版本文件缺失或过时而让服务起不来。"""
     from core import version
 
-    monkeypatch.delenv("ZHIKE_VERSION_STRICT", raising=False)
+    monkeypatch.delenv("BIGROBOT_VERSION_STRICT", raising=False)
     monkeypatch.setattr(version, "_read_version_file", lambda: "9.9.9")
     version._self_check()  # 不应抛异常
 

@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 
 def _make_app(tmp_path, monkeypatch, extra=None):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "t.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "t.db"))
     monkeypatch.delenv("ADMIN_TOKEN", raising=False)
     for k, v in (extra or {}).items():
         monkeypatch.setenv(k, v)
@@ -23,7 +23,7 @@ def _fake_dist(tmp_path):
 
 def test_static_spa_serving(tmp_path, monkeypatch):
     dist = _fake_dist(tmp_path)
-    app = _make_app(tmp_path, monkeypatch, {"CS_AGENT_STATIC_DIR": str(dist)})
+    app = _make_app(tmp_path, monkeypatch, {"BIGROBOT_STATIC_DIR": str(dist)})
     with TestClient(app) as c:
         r = c.get("/")
         assert r.status_code == 200 and "cs-agent-spa" in r.text
@@ -36,14 +36,14 @@ def test_static_spa_serving(tmp_path, monkeypatch):
 
 
 def test_static_disabled_by_default(tmp_path, monkeypatch):
-    monkeypatch.delenv("CS_AGENT_STATIC_DIR", raising=False)
+    monkeypatch.delenv("BIGROBOT_STATIC_DIR", raising=False)
     app = _make_app(tmp_path, monkeypatch)
     with TestClient(app) as c:
         assert c.get("/").status_code == 404
 
 
 def test_cors_whitelist(tmp_path, monkeypatch):
-    app = _make_app(tmp_path, monkeypatch, {"CS_AGENT_CORS_ORIGINS": "https://cs.example.com"})
+    app = _make_app(tmp_path, monkeypatch, {"BIGROBOT_CORS_ORIGINS": "https://cs.example.com"})
     with TestClient(app) as c:
         # 用 /healthz 测 CORS（无需 admin token，专注 CORS 中间件行为）
         ok = c.get("/healthz", headers={"Origin": "https://cs.example.com"})

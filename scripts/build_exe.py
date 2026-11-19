@@ -31,9 +31,9 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SPEC = ROOT / "packaging" / "zhike.spec"
+SPEC = ROOT / "packaging" / "bigrobot.spec"
 DIST = ROOT / "dist-exe"
-EXE = DIST / "zhike.exe"
+EXE = DIST / "bigrobot.exe"
 FRONTEND = ROOT / "frontend" / "dist" / "index.html"
 
 
@@ -61,7 +61,7 @@ def check_prereqs() -> int:
 
 def build(clean: bool) -> int:
     if clean:
-        for p in (DIST, ROOT / "build" / "zhike", ROOT / ".tmp" / "pyi-build"):
+        for p in (DIST, ROOT / "build" / "bigrobot", ROOT / ".tmp" / "pyi-build"):
             if p.exists():
                 shutil.rmtree(p, ignore_errors=True)
     cmd = [sys.executable, "-m", "PyInstaller", str(SPEC), "--noconfirm",
@@ -97,11 +97,11 @@ def verify() -> int:
     tmp = ROOT / ".tmp" / "exe-smoke"
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(EXE, tmp / "zhike.exe")
-    env["ZHIKE_HOME"] = str(tmp / "home")
+    shutil.copy2(EXE, tmp / "bigrobot.exe")
+    env["BIGROBOT_HOME"] = str(tmp / "home")
 
     proc = subprocess.Popen(
-        [str(tmp / "zhike.exe"), "run", "--port", str(port), "--quiet"],
+        [str(tmp / "bigrobot.exe"), "run", "--port", str(port), "--quiet"],
         cwd=str(tmp), env=env,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
@@ -137,7 +137,7 @@ def verify() -> int:
             return fail("首页没有前端挂载点——前端产物可能没打进包")
 
         # 真实走一次问答，验证工具链在打包环境里也能用
-        env_file = Path(env["ZHIKE_HOME"]) / ".env"
+        env_file = Path(env["BIGROBOT_HOME"]) / ".env"
         tokens: dict[str, str] = {}
         if env_file.exists():
             for line in env_file.read_text(encoding="utf-8").splitlines():

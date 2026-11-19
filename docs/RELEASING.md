@@ -1,13 +1,13 @@
 # Release Process
 
-Operational runbook for cutting a Zhike release. Written so a maintainer who has not
+Operational runbook for cutting a BigRobot release. Written so a maintainer who has not
 touched the project in three months can follow it end to end without guessing.
 
 ---
 
 ## 1. Versioning
 
-Zhike follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+BigRobot follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
 | Bump | When | Examples |
 |---|---|---|
@@ -95,7 +95,7 @@ npm run build
 ### 3.4 Runtime smoke
 
 ```bash
-CS_AGENT_STATIC_DIR=frontend/dist .venv/Scripts/python.exe -m uvicorn core.main:app --port 8010
+BIGROBOT_STATIC_DIR=frontend/dist .venv/Scripts/python.exe -m uvicorn core.main:app --port 8010
 ```
 
 - [ ] `GET /healthz` returns `{"ok": true, "version": "<expected>"}`.
@@ -117,7 +117,7 @@ Screenshots for the README are regenerated in this step (see `scripts/take_scree
 ```bash
 git add -A
 git commit -m "chore(release): vX.Y.Z"
-git tag -a vX.Y.Z -m "Zhike vX.Y.Z"
+git tag -a vX.Y.Z -m "BigRobot vX.Y.Z"
 git push origin main
 git push origin vX.Y.Z
 ```
@@ -131,13 +131,13 @@ git push origin vX.Y.Z
 - [ ] Move `## [Unreleased]` content under the released heading and open a new empty
       `## [Unreleased]`.
 - [ ] Verify `GET /healthz` on a deployed instance reports the new version.
-- [ ] If the release changed configuration keys, update `.env.example` and `DEPLOY.md`.
+- [ ] If the release changed configuration keys, update `.env.example` and `docs/DEPLOY.md`.
 
 ---
 
 ## 4. Mirrors
 
-Zhike is published on several platforms. They are mirrors of the same history, not
+BigRobot is published on several platforms. They are mirrors of the same history, not
 independent forks.
 
 | Platform | Remote name | Notes |

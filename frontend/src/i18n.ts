@@ -8,13 +8,14 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import en from './locales/en'
+import { K, read, write } from './lib/storage'
 
 export const LANGS = [
   { code: 'zh', label: '中' },
   { code: 'en', label: 'EN' },
 ]
 
-const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('zhike-lang') : ''
+const saved = typeof localStorage !== 'undefined' ? read(K.lang) : ''
 const initial = saved === 'en' ? 'en' : 'zh'
 
 i18n.use(initReactI18next).init({
@@ -33,7 +34,7 @@ i18n.use(initReactI18next).init({
 
 export function setLang(code: string) {
   const next = code === 'en' ? 'en' : 'zh'
-  localStorage.setItem('zhike-lang', next)
+  write(K.lang, next)
   document.documentElement.lang = next === 'en' ? 'en' : 'zh-CN'
   // 页面里的纯文本节点走模块级 t()，没有订阅语言变化；重载一次最省心，
   // 也避免半个界面英文半个界面中文的中间态。

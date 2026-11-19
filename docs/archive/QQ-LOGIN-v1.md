@@ -54,7 +54,7 @@ docker compose -f docs/napcat-compose.yaml up -d
 docker compose -f docs/napcat-compose.yaml logs -f napcat
 ```
 
-然后打开 <http://127.0.0.1:6099/webui> 扫码（令牌默认 `zhike-local`，可用
+然后打开 <http://127.0.0.1:6099/webui> 扫码（令牌默认 `bigrobot-local`，可用
 `NAPCAT_WEBUI_TOKEN` 覆盖）。
 
 三个数据目录会落到 `docs/data/`（QQ 凭据 / NapCat 配置 / 插件），备份它就能迁移；
@@ -80,7 +80,7 @@ docker rm -f zk-napcat 2>/dev/null
 
 docker run -d --name zk-napcat \
   -e MODE=ws \
-  -e WEBUI_TOKEN=zhike-local \
+  -e WEBUI_TOKEN=bigrobot-local \
   -p 127.0.0.1:6099:6099 \
   -p 127.0.0.1:3001:3001 \
   mlikiowa/napcat-docker:latest
@@ -210,7 +210,7 @@ Windows 版 NapCat，不依赖 Docker，链路与容器版完全一致（OneBot 
 # 1) 下载官方发行包（GitHub Releases 页搜 NapCat.Shell.Windows.Node.zip）
 #    https://github.com/NapNeko/NapCatQQ/releases
 # 2) 解压后进入目录，编辑 napcat/config/onebot11.json，启用 WS 服务端：
-#    {"network":{"websocketServers":[{"name":"zhike-ws","enable":true,
+#    {"network":{"websocketServers":[{"name":"bigrobot-ws","enable":true,
 #      "host":"127.0.0.1","port":3001,"messagePostFormat":"array"}]}}
 # 3) 启动（首次扫码；已登录过可加 -q <QQ号> 快速登录）
 .\napcat.bat

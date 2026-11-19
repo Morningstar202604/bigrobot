@@ -292,7 +292,7 @@ export function TokenPanel() {
         <div className="text-sm font-semibold">{tr('安全说明')}</div>
         <div className="text-xs text-muted" style={{ lineHeight: 1.8 }}>
           本机自动获取只在 <code>127.0.0.1</code> / <code>::1</code> 回环地址生效，公网来源一律 403。
-          公网部署建议设 <code>CS_AGENT_LOCAL_TOKEN_BOOTSTRAP=0</code> 彻底关闭该通道。
+          公网部署建议设 <code>BIGROBOT_LOCAL_TOKEN_BOOTSTRAP=0</code> 彻底关闭该通道。
         </div>
       </div>
     </div>

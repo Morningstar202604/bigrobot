@@ -40,19 +40,19 @@ class RingHandler(logging.Handler):
 
 
 def _attach_file_handler() -> None:
-    """落盘 handler：路径由 CS_AGENT_LOG_FILE 指定，不配则只保留内存环。
+    """落盘 handler：路径由 BIGROBOT_LOG_FILE 指定，不配则只保留内存环。
 
-    默认路径 = CS_AGENT_DB 同目录下的 logs/app.log：常驻部署不用额外配置就有落盘日志。
-    容器里如已有 stdout 采集，可用 CS_AGENT_LOG_FILE=off 关掉。
+    默认路径 = BIGROBOT_DB 同目录下的 logs/app.log：常驻部署不用额外配置就有落盘日志。
+    容器里如已有 stdout 采集，可用 BIGROBOT_LOG_FILE=off 关掉。
     """
     global _FILE_HANDLER
-    raw = (os.environ.get("CS_AGENT_LOG_FILE") or "").strip()
+    raw = (os.environ.get("BIGROBOT_LOG_FILE") or "").strip()
     if raw.lower() in ("off", "0", "false", "no"):
         return
     if raw:
         path = raw
     else:
-        db = (os.environ.get("CS_AGENT_DB") or "cs_agent.db").strip()
+        db = (os.environ.get("BIGROBOT_DB") or "cs_agent.db").strip()
         base = os.path.dirname(os.path.abspath(db)) or os.getcwd()
         path = os.path.join(base, "logs", "app.log")
     if _FILE_HANDLER is not None:
@@ -77,12 +77,12 @@ _VALID_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
 
 def log_level() -> str:
-    """应用日志级别，来自 ``CS_AGENT_LOG_LEVEL``（默认 INFO，非法值回落 INFO）。
+    """应用日志级别，来自 ``BIGROBOT_LOG_LEVEL``（默认 INFO，非法值回落 INFO）。
 
     之前级别硬编码 INFO，导致全项目的 ``logger.debug(...)`` 永远到不了内存环——
     排障时最想看的「检索为什么没命中」「规则层命中哪个意图」全都看不到。
     """
-    raw = (os.environ.get("CS_AGENT_LOG_LEVEL") or "").strip().upper()
+    raw = (os.environ.get("BIGROBOT_LOG_LEVEL") or "").strip().upper()
     return raw if raw in _VALID_LEVELS else "INFO"
 
 

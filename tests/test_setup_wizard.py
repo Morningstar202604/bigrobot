@@ -21,10 +21,10 @@ AUTH = {"X-Admin-Token": "test-admin-token"}
 
 @pytest.fixture()
 def wizard_app(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "wiz.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "wiz.db"))
     monkeypatch.setenv("ADMIN_TOKEN", "test-admin-token")
     monkeypatch.setenv("CHANNEL_TOKEN", "test-channel-token")
-    monkeypatch.delenv("CS_AGENT_TRUSTED_PROXY", raising=False)
+    monkeypatch.delenv("BIGROBOT_TRUSTED_PROXY", raising=False)
     from core import store
 
     store._SCHEMA_READY.clear()

@@ -1,11 +1,11 @@
 # 贡献指南 / Contributing
 
-感谢你关注 **知客 Zhike**。Issue、文档、Bug 修复、新功能都欢迎。
+感谢你关注 **BigRobot BigRobot**。Issue、文档、Bug 修复、新功能都欢迎。
 
 ## 开发环境
 
 ```bash
-git clone https://github.com/badhope/zhike && cd zhike
+git clone https://github.com/badhope/bigrobot && cd bigrobot
 python -m venv .venv
 .venv/Scripts/pip install -r requirements-dev.txt      # Linux/macOS: .venv/bin/pip
 cd frontend && npm ci && cd ..

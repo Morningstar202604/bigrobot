@@ -6,8 +6,8 @@
 ## 一、一键部署（本机 / Linux 通用）
 
 ```bash
-git clone https://gitcode.com/badhope/zhike.git
-cd zhike
+git clone https://gitcode.com/badhope/bigrobot.git
+cd bigrobot
 
 # 1) Python 环境（项目要求 3.12+）
 uv venv --python 3.12 .venv
@@ -104,9 +104,9 @@ $ curl -s http://127.0.0.1:8010/readyz
   "search":{"configured":true}}}
 
 $ curl -s http://127.0.0.1:8010/metrics | head
-# HELP zhike_http_request_duration_seconds HTTP request latency in seconds.
-# TYPE zhike_http_request_duration_seconds histogram
-zhike_http_request_duration_seconds_bucket{le="0.005",method="GET",path="/healthz"} 1.0
+# HELP bigrobot_http_request_duration_seconds HTTP request latency in seconds.
+# TYPE bigrobot_http_request_duration_seconds histogram
+bigrobot_http_request_duration_seconds_bucket{le="0.005",method="GET",path="/healthz"} 1.0
 ```
 
 ### 3.6 端到端体检（18 项）
@@ -175,7 +175,7 @@ cache-control: no-cache, must-revalidate
 1. **必须用 Python 3.12**：3.14 下部分依赖（`sqlite-vec` 等）无 wheel。
 2. **`uv venv` 默认不带 pip**：安装依赖用 `uv pip install --python .venv/Scripts/python.exe`。
 3. **端口占用**：8010 被占时换端口（`--port 8011`），不要杀别人的进程。
-4. **路径含空格**：`.env` 里 `CS_AGENT_STATIC_DIR` 含空格时不需要引号（dotenv 会保留）。
+4. **路径含空格**：`.env` 里 `BIGROBOT_STATIC_DIR` 含空格时不需要引号（dotenv 会保留）。
 5. **未装可选依赖时的降级**：无 `sqlite-vec` → 纯 FTS5；无 `faster-whisper` → 语音转写明确报不可用；无 `edge-tts` → 发语音明确报未安装。都不会静默失败。
 
 ## 五、Linux 生产建议
@@ -183,15 +183,15 @@ cache-control: no-cache, must-revalidate
 ```bash
 # systemd 单元（示例）
 [Unit]
-Description=Zhike core
+Description=BigRobot core
 After=network-online.target
 
 [Service]
-WorkingDirectory=/opt/zhike
-EnvironmentFile=/opt/zhike/.env
-ExecStart=/opt/zhike/.venv/bin/python -m uvicorn core.main:app --host 127.0.0.1 --port 8010
+WorkingDirectory=/opt/bigrobot
+EnvironmentFile=/opt/bigrobot/.env
+ExecStart=/opt/bigrobot/.venv/bin/python -m uvicorn core.main:app --host 127.0.0.1 --port 8010
 Restart=always
-User=zhike
+User=bigrobot
 
 [Install]
 WantedBy=multi-user.target
@@ -209,4 +209,4 @@ location / {
 }
 ```
 
-> `CS_AGENT_TRUSTED_PROXY=1` 只在反代本身可信时设置；否则本机令牌引导接口可被伪造来源利用。
+> `BIGROBOT_TRUSTED_PROXY=1` 只在反代本身可信时设置；否则本机令牌引导接口可被伪造来源利用。

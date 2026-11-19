@@ -19,7 +19,7 @@ _BUILTIN_PATTERNS = [
 
 # 输出侧：LLM 回答里如果出现这些，说明系统提示被泄露，要拦截
 _OUTPUT_PATTERNS = [
-    re.compile(r"你是知客|你的系统提示|system prompt|你的指令是", re.IGNORECASE),
+    re.compile(r"你是BigRobot|你的系统提示|system prompt|你的指令是", re.IGNORECASE),
     re.compile(r"base_url|api_key|sk-[a-zA-Z0-9]{10,}", re.IGNORECASE),
     # "我被要求忽略/不能回答…"这类拒答话术：原文要求后面必须跟"回答/讨论/提及"，
     # 但模型常常只说"我被要求忽略这个问题"就结束，那样会漏网。

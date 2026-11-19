@@ -1,8 +1,8 @@
-"""知客命令行：首次初始化、启动服务、体检、状态查询。
+"""BigRobot命令行：首次初始化、启动服务、体检、状态查询。
 
 ## 为什么要有这个文件
 
-在此之前，想跑起知客得同时知道 `uvicorn core.main:create_app --factory`、
+在此之前，想跑起BigRobot得同时知道 `uvicorn core.main:create_app --factory`、
 `.env` 要拷、令牌要手填、前端 dist 要先构建、网关要另开一个进程——
 新用户第一次接触时这些信息分散在 README 的三四个小节里，任何一个漏掉都会
 得到「页面打不开」而不是一条能照着做的提示。
@@ -22,12 +22,12 @@
   并打印改了哪几行，不覆盖用户已经填好的值。
 
 用法：
-    zhike init            # 首次初始化：生成 .env、令牌、建库、检查前端产物
-    zhike run             # 启动 core（默认 8010，前台运行）
-    zhike run --gateway   # 同时启动 QQ 网关
-    zhike doctor          # 体检：环境、依赖、端口、令牌、数据库、前端
-    zhike status          # 查看当前配置与服务状态（不启动任何东西）
-    zhike version         # 版本信息
+    bigrobot init            # 首次初始化：生成 .env、令牌、建库、检查前端产物
+    bigrobot run             # 启动 core（默认 8010，前台运行）
+    bigrobot run --gateway   # 同时启动 QQ 网关
+    bigrobot doctor          # 体检：环境、依赖、端口、令牌、数据库、前端
+    bigrobot status          # 查看当前配置与服务状态（不启动任何东西）
+    bigrobot version         # 版本信息
 """
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ from pathlib import Path
 
 from core import paths
 
-# 可写根：源码模式是仓库根，exe 模式是 %LOCALAPPDATA%\Zhike 或 exe 同级 zhike-data。
+# 可写根：源码模式是仓库根，exe 模式是 %LOCALAPPDATA%\BigRobot 或 exe 同级 bigrobot-data。
 # .env 必须落在可写目录——装到 Program Files 时写仓库根会直接 PermissionError。
 ROOT = paths.writable_dir()
 ENV_FILE = ROOT / ".env"
@@ -150,7 +150,7 @@ def _random_token() -> str:
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    print(f"知客 Zhike {version_string()} · 初始化\n")
+    print(f"BigRobot BigRobot {version_string()} · 初始化\n")
 
     changed: list[str] = []
 
@@ -185,7 +185,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         leftover = [k for k in generated if k not in filled]
         if leftover:
             lines.append("")
-            lines.append("# 由 zhike init 生成的访问令牌（请勿提交到仓库）")
+            lines.append("# 由 bigrobot init 生成的访问令牌（请勿提交到仓库）")
             for key in leftover:
                 lines.append(f"{key}={_random_token()}")
         ENV_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -196,24 +196,24 @@ def cmd_init(args: argparse.Namespace) -> int:
     env = _read_env(ENV_FILE)
 
     # 2. 数据库
-    db_raw = env.get("CS_AGENT_DB") or "cs_agent.db"
+    db_raw = env.get("BIGROBOT_DB") or "cs_agent.db"
     db_path = Path(db_raw)
     if not db_path.is_absolute():
         db_path = ROOT / db_path
     db_path.parent.mkdir(parents=True, exist_ok=True)
     existed = db_path.exists()
     # 用真实模块建表，保证与运行时同一套迁移逻辑，而不是手写 DDL
-    old = os.environ.get("CS_AGENT_DB")
-    os.environ["CS_AGENT_DB"] = str(db_path)
+    old = os.environ.get("BIGROBOT_DB")
+    os.environ["BIGROBOT_DB"] = str(db_path)
     try:
         from core import store
 
         store.init_db()
     finally:
         if old is None:
-            os.environ.pop("CS_AGENT_DB", None)
+            os.environ.pop("BIGROBOT_DB", None)
         else:
-            os.environ["CS_AGENT_DB"] = old
+            os.environ["BIGROBOT_DB"] = old
     ok(f"数据库{'已存在' if existed else '已创建'}：{db_path}")
 
     # 3. 前端产物
@@ -238,8 +238,8 @@ def cmd_init(args: argparse.Namespace) -> int:
     else:
         print("环境已就绪。接下来：")
     admin = env.get("ADMIN_TOKEN", "")
-    print(f"  1) {_c('36', 'zhike doctor')}   体检一遍")
-    print(f"  2) {_c('36', 'zhike run')}      启动服务")
+    print(f"  1) {_c('36', 'bigrobot doctor')}   体检一遍")
+    print(f"  2) {_c('36', 'bigrobot run')}      启动服务")
     print(f"  3) 浏览器打开 {_c('36', f'http://127.0.0.1:{DEFAULT_PORT}')}")
     if admin:
         print(f"\n  管理令牌（登录控制台用，已写入 .env）：")
@@ -280,7 +280,7 @@ def _probe(url: str, timeout: float = 2.0) -> tuple[bool, str]:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
-    print(f"知客 Zhike {version_string()} · 体检\n")
+    print(f"BigRobot BigRobot {version_string()} · 体检\n")
     problems = 0
 
     # 环境文件
@@ -288,7 +288,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         ok(".env 存在")
     else:
         bad(".env 不存在")
-        info("运行 `zhike init` 生成")
+        info("运行 `bigrobot init` 生成")
         problems += 1
 
     env = _read_env(ENV_FILE)
@@ -296,10 +296,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         val = env.get(key, "")
         if not val:
             bad(f"{key} 未设置")
-            info("管理接口/渠道接口会返回 503；运行 `zhike init` 可自动生成")
+            info("管理接口/渠道接口会返回 503；运行 `bigrobot init` 可自动生成")
             problems += 1
         elif len(val) < 16:
-            warn(f"{key} 只有 {len(val)} 字符，建议 32 字节随机（`zhike init` 会生成）")
+            warn(f"{key} 只有 {len(val)} 字符，建议 32 字节随机（`bigrobot init` 会生成）")
         else:
             ok(f"{key} 已设置（{len(val)} 字符）")
 
@@ -313,14 +313,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         ok("Python 依赖齐全")
 
     # 数据库
-    db_raw = env.get("CS_AGENT_DB") or "cs_agent.db"
+    db_raw = env.get("BIGROBOT_DB") or "cs_agent.db"
     db_path = Path(db_raw) if Path(db_raw).is_absolute() else ROOT / db_raw
     if db_path.exists():
         size_mb = db_path.stat().st_size / 1048576
         ok(f"数据库存在（{size_mb:.1f} MB）：{db_path}")
     else:
         warn(f"数据库尚未创建：{db_path}")
-        info("首次 `zhike run` 或 `zhike init` 会自动建库")
+        info("首次 `bigrobot run` 或 `bigrobot init` 会自动建库")
 
     # 前端产物
     dist = paths.resource("frontend", "dist", "index.html")
@@ -367,7 +367,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         if ready:
             _print_ready_checks(rbody)
     else:
-        info("服务未运行（`zhike run` 启动）")
+        info("服务未运行（`bigrobot run` 启动）")
 
     print()
     if problems:
@@ -385,10 +385,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         # 直接跑 run 是绝大多数新用户的第一反应（尤其双击 exe）。
         # 报一句「先跑 init」然后退出，等于让用户先撞一次墙——直接帮它初始化。
         # 交互终端下明确告知正在做什么；非交互（CI/脚本）则保持安静，避免污染输出。
-        print("尚未初始化，正在自动初始化（等价于 zhike init）…\n")
+        print("尚未初始化，正在自动初始化（等价于 bigrobot init）…\n")
         rc = cmd_init(argparse.Namespace())
         if rc != 0:
-            bad("自动初始化失败，请手动运行 `zhike init` 查看详情")
+            bad("自动初始化失败，请手动运行 `bigrobot init` 查看详情")
             return rc
         print()
         env = _read_env(ENV_FILE)
@@ -406,14 +406,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     host = args.host
 
     if not _port_free(port, host if host != "0.0.0.0" else "127.0.0.1"):
-        bad(f"端口 {port} 已被占用，换一个：zhike run --port {port + 1}")
+        bad(f"端口 {port} 已被占用，换一个：bigrobot run --port {port + 1}")
         alive, body = _probe(f"http://127.0.0.1:{port}/healthz")
         if alive:
             info(f"该端口上已有服务在跑：{body[:80]}")
             info("如果你只是想访问它，直接用浏览器打开即可")
         return 2
 
-    print(f"知客 Zhike {version_string()}")
+    print(f"BigRobot BigRobot {version_string()}")
     print(f"  服务地址  http://{host}:{port}")
     admin = env.get("ADMIN_TOKEN", "")
     if admin:
@@ -500,14 +500,14 @@ def _print_ready_checks(rbody: str) -> None:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    print(f"知客 Zhike {version_string()}\n")
+    print(f"BigRobot BigRobot {version_string()}\n")
     env = _read_env(ENV_FILE)
     port = int(env.get("PORT") or DEFAULT_PORT)
 
     rows = [
         ("工作目录", str(ROOT)),
         (".env", "存在" if ENV_FILE.exists() else "缺失"),
-        ("数据库", env.get("CS_AGENT_DB") or "cs_agent.db"),
+        ("数据库", env.get("BIGROBOT_DB") or "cs_agent.db"),
         ("端口", str(port)),
         ("模型 Key", "已配置" if env.get("USER_LLM_API_KEY") else "未配置（规则模式）"),
         ("管理令牌", "已设置" if env.get("ADMIN_TOKEN") else "未设置"),
@@ -533,7 +533,7 @@ def cmd_version(args: argparse.Namespace) -> int:
     from core import version as version_mod
 
     info = version_mod.version_info()
-    print(f"zhike {info['version']} ({info['channel']})")
+    print(f"bigrobot {info['version']} ({info['channel']})")
     print(f"python {sys.version.split()[0]}")
     print(f"root   {ROOT}")
     return 0
@@ -543,15 +543,15 @@ def cmd_version(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
-        prog="zhike",
-        description="知客 —— 自托管的 QQ / 网页私人秘书",
+        prog="bigrobot",
+        description="BigRobot —— 自托管的 QQ / 网页私人秘书",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
             常用：
-              zhike init            首次初始化
-              zhike run             启动服务（http://127.0.0.1:8010）
-              zhike doctor          排查问题
-              zhike status          看当前状态
+              bigrobot init            首次初始化
+              bigrobot run             启动服务（http://127.0.0.1:8010）
+              bigrobot doctor          排查问题
+              bigrobot status          看当前状态
             """),
     )
     ap.add_argument("--version", action="store_true", help="显示版本后退出")
@@ -596,8 +596,8 @@ def main(argv: list[str] | None = None) -> int:
         return 130
     except Exception as e:  # noqa: BLE001 - CLI 的底线是给出人话，不是抛栈
         bad(f"{type(e).__name__}: {e}")
-        info("运行 `zhike doctor` 排查，或加 ZHIKE_DEBUG=1 看完整堆栈")
-        if os.environ.get("ZHIKE_DEBUG"):
+        info("运行 `bigrobot doctor` 排查，或加 BIGROBOT_DEBUG=1 看完整堆栈")
+        if os.environ.get("BIGROBOT_DEBUG"):
             raise
         return 1
 

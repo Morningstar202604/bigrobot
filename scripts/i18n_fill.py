@@ -72,7 +72,7 @@ TRANSLATIONS: dict[str, str] = {
     "内置示例条目": "Built-in sample entries",
     "跳过全部设置": "Skip all setup",
     "首次设置": "First-time setup",
-    "欢迎使用知客": "Welcome to Zhike",
+    "欢迎使用BigRobot": "Welcome to BigRobot",
     "连接模型": "Connect a model",
     "接入 QQ": "Connect QQ",
     "自检": "Self-check",
@@ -87,8 +87,8 @@ TRANSLATIONS: dict[str, str] = {
     "连接正常（{{ms}}ms）": "Connected ({{ms}}ms)",
     "连接失败": "Connection failed",
     "API Key": "API key",
-    "知客是一个跑在你自己机器上的私人秘书：QQ 群里回话、网页里聊天、真的去执行工具——设提醒、算数、查资料、读写文件。":
-        "Zhike is a personal assistant running on your own machine: it answers in QQ groups, chats on the web, and actually runs tools — reminders, calculations, research, file access.",
+    "BigRobot是一个跑在你自己机器上的私人秘书：QQ 群里回话、网页里聊天、真的去执行工具——设提醒、算数、查资料、读写文件。":
+        "BigRobot is a personal assistant running on your own machine: it answers in QQ groups, chats on the web, and actually runs tools — reminders, calculations, research, file access.",
     "每一步可审计": "Every step auditable",
     "哈希链防篡改": "Hash-chained and tamper-evident",
     "数据库就是你磁盘上的一个文件": "Your database is a single file on disk",

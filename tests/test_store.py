@@ -62,13 +62,13 @@ def test_config_roundtrip():
 
 
 def test_db_path_follows_env(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "lazy.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "lazy.db"))
     store.create_session("s-lazy", "v-lazy")
     assert store.get_session("s-lazy")["visitor_id"] == "v-lazy"
 
 def test_message_thought_roundtrip(tmp_path, monkeypatch):
     """thought 必须落库并原样读回：否则历史回放的折叠块会消失（已复现）。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "thought.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "thought.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     store.create_session("s-thought", "v1")
@@ -101,7 +101,7 @@ def test_old_db_gets_thought_column(tmp_path, monkeypatch):
     conn.commit()
     conn.close()
 
-    monkeypatch.setenv("CS_AGENT_DB", str(db))
+    monkeypatch.setenv("BIGROBOT_DB", str(db))
     store._SCHEMA_READY.clear()
     store.init_db()
     msgs = store.get_messages("old")
@@ -113,7 +113,7 @@ def test_old_db_gets_thought_column(tmp_path, monkeypatch):
 
 def test_admin_sessions_search(tmp_path, monkeypatch):
     """会话搜索：命中访客 ID / 会话 ID / 消息内容，且状态过滤与搜索可叠加。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "search.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "search.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     store.create_session("s-alpha", "qq:10001")
@@ -134,7 +134,7 @@ def test_admin_sessions_search(tmp_path, monkeypatch):
 
 def test_message_soft_delete_excluded_from_context(tmp_path, monkeypatch):
     """删除后：列表仍返回并带 deleted=True（前端灰显），模型上下文里不再出现。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "del.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "del.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     store.create_session("s-del", "v1")
@@ -158,7 +158,7 @@ def test_message_soft_delete_excluded_from_context(tmp_path, monkeypatch):
 
 def test_prev_session_messages_keeps_context_across_ttl(monkeypatch, tmp_path):
     """TTL 换会话后要能取到上一段对话，否则用户体感是「每次都失忆」。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "prev.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "prev.db"))
     from core import store
 
     store._SCHEMA_READY.clear()

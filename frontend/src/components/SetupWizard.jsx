@@ -18,7 +18,7 @@ import { t } from '../lib/t'
  */
 
 const STEPS = [
-  { key: 'welcome', icon: Sparkles, title: t('欢迎使用知客'), sub: t('三分钟配好，然后就能用了') },
+  { key: 'welcome', icon: Sparkles, title: t('欢迎使用BigRobot'), sub: t('三分钟配好，然后就能用了') },
   { key: 'model', icon: Cpu, title: t('连接模型'), sub: t('不配也能用，只是回答会比较朴素') },
   { key: 'channel', icon: MessageSquare, title: t('接入 QQ'), sub: t('可选：不接 QQ，网页端照样可用') },
   { key: 'selfcheck', icon: ShieldCheck, title: t('自检'), sub: t('确认每一项都真的能用') },
@@ -180,7 +180,7 @@ export default function SetupWizard() {
           {step === 'welcome' && (
             <div className="space-y-3 text-sm">
               <p className="text-ink-2">
-                {t('知客是一个跑在你自己机器上的私人秘书：QQ 群里回话、网页里聊天、真的去执行工具——设提醒、算数、查资料、读写文件。')}
+                {t('BigRobot是一个跑在你自己机器上的私人秘书：QQ 群里回话、网页里聊天、真的去执行工具——设提醒、算数、查资料、读写文件。')}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                 {[

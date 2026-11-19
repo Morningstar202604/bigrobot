@@ -20,6 +20,30 @@ import pathlib
 
 _LOADED = False
 
+#: 改名前的环境变量前缀。保留兼容：老部署的 .env / compose / systemd 不用改也能跑。
+#: 新前缀优先，旧前缀只在对应新变量未设置时提供默认值。
+LEGACY_PREFIXES = ("CS_AGENT_", "ZHIKE_")
+PREFIX = "BIGROBOT_"
+
+
+def alias_legacy_env() -> int:
+    """把旧前缀环境变量映射到 `BIGROBOT_`。返回映射条数。
+
+    必须在 `load_env()` 之后调用：`.env` 里写的是旧名字时，先加载再映射。
+    已存在的新名字不覆盖（真实环境变量与新配置永远优先）。
+    """
+    mapped = 0
+    for key, value in list(os.environ.items()):
+        for legacy in LEGACY_PREFIXES:
+            if not key.startswith(legacy):
+                continue
+            new_key = PREFIX + key[len(legacy):]
+            if not os.environ.get(new_key):
+                os.environ[new_key] = value
+                mapped += 1
+            break
+    return mapped
+
 
 def _candidates() -> list[pathlib.Path]:
     here = pathlib.Path(__file__).resolve()
@@ -38,6 +62,7 @@ def load_env() -> bool:
     try:
         from dotenv import load_dotenv
     except ImportError:  # 极简环境（没装 uvicorn[standard]）不应阻断启动
+        alias_legacy_env()
         return False
     found = False
     seen: set[str] = set()
@@ -52,6 +77,7 @@ def load_env() -> bool:
         # override=False：真实环境变量永远优先，容器 env_file / systemd 注入不会被 .env 覆盖
         load_dotenv(path, override=False, encoding="utf-8")
         found = True
+    alias_legacy_env()
     return found
 
 

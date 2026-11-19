@@ -10,7 +10,7 @@ from core import llm as llm_mod, pipeline, retrieval
 
 def _init_store(monkeypatch, tmp_path):
     """直接跑管线的用例需要隔离 DB（build_context 会读访客记忆）。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "cap.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "cap.db"))
     from core import store
 
     store.init_db()
@@ -55,9 +55,9 @@ def test_scanner_prose_passthrough():
     """散文直通——但尾部会压一个 HOLD 窗口等「可能是 JSON」的花括号，
     所以必须调用 finish() 冲刷，否则结尾几十个字符看起来像丢了。"""
     s = llm_mod._AnswerStreamer()
-    out = s.feed("我是知客，您的智能在线客服。")
+    out = s.feed("我是BigRobot，您的智能在线客服。")
     out += s.finish()
-    assert "".join(out) == "我是知客，您的智能在线客服。"
+    assert "".join(out) == "我是BigRobot，您的智能在线客服。"
 
 
 def test_scanner_answer_not_first_key():
@@ -122,7 +122,7 @@ def test_run_stream_llm_mode_error_marks_fallback(monkeypatch, tmp_path):
 
 def _mini_ctx():
     return {
-        "persona": "你是知客。",
+        "persona": "你是BigRobot。",
         "modules_on": {"kb": False, "tools": False, "memory": False},
         "kb_block": "（无相关条目）",
         "tools_schema": {},

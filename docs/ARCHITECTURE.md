@@ -17,7 +17,7 @@
    Web 访客 ────────▶│ core（FastAPI，单端口同时托管前端）│
    浏览器            │ · pipeline：标注→工具→LLM→规则   │
                     │ · retrieval：FTS5+vec+RRF         │
-                    │ · store：SQLite（16 表 + 迁移）    │
+                    │ · store：SQLite（28 表 + 迁移）    │
                     │ · actions：L0/L1/L2 + 审批 + 审计链│
                     └──────┬───────────────────────────┘
                            │ HTTP（EXECUTOR_TOKEN）
@@ -27,13 +27,13 @@
                     └──────────────────────────────────┘
 ```
 
-三个进程可独立部署，也可只用 core（`CS_AGENT_STATIC_DIR` 托管前端，一个端口即全部）。
+三个进程可独立部署，也可只用 core（`BIGROBOT_STATIC_DIR` 托管前端，一个端口即全部）。
 
 ## 二、core 模块地图
 
 ```
 core/
-├─ main.py            FastAPI 装配：中间件、鉴权依赖、110 个路由、WS 端点
+├─ main.py            FastAPI 装配：中间件、鉴权依赖、114 条 REST 路由 + 2 个 WS 端点
 ├─ api/               路由包（新）
 │  ├─ deps.py         鉴权依赖 + 入参护栏（图片 MIME 白名单）
 │  └─ kb.py           知识库 CRUD / 导入 / 试召回 / 导出
@@ -41,9 +41,9 @@ core/
 ├─ llm.py             LLM 客户端：备援链竞速、四级协议降级、流式解析
 ├─ agent_loop.py      多步 ReAct：预算 / 取消 / 重复动作检测
 ├─ agent_llm.py       单步决策（function calling ↔ JSON 降级）
-├─ tools.py           42 个工具 + 规则路由 detect_tool
+├─ tools.py           55 个工具 + 规则路由 detect_tool
 ├─ retrieval.py       FTS5 BM25 + 可选 sqlite-vec + RRF 融合
-├─ store.py           SQLite 单文件存储（16 表 + 版本化迁移）
+├─ store.py           SQLite 单文件存储（28 表 + 版本化迁移）
 ├─ migrations.py      schema 版本管理
 ├─ config.py          运行时配置（代码默认值 ← env ← DB，带缓存）
 ├─ personas.py        15 个预设角色（单一事实源）

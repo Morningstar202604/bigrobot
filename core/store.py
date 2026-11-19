@@ -1,6 +1,6 @@
 """SQLite 持久化：会话 / 消息 / 工单 / 记忆 / 反馈 / 注入日志 / 配置 / 工具注册表 / 注入规则。
 
-DB 路径每次连接时读环境变量（CS_AGENT_DB），测试无需重载模块。
+DB 路径每次连接时读环境变量（BIGROBOT_DB），测试无需重载模块。
 """
 import json
 import os
@@ -15,7 +15,7 @@ def _now() -> str:
 
 
 def _db_path() -> str:
-    return os.environ.get("CS_AGENT_DB", "cs_agent.db")
+    return os.environ.get("BIGROBOT_DB", "cs_agent.db")
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:

@@ -2,7 +2,7 @@
 
 ## 为什么需要它
 
-`zhike init` 解决了命令行用户的首次配置，但控制台用户的第一眼是浏览器：
+`bigrobot init` 解决了命令行用户的首次配置，但控制台用户的第一眼是浏览器：
 他打开 http://127.0.0.1:8010，看到的是一堆空白图表和一个没配模型的聊天框，
 不知道要先去「模型中心」填 Key，也不知道 QQ 是可选的。竞品（AnythingLLM 的
 五步 onboarding、Dify 的 `/install`）都把这段引导做进了产品里。
@@ -68,13 +68,13 @@ def _is_local(request: Request) -> bool:
     """是否来自本机。
 
     与 `/api/bootstrap/local-token` 保持同一套判定，避免出现「令牌能拿但向导不让进」
-    这种自相矛盾的行为。反代场景同样要求 CS_AGENT_TRUSTED_PROXY=1 且最右一跳是回环。
+    这种自相矛盾的行为。反代场景同样要求 BIGROBOT_TRUSTED_PROXY=1 且最右一跳是回环。
     """
     host = (request.client.host if request.client else "") or ""
     trusted = {"127.0.0.1", "::1", "localhost", "testclient"}
     if host in trusted:
         return True
-    if os.environ.get("CS_AGENT_TRUSTED_PROXY", "").lower() in ("1", "true", "yes", "on"):
+    if os.environ.get("BIGROBOT_TRUSTED_PROXY", "").lower() in ("1", "true", "yes", "on"):
         chain = [p.strip() for p in (request.headers.get("x-forwarded-for") or "").split(",") if p.strip()]
         return bool(chain) and chain[-1] in trusted
     return False

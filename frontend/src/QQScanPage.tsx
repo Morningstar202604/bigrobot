@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { CheckCircle2, Loader2, RefreshCw, Smartphone } from 'lucide-react'
 import { PageHead } from './ui'
 import { t } from './lib/t'
+import { K, read } from './lib/storage'
 
 /**
  * QQ 扫码登录 · 独立常驻页。
@@ -52,7 +53,7 @@ type LoginStatus = {
 }
 
 function adminHeaders(): Record<string, string> {
-  const token = localStorage.getItem('cs-agent-app')
+  const token = read(K.token)
   let t = ''
   try {
     t = JSON.parse(token || '{}')?.state?.adminToken || ''

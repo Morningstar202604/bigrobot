@@ -313,10 +313,10 @@ async def ws_push():
 
     if not ADMIN_TOKEN:
         raise AssertionError("坐席 WS 需要管理员令牌：设置 ADMIN_TOKEN 环境变量或 --admin-token")
-    # 与服务端约定一致：Sec-WebSocket-Protocol 传 ["zhike-admin", "<token>"]
+    # 与服务端约定一致：Sec-WebSocket-Protocol 传 ["bigrobot-admin", "<token>"]
     async with websockets.connect(
         f"{BASE.replace('http', 'ws')}/ws/operator",
-        subprotocols=["zhike-admin", ADMIN_TOKEN],
+        subprotocols=["bigrobot-admin", ADMIN_TOKEN],
     ) as ws:
         uid = f"ws-{run_id}"
         # 必须制造「知识库未命中」来触发 new_pending：本系统没有人工坐席，

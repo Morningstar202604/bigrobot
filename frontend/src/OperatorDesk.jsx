@@ -13,9 +13,9 @@ import { Spinner, ErrorBanner } from './components/Spinner'
 import './pages.css'
 import './pages2.css'
 import { t } from './lib/t'
+import { K, readJson, writeJson } from './lib/storage'
 
 /** 快捷回复（Chatwoot canned responses 对标）：常用话术一键插入，本地可编辑 */
-const CANNED_KEY = 'zhike-canned'
 const CANNED_DEFAULT = [
   '您好，稍等，我帮您查询一下~',
   '亲，这个问题的标准处理方式是：签收后 7 天内可无理由退货，质量问题 15 天内可换货。',
@@ -24,10 +24,11 @@ const CANNED_DEFAULT = [
 ]
 function CannedBar({ onPick }) {
   const [items, setItems] = useState(() => {
-    try { const v = JSON.parse(localStorage.getItem(CANNED_KEY)); return Array.isArray(v) && v.length ? v : CANNED_DEFAULT } catch { return CANNED_DEFAULT }
+    const v = readJson(K.canned, CANNED_DEFAULT)
+    return Array.isArray(v) && v.length ? v : CANNED_DEFAULT
   })
   const [editing, setEditing] = useState(false)
-  const save = (list) => { setItems(list); localStorage.setItem(CANNED_KEY, JSON.stringify(list)) }
+  const save = (list) => { setItems(list); writeJson(K.canned, list) }
   return (
     <div className="canned-bar">
       {!editing ? (
@@ -161,7 +162,7 @@ export default function OperatorDesk() {
   // token 走 Sec-WebSocket-Protocol 子协议（避免 query string 进 access log / 浏览器历史）
   const adminToken = useAppStore((s) => s.adminToken)
   const wsUrl = adminToken ? '/ws/operator' : null
-  const wsSubs = adminToken ? ['zhike-admin', adminToken] : undefined
+  const wsSubs = adminToken ? ['bigrobot-admin', adminToken] : undefined
   const activeRef = useRef(null)
   useEffect(() => { activeRef.current = active }, [active])
   const { state: connState } = useWs(wsUrl, (p) => {

@@ -11,7 +11,7 @@ from core import migrations, store
 # ---------------- 迁移机制 ----------------
 
 def test_fresh_db_reaches_latest_version(tmp_path, monkeypatch):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "fresh.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "fresh.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     assert store.schema_version() == migrations.LATEST_VERSION
@@ -19,7 +19,7 @@ def test_fresh_db_reaches_latest_version(tmp_path, monkeypatch):
 
 
 def test_migration_is_idempotent(tmp_path, monkeypatch):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "idem.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "idem.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     v1 = store.schema_version()
@@ -31,7 +31,7 @@ def test_migration_is_idempotent(tmp_path, monkeypatch):
 def test_migration_preserves_existing_data(tmp_path, monkeypatch):
     """老库升级不能丢数据——这是迁移最基本的承诺。"""
     db = tmp_path / "old.db"
-    monkeypatch.setenv("CS_AGENT_DB", str(db))
+    monkeypatch.setenv("BIGROBOT_DB", str(db))
     store._SCHEMA_READY.clear()
     store.init_db()
     store.create_session("keep-me", "visitor-1")
@@ -50,7 +50,7 @@ def test_migration_preserves_existing_data(tmp_path, monkeypatch):
 def test_migration_failure_rolls_back(tmp_path, monkeypatch):
     """迁移中途失败必须回滚，不允许半迁移状态。"""
     db = tmp_path / "fail.db"
-    monkeypatch.setenv("CS_AGENT_DB", str(db))
+    monkeypatch.setenv("BIGROBOT_DB", str(db))
     store._SCHEMA_READY.clear()
     store.init_db()
 
@@ -79,7 +79,7 @@ def test_migration_failure_rolls_back(tmp_path, monkeypatch):
 
 
 def test_migration_creates_outbox_table(tmp_path, monkeypatch):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "ob.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "ob.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     with store.get_conn() as conn:
@@ -90,7 +90,7 @@ def test_migration_creates_outbox_table(tmp_path, monkeypatch):
 
 
 def test_schema_indexes_created(tmp_path, monkeypatch):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "idx.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "idx.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     with store.get_conn() as conn:

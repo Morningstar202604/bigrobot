@@ -1,5 +1,5 @@
 /**
- * 品牌标识：朱印 · 知客
+ * 品牌标识：朱印 · BigRobot
  *
  * 设计取向不是"科技感渐变"，而是把中文语境里的「印信」搬进产品：
  * - 方形圆角印面，内嵌一圈细边，像盖章的边框
@@ -20,11 +20,11 @@ interface LogoProps {
   withText?: boolean
   /** 副标题 */
   subtitle?: string
-  /** 品牌名（英文界面显示 Zhike） */
+  /** 品牌名（英文界面显示 BigRobot） */
   name?: string
 }
 
-export const Logo = memo(function Logo({ size = 32, onDark = false, withText = false, subtitle, name = '知客' }: LogoProps) {
+export const Logo = memo(function Logo({ size = 32, onDark = false, withText = false, subtitle, name = 'BigRobot' }: LogoProps) {
   const id = `zk-seal-${onDark ? 'd' : 'l'}`
   const face = onDark ? '#F2EFE9' : '#0E5C55'
   const glyph = onDark ? '#0E5C55' : '#F7F5F0'
@@ -38,7 +38,7 @@ export const Logo = memo(function Logo({ size = 32, onDark = false, withText = f
         viewBox="0 0 64 64"
         fill="none"
         role="img"
-        aria-label={t('知客 Zhike')}
+        aria-label={t('BigRobot BigRobot')}
         style={{ flexShrink: 0 }}
       >
         <defs>

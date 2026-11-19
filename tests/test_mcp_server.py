@@ -13,7 +13,7 @@ def test_mcp_exposes_readonly_tools_only(monkeypatch):
     if mcp_server.ServerClass is None:
         pytest.skip("mcp not installed")
 
-    monkeypatch.delenv("ZHIKE_MCP_ALLOW_WRITE", raising=False)
+    monkeypatch.delenv("BIGROBOT_MCP_ALLOW_WRITE", raising=False)
     mcp = mcp_server._build_mcp()
     names = {t.name for t in asyncio.run(mcp.list_tools())}
     assert {"query_order", "lookup_policy", "web_search", "calc"} <= names
@@ -28,7 +28,7 @@ def test_mcp_write_tools_opt_in(monkeypatch):
     if mcp_server.ServerClass is None:
         pytest.skip("mcp not installed")
 
-    monkeypatch.setenv("ZHIKE_MCP_ALLOW_WRITE", "1")
+    monkeypatch.setenv("BIGROBOT_MCP_ALLOW_WRITE", "1")
     mcp = mcp_server._build_mcp()
     names = {t.name for t in asyncio.run(mcp.list_tools())}
     assert "remember" in names and "list_reminders" in names

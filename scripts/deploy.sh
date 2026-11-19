@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# 知客 Zhike 服务器一键部署/升级脚本（在部署机上执行）
+# BigRobot BigRobot 服务器一键部署/升级脚本（在部署机上执行）
 # 用法：
 #   bash <(curl -fsSL <raw-url>/scripts/deploy.sh)          # 首次部署（两阶段：先生成 .env 再启动）
-#   APP_DIR=/opt/zhike bash scripts/deploy.sh               # 指定安装目录
+#   APP_DIR=/opt/bigrobot bash scripts/deploy.sh               # 指定安装目录
 # 升级：重跑本脚本即可（git pull + 重建镜像 + 滚动更新）
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://gitcode.com/badhope/zhike.git}"
-APP_DIR="${APP_DIR:-/opt/zhike}"
+REPO_URL="${REPO_URL:-https://gitcode.com/badhope/bigrobot.git}"
+APP_DIR="${APP_DIR:-/opt/bigrobot}"
 
 command -v docker >/dev/null || { echo "❌ 未检测到 docker，请先安装：curl -fsSL https://get.docker.com | sh"; exit 1; }
 docker compose version >/dev/null 2>&1 || { echo "❌ 缺少 docker compose 插件"; exit 1; }
@@ -83,8 +83,8 @@ echo
 if curl -fsS -m 3 http://127.0.0.1:8010/healthz >/dev/null 2>&1; then
   echo "✅ core 已就绪：http://$(curl -fsS -m 3 ifconfig.me 2>/dev/null || echo '<服务器IP>'):8010"
   grep -E "^ADMIN_TOKEN=" .env | sed 's/^/   控制台令牌：/'
-  echo "   QQ 登录：SSH 隧道后浏览器打开 http://127.0.0.1:6099（WebUI 令牌见 docker logs zhike-napcat）"
+  echo "   QQ 登录：SSH 隧道后浏览器打开 http://127.0.0.1:6099（WebUI 令牌见 docker logs bigrobot-napcat）"
 else
-  echo "❌ core 未就绪，查日志：docker logs zhike-core"
+  echo "❌ core 未就绪，查日志：docker logs bigrobot-core"
   exit 1
 fi

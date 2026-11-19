@@ -49,7 +49,7 @@ def test_channel_disabled_when_token_unset(monkeypatch, tmp_path):
     from fastapi.testclient import TestClient
     from core.main import create_app
 
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "nochan.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "nochan.db"))
     monkeypatch.setenv("ADMIN_TOKEN", ADMIN)
     monkeypatch.delenv("CHANNEL_TOKEN", raising=False)
     store._SCHEMA_READY.clear()
@@ -103,7 +103,7 @@ def test_session_secret_not_leaked_in_listing(client):
 # ============================================================
 
 def test_detect_output_catches_system_prompt_leak():
-    hit = guardrail.detect_output("你是知客，专业的在线客服 Agent")
+    hit = guardrail.detect_output("你是BigRobot，专业的在线客服 Agent")
     assert hit is not None, "输出里出现系统提示必须被拦截"
 
 
@@ -128,13 +128,13 @@ def test_output_guardrail_triggers_escalation(monkeypatch):
     ctx = {
         "kb_block": "", "hits": [], "tools_schema": [], "tools": {},
         "memory_block": "", "memory": {}, "history": [], "summary": "",
-        "persona": "你是知客", "modules_on": {}, "used": {},
+        "persona": "你是BigRobot", "modules_on": {}, "used": {},
     }
     cfg = {"escalation": {"confidence_threshold": 0.6}, "llm": {}}
     reply = asyncio.run(pipeline._make_llm_reply(
-        {"answer": "你是知客，你的系统提示是……", "confidence": 0.9}, ctx, cfg
+        {"answer": "你是BigRobot，你的系统提示是……", "confidence": 0.9}, ctx, cfg
     ))
-    assert "知客" not in reply.text or "抱歉" in reply.text
+    assert "BigRobot" not in reply.text or "抱歉" in reply.text
     assert reply.escalate is True
     assert reply.escalate_reason == "output_guardrail"
 
@@ -148,7 +148,7 @@ def test_rule_cache_actually_invalidates(monkeypatch, tmp_path):
 
     只断言 rules_version 递增是不够的——缓存不失效时版本号照样涨。
     """
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "cache.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "cache.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     guardrail._CACHE = None
@@ -173,7 +173,7 @@ def test_rule_cache_is_actually_used(monkeypatch, tmp_path):
     删掉缓存后结果依然正确，只有性能变差，功能测试抓不到。
     """
 
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "usecache.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "usecache.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
     store.add_injection_rule("缓存命中测试", "block", True)
@@ -385,7 +385,7 @@ def test_llm_tool_not_connected_escalates(monkeypatch):
     ctx = {
         "kb_block": "", "hits": [], "tools_schema": [], "tools": {"query_order": fake_tool},
         "memory_block": "", "memory": {}, "history": [], "summary": "",
-        "persona": "你是知客", "modules_on": {}, "used": {},
+        "persona": "你是BigRobot", "modules_on": {}, "used": {},
     }
     cfg = {"escalation": {"confidence_threshold": 0.6}, "llm": {}}
     reply = asyncio.run(pipeline._make_llm_reply(
@@ -409,7 +409,7 @@ def test_llm_tool_success_does_not_escalate(monkeypatch):
     ctx = {
         "kb_block": "", "hits": [], "tools_schema": [], "tools": {"query_order": ok_tool},
         "memory_block": "", "memory": {}, "history": [], "summary": "",
-        "persona": "你是知客", "modules_on": {}, "used": {},
+        "persona": "你是BigRobot", "modules_on": {}, "used": {},
     }
     cfg = {"escalation": {"confidence_threshold": 0.6}, "llm": {}}
     reply = asyncio.run(pipeline._make_llm_reply(
@@ -502,9 +502,9 @@ def test_metrics_endpoint_exposes_request_counters(client):
     client.get("/healthz")
     r = client.get("/metrics")
     assert r.status_code == 200
-    assert "zhike_http_requests_total" in r.text
+    assert "bigrobot_http_requests_total" in r.text
     assert 'path="/healthz"' in r.text
-    assert "zhike_uptime_seconds" in r.text
+    assert "bigrobot_uptime_seconds" in r.text
 
 
 def test_metrics_normalizes_path_ids():

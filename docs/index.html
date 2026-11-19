@@ -3,48 +3,48 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Zhike · Self-hosted AI personal assistant (QQ + Web, MCP, ReAct, RAG)</title>
-<meta name="description" content="Zhike is a self-hosted agent harness for personal assistants: OpenAI function calling, MCP, ReAct loop, hybrid RAG, long-term memory, reminders, tiered permissions and audit chain. QQ group/private chat and Web console. MIT licensed." />
+<title>BigRobot · 接管账号的机器人平台 (QQ + Web, MCP, ReAct, RAG)</title>
+<meta name="description" content="BigRobot is a bot platform that takes over the account: OpenAI function calling, MCP, ReAct loop, hybrid RAG, long-term memory, reminders, tiered permissions and audit chain. QQ group/private chat and Web console. MIT licensed." />
 <meta name="keywords" content="self-hosted, personal assistant, AI agent, agent harness, LLM agent, OpenAI function calling, MCP, Model Context Protocol, ReAct, RAG, hybrid search, SQLite FTS5, vector search, long-term memory, reminder scheduler, QQ bot, NoneBot2, OneBot v11, NapCat, chatbot, FastAPI, React, TypeScript, bilingual UI, audit log, MIT" />
 <meta name="author" content="badhope" />
 <meta name="robots" content="index, follow" />
-<link rel="canonical" href="https://badhope.github.io/zhike/" />
-<link rel="alternate" hreflang="en" href="https://badhope.github.io/zhike/" />
-<link rel="alternate" hreflang="zh-CN" href="https://badhope.github.io/zhike/?lang=zh" />
-<link rel="alternate" hreflang="x-default" href="https://badhope.github.io/zhike/" />
+<link rel="canonical" href="https://badhope.github.io/bigrobot/" />
+<link rel="alternate" hreflang="en" href="https://badhope.github.io/bigrobot/" />
+<link rel="alternate" hreflang="zh-CN" href="https://badhope.github.io/bigrobot/?lang=zh" />
+<link rel="alternate" hreflang="x-default" href="https://badhope.github.io/bigrobot/" />
 <meta property="og:type" content="website" />
-<meta property="og:site_name" content="Zhike" />
-<meta property="og:title" content="Zhike · Self-hosted AI personal assistant" />
+<meta property="og:site_name" content="BigRobot" />
+<meta property="og:title" content="BigRobot · 接管账号的机器人平台" />
 <meta property="og:description" content="QQ + Web agent harness with OpenAI function calling, MCP, ReAct, hybrid RAG, reminders, permissions and audit. Runs without an LLM key. MIT." />
-<meta property="og:url" content="https://badhope.github.io/zhike/" />
-<meta property="og:image" content="https://badhope.github.io/zhike/screenshots/dashboard.png" />
+<meta property="og:url" content="https://badhope.github.io/bigrobot/" />
+<meta property="og:image" content="https://badhope.github.io/bigrobot/screenshots/dashboard.png" />
 <meta property="og:locale" content="en_US" />
 <meta property="og:locale:alternate" content="zh_CN" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Zhike · Self-hosted AI personal assistant" />
+<meta name="twitter:title" content="BigRobot · 接管账号的机器人平台" />
 <meta name="twitter:description" content="QQ + Web agent harness with OpenAI function calling, MCP, ReAct, hybrid RAG, reminders, permissions and audit." />
-<meta name="twitter:image" content="https://badhope.github.io/zhike/screenshots/dashboard.png" />
+<meta name="twitter:image" content="https://badhope.github.io/bigrobot/screenshots/dashboard.png" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%230E5C55'/%3E%3Ctext x='32' y='45.5' text-anchor='middle' font-size='38' font-weight='600' fill='%23F7F5F0' font-family='Songti SC,STSong,SimSun,serif'%3E知%3C/text%3E%3C/svg%3E" />
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  "name": "Zhike",
-  "alternateName": "知客",
+  "name": "BigRobot",
+  "alternateName": "BigRobot",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, Linux, macOS, Docker",
   "description": "Self-hosted agent harness for personal assistants: OpenAI function calling, MCP, ReAct loop, hybrid RAG, reminders, permissions and audit, with QQ and Web channels.",
-  "url": "https://badhope.github.io/zhike/",
-  "codeRepository": "https://github.com/badhope/zhike",
+  "url": "https://badhope.github.io/bigrobot/",
+  "codeRepository": "https://github.com/badhope/bigrobot",
   "license": "https://opensource.org/licenses/MIT",
   "programmingLanguage": ["Python", "TypeScript"],
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "sameAs": [
-    "https://gitcode.com/badhope/zhike",
-    "https://gitee.com/badhope/zhike",
-    "https://github.com/badhope/zhike",
-    "https://github.com/X33834/zhike",
-    "https://github.com/Morningstar202604/zhike"
+    "https://gitcode.com/badhope/bigrobot",
+    "https://gitee.com/badhope/bigrobot",
+    "https://github.com/badhope/bigrobot",
+    "https://github.com/X33834/bigrobot",
+    "https://github.com/Morningstar202604/bigrobot"
   ]
 }
 </script>
@@ -111,13 +111,13 @@
 <body>
 <header class="top">
   <div class="wrap">
-    <a class="logo" href="#top"><span class="mark">知</span><span>Zhike<span class="zh"> 知客</span></span></a>
+    <a class="logo" href="#top"><span class="mark">知</span><span>BigRobot<span class="zh"> BigRobot</span></span></a>
     <nav>
       <a href="#features" class="en">Features</a><a href="#features" class="zh">功能</a>
       <a href="#design" class="en">Design</a><a href="#design" class="zh">设计</a>
       <a href="#start" class="en">Quick start</a><a href="#start" class="zh">快速开始</a>
       <a href="#mirrors" class="en">Mirrors</a><a href="#mirrors" class="zh">镜像</a>
-      <a href="https://gitcode.com/badhope/zhike">GitCode</a>
+      <a href="https://gitcode.com/badhope/bigrobot">GitCode</a>
       <div class="lang" role="group" aria-label="Language">
         <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
         <button type="button" data-set-lang="zh" aria-pressed="false">中文</button>
@@ -133,8 +133,8 @@
       <span class="kicker zh">可自托管 · MIT · QQ + Web</span>
       <h1 class="en">Your personal assistant, self-hosted.</h1>
       <h1 class="zh">你的私人秘书，自己托管。</h1>
-      <p class="lead en">Zhike is an agent harness for personal assistants: OpenAI function calling, MCP, a ReAct loop, hybrid retrieval (FTS5 + vectors with RRF), long-term memory, reminders, tiered action permissions and an append-only audit chain — wired to QQ group/private chat and a Web console.</p>
-      <p class="lead zh">知客是一套可自托管的个人助理 Agent 底座：原生 function calling、MCP、ReAct 循环、混合检索（FTS5 + 向量 RRF）、长期记忆、提醒调度、动作权限分级与哈希链审计，QQ 群/私聊与 Web 控制台双渠道。</p>
+      <p class="lead en">BigRobot is an agent harness for personal assistants: OpenAI function calling, MCP, a ReAct loop, hybrid retrieval (FTS5 + vectors with RRF), long-term memory, reminders, tiered action permissions and an append-only audit chain — wired to QQ group/private chat and a Web console.</p>
+      <p class="lead zh">BigRobot是一套可自托管的个人助理 Agent 底座：原生 function calling、MCP、ReAct 循环、混合检索（FTS5 + 向量 RRF）、长期记忆、提醒调度、动作权限分级与哈希链审计，QQ 群/私聊与 Web 控制台双渠道。</p>
       <div class="badges">
         <img src="https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white" alt="Python 3.12+" />
         <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
@@ -144,10 +144,10 @@
         <img src="https://img.shields.io/badge/tests-passing-brightgreen" alt="Tests passing" />
       </div>
       <div class="cta">
-        <a class="btn primary" href="https://gitcode.com/badhope/zhike">GitCode Repository</a>
-        <a class="btn en" href="https://gitcode.com/badhope/zhike/blob/main/README.en.md">Read the docs</a>
-        <a class="btn" href="https://gitcode.com/badhope/zhike/blob/main/README.md">中文 README</a>
-        <a class="btn" href="https://gitcode.com/badhope/zhike/blob/main/README.en.md">English README</a>
+        <a class="btn primary" href="https://gitcode.com/badhope/bigrobot">GitCode Repository</a>
+        <a class="btn en" href="https://gitcode.com/badhope/bigrobot/blob/main/README.en.md">Read the docs</a>
+        <a class="btn" href="https://gitcode.com/badhope/bigrobot/blob/main/README.md">中文 README</a>
+        <a class="btn" href="https://gitcode.com/badhope/bigrobot/blob/main/README.en.md">English README</a>
       </div>
     </div>
   </div>
@@ -158,7 +158,7 @@
       <p class="sub en">Everything below is implemented and covered by tests — no roadmap items dressed up as features.</p>
       <p class="sub zh">下面每条都已实现并有回归测试覆盖，不把路线图当成已完成功能。</p>
       <div class="grid">
-        <div class="card"><h3 class="en">Real tool calling</h3><h3 class="zh">真工具调用</h3><p class="en">OpenAI function calling with automatic JSON fallback; 42 tools with backends that hide themselves when unconfigured.</p><p class="zh">原生 function calling，端点不支持时自动退 JSON；42 个工具，缺后端时自动隐藏而不是让模型撞墙。</p></div>
+        <div class="card"><h3 class="en">Real tool calling</h3><h3 class="zh">真工具调用</h3><p class="en">OpenAI function calling with automatic JSON fallback; 55 tools with backends that hide themselves when unconfigured.</p><p class="zh">原生 function calling，端点不支持时自动退 JSON；55 个工具，缺后端时自动隐藏而不是让模型撞墙。</p></div>
         <div class="card"><h3 class="en">Hybrid retrieval</h3><h3 class="zh">混合检索</h3><p class="en">SQLite FTS5 BM25 plus optional BGE vectors, fused by RRF, with lexical fallback when the index fails.</p><p class="zh">SQLite FTS5 BM25 + 可选 BGE 向量，RRF 融合；索引故障自动退回字面检索。</p></div>
         <div class="card"><h3 class="en">Permissions and audit</h3><h3 class="zh">权限与审计</h3><p class="en">L0/L1/L2 action tiers, forced approval for destructive actions, SHA-256 hash-chained audit verifiable in the console.</p><p class="zh">L0/L1/L2 动作分级，破坏性动作强制审批，SHA-256 哈希链审计可在控制台校验。</p></div>
         <div class="card"><h3 class="en">QQ, fully wired</h3><h3 class="zh">QQ 深度接管</h3><p class="en">NapCat + OneBot v11 + NoneBot2: mute, kick, card, rename, notice, upload, recall, approvals, poke, essence, forward.</p><p class="zh">NapCat + OneBot v11 + NoneBot2：禁言、踢人、名片、群名、公告、传文件、撤回、审批、戳一戳、精华、合并转发。</p></div>
@@ -192,15 +192,15 @@
       <h2 class="en">Quick start</h2><h2 class="zh">快速开始</h2>
       <p class="sub en">One address serves both the console and the API.</p>
       <p class="sub zh">一个地址 = 控制台 + API。</p>
-      <pre><code>git clone https://github.com/badhope/zhike &amp;&amp; cd zhike
+      <pre><code>git clone https://github.com/badhope/bigrobot &amp;&amp; cd bigrobot
 python -m venv .venv &amp;&amp; .venv/Scripts/pip install -r requirements.txt
 cp .env.example .env                    # fill USER_LLM_* / ADMIN_TOKEN as needed
 
 cd frontend &amp;&amp; npm ci &amp;&amp; npm run build &amp;&amp; cd ..
-CS_AGENT_STATIC_DIR=frontend/dist python -m uvicorn core.main:app --port 8010
+BIGROBOT_STATIC_DIR=frontend/dist python -m uvicorn core.main:app --port 8010
 # → http://localhost:8010</code></pre>
-      <p class="sub en" style="margin-top:18px">QQ setup: <a href="https://gitcode.com/badhope/zhike/blob/main/docs/QQ-LOGIN.md">docs/QQ-LOGIN.md</a> · Docker and deployment: <a href="https://gitcode.com/badhope/zhike/blob/main/DEPLOY.md">DEPLOY.md</a></p>
-      <p class="sub zh" style="margin-top:18px">QQ 接入见 <a href="https://gitcode.com/badhope/zhike/blob/main/docs/QQ-LOGIN.md">docs/QQ-LOGIN.md</a>，Docker / 反代 / 免费部署见 <a href="https://gitcode.com/badhope/zhike/blob/main/DEPLOY.md">DEPLOY.md</a></p>
+      <p class="sub en" style="margin-top:18px">QQ setup: <a href="https://gitcode.com/badhope/bigrobot/blob/main/docs/DEPLOY.md">docs/QQ-LOGIN.md</a> · Docker and deployment: <a href="https://gitcode.com/badhope/bigrobot/blob/main/docs/DEPLOY.md">DEPLOY.md</a></p>
+      <p class="sub zh" style="margin-top:18px">QQ 接入见 <a href="https://gitcode.com/badhope/bigrobot/blob/main/docs/DEPLOY.md">docs/QQ-LOGIN.md</a>，Docker / 反代 / 免费部署见 <a href="https://gitcode.com/badhope/bigrobot/blob/main/docs/DEPLOY.md">DEPLOY.md</a></p>
     </div>
   </section>
 
@@ -210,14 +210,14 @@ CS_AGENT_STATIC_DIR=frontend/dist python -m uvicorn core.main:app --port 8010
       <p class="sub en">Captured against a generated demo database, not hand-drawn mockups.</p>
       <p class="sub zh">基于独立演示库实拍，不是手绘 mockup。</p>
       <div class="shots">
-        <figure><img src="screenshots/dashboard.png" alt="Zhike console overview dashboard with message volume, session trend and channel split" loading="lazy" /><figcaption>Overview / 运行总览</figcaption></figure>
-        <figure><img src="screenshots/sessions.png" alt="Zhike conversations console" loading="lazy" /><figcaption>Conversations / 会话中心</figcaption></figure>
-        <figure><img src="screenshots/operator.png" alt="Zhike operator desk" loading="lazy" /><figcaption>Operator desk / 协作台</figcaption></figure>
-        <figure><img src="screenshots/en-dashboard.png" alt="Zhike console in English" loading="lazy" /><figcaption>English UI / 英文界面</figcaption></figure>
-        <figure><img src="screenshots/kb.png" alt="Zhike knowledge base console" loading="lazy" /><figcaption>Knowledge base / 知识库</figcaption></figure>
-        <figure><img src="screenshots/emotes.png" alt="Zhike emote library with vision tags" loading="lazy" /><figcaption>Emote library / 表情包库</figcaption></figure>
-        <figure><img src="screenshots/reminders.png" alt="Zhike reminders" loading="lazy" /><figcaption>Reminders / 提醒待办</figcaption></figure>
-        <figure><img src="screenshots/persona.png" alt="Zhike persona presets" loading="lazy" /><figcaption>Personas / 秘书人设</figcaption></figure>
+        <figure><img src="screenshots/dashboard.png" alt="BigRobot console overview dashboard with message volume, session trend and channel split" loading="lazy" /><figcaption>Overview / 运行总览</figcaption></figure>
+        <figure><img src="screenshots/sessions.png" alt="BigRobot conversations console" loading="lazy" /><figcaption>Conversations / 会话中心</figcaption></figure>
+        <figure><img src="screenshots/operator.png" alt="BigRobot operator desk" loading="lazy" /><figcaption>Operator desk / 协作台</figcaption></figure>
+        <figure><img src="screenshots/en-dashboard.png" alt="BigRobot console in English" loading="lazy" /><figcaption>English UI / 英文界面</figcaption></figure>
+        <figure><img src="screenshots/kb.png" alt="BigRobot knowledge base console" loading="lazy" /><figcaption>Knowledge base / 知识库</figcaption></figure>
+        <figure><img src="screenshots/emotes.png" alt="BigRobot emote library with vision tags" loading="lazy" /><figcaption>Emote library / 表情包库</figcaption></figure>
+        <figure><img src="screenshots/reminders.png" alt="BigRobot reminders" loading="lazy" /><figcaption>Reminders / 提醒待办</figcaption></figure>
+        <figure><img src="screenshots/persona.png" alt="BigRobot persona presets" loading="lazy" /><figcaption>Personas / 秘书人设</figcaption></figure>
       </div>
     </div>
   </section>
@@ -228,11 +228,11 @@ CS_AGENT_STATIC_DIR=frontend/dist python -m uvicorn core.main:app --port 8010
       <p class="sub en">The same tree, published to five repositories. Pick whichever is fastest for you.</p>
       <p class="sub zh">同一套代码同步到五个公开仓库，哪个快用哪个。</p>
       <div class="mirrors">
-        <a class="mirror" href="https://gitcode.com/badhope/zhike"><span>GitCode · badhope/zhike（主站）</span><span>→</span></a>
-        <a class="mirror" href="https://github.com/X33834/zhike"><span>GitHub · X33834/zhike</span><span>→</span></a>
-        <a class="mirror" href="https://github.com/Morningstar202604/zhike"><span>GitHub · Morningstar202604/zhike</span><span>→</span></a>
-        <a class="mirror" href="https://gitee.com/badhope/zhike"><span>Gitee · badhope/zhike</span><span>→</span></a>
-        <a class="mirror" href="https://github.com/badhope/zhike"><span>GitHub · badhope/zhike</span><span>→</span></a>
+        <a class="mirror" href="https://gitcode.com/badhope/bigrobot"><span>GitCode · badhope/bigrobot（主站）</span><span>→</span></a>
+        <a class="mirror" href="https://github.com/X33834/bigrobot"><span>GitHub · X33834/bigrobot</span><span>→</span></a>
+        <a class="mirror" href="https://github.com/Morningstar202604/bigrobot"><span>GitHub · Morningstar202604/bigrobot</span><span>→</span></a>
+        <a class="mirror" href="https://gitee.com/badhope/bigrobot"><span>Gitee · badhope/bigrobot</span><span>→</span></a>
+        <a class="mirror" href="https://github.com/badhope/bigrobot"><span>GitHub · badhope/bigrobot</span><span>→</span></a>
       </div>
     </div>
   </section>
@@ -240,9 +240,9 @@ CS_AGENT_STATIC_DIR=frontend/dist python -m uvicorn core.main:app --port 8010
 
 <footer>
   <div class="wrap">
-    <p class="en">Zhike is MIT licensed. NapCat is an unofficial protocol client under its own non-commercial license — review it and Tencent's risk-control policy before commercial use.</p>
-    <p class="zh">知客采用 MIT 许可。NapCat 为自定义非商用许可的非官方协议端，商用前请自行复核其 LICENSE 与腾讯风控政策。</p>
-    <p>© 2026 badhope · <a href="https://gitcode.com/badhope/zhike">GitCode</a> · <a href="https://gitee.com/badhope/zhike">Gitee</a> · <a href="https://github.com/badhope/zhike">GitHub</a></p>
+    <p class="en">BigRobot is MIT licensed. NapCat is an unofficial protocol client under its own non-commercial license — review it and Tencent's risk-control policy before commercial use.</p>
+    <p class="zh">BigRobot采用 MIT 许可。NapCat 为自定义非商用许可的非官方协议端，商用前请自行复核其 LICENSE 与腾讯风控政策。</p>
+    <p>© 2026 badhope · <a href="https://gitcode.com/badhope/bigrobot">GitCode</a> · <a href="https://gitee.com/badhope/bigrobot">Gitee</a> · <a href="https://github.com/badhope/bigrobot">GitHub</a></p>
   </div>
 </footer>
 
@@ -250,13 +250,13 @@ CS_AGENT_STATIC_DIR=frontend/dist python -m uvicorn core.main:app --port 8010
 (function () {
   var html = document.documentElement;
   var params = new URLSearchParams(location.search);
-  var saved = params.get('lang') || localStorage.getItem('zhike-site-lang') || 'en';
+  var saved = params.get('lang') || localStorage.getItem('bigrobot-site-lang') || 'en';
   setLang(saved === 'zh' ? 'zh' : 'en');
   document.querySelectorAll('[data-set-lang]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var lang = btn.getAttribute('data-set-lang');
       setLang(lang);
-      localStorage.setItem('zhike-site-lang', lang);
+      localStorage.setItem('bigrobot-site-lang', lang);
       var url = new URL(location.href);
       url.searchParams.set('lang', lang);
       history.replaceState(null, '', url);

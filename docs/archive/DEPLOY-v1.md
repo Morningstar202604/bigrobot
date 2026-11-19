@@ -1,4 +1,4 @@
-# 知客 Zhike 部署手册
+# BigRobot BigRobot 部署手册
 
 ## 0. 先回答：要不要 Cloudflare？
 
@@ -152,18 +152,18 @@ GATEWAY_LOOP_STATE=logs/loop_guard.json
 
 ```bash
 # ① 下载并执行一键脚本（首次会生成 .env 并自动随机化两把令牌）
-bash <(curl -fsSL https://gitee.com/raw/badhope/zhike/master/scripts/deploy.sh) \
-  || git clone --depth 1 https://gitcode.com/badhope/zhike.git /opt/zhike && bash /opt/zhike/scripts/deploy.sh
+bash <(curl -fsSL https://gitee.com/raw/badhope/bigrobot/master/scripts/deploy.sh) \
+  || git clone --depth 1 https://gitcode.com/badhope/bigrobot.git /opt/bigrobot && bash /opt/bigrobot/scripts/deploy.sh
 
-# ② 编辑 /opt/zhike/.env：填 NAPCAT_QQ（机器人 QQ 号）、按需填 USER_LLM_API_KEY
-vim /opt/zhike/.env
+# ② 编辑 /opt/bigrobot/.env：填 NAPCAT_QQ（机器人 QQ 号）、按需填 USER_LLM_API_KEY
+vim /opt/bigrobot/.env
 
 # ③ 重跑脚本 → 构建镜像并启动（core 自带控制台，单端口 8010）
-bash /opt/zhike/scripts/deploy.sh
+bash /opt/bigrobot/scripts/deploy.sh
 
 # ④ QQ 扫码登录：本机浏览器访问 NapCat WebUI
 ssh -L 6099:127.0.0.1:6099 user@服务器IP   # 然后浏览器开 http://127.0.0.1:6099
-#    WebUI 令牌：docker logs zhike-napcat | grep token
+#    WebUI 令牌：docker logs bigrobot-napcat | grep token
 #    登录机器人 QQ 后，在网络配置里添加「WebSocket 服务端」监听 0.0.0.0:3001（一次性，持久化）
 
 # ⑤ 验收
@@ -172,7 +172,7 @@ curl http://127.0.0.1:8010/healthz            # {"ok":true}
 # QQ 群里 @机器人 问一句「订单什么时候发货」→ 应收到带引用的回复
 ```
 
-家宅 + CF Tunnel 变体：`ZHIKE_BIND=127.0.0.1` 写进 .env（core 不暴露公网），`cloudflared tunnel` 指向 `http://127.0.0.1:8010`。
+家宅 + CF Tunnel 变体：`BIGROBOT_BIND=127.0.0.1` 写进 .env（core 不暴露公网），`cloudflared tunnel` 指向 `http://127.0.0.1:8010`。
 
 ## 3. 验收 Checklist
 
@@ -191,7 +191,7 @@ curl http://127.0.0.1:8010/healthz            # {"ok":true}
 结果：QQ 渠道全链路全部通过 ✅
 ```
 
-排障日志：`/tmp/zhike_qq_gw.log`、`/tmp/zhike_qq_core.log`。
+排障日志：`/tmp/bigrobot_qq_gw.log`、`/tmp/bigrobot_qq_core.log`。
 
 ### 3.2 真机验收（唯一人工环节：小号扫码）
 
@@ -209,7 +209,7 @@ curl http://127.0.0.1:8010/healthz            # {"ok":true}
 
 - [ ] `curl http://127.0.0.1:8010/healthz` 返回 `{"ok":true}`
 - [ ] 控制台「运行总览」能打开（本机自动登录；远程用「访问令牌」复制的令牌登录）
-- [ ] `docker logs zhike-gateway` 无报错；控制台渠道页 onebot_v11 显示 online
+- [ ] `docker logs bigrobot-gateway` 无报错；控制台渠道页 onebot_v11 显示 online
 - [ ] 访客页（`/`）发消息 → 正常对话（LLM 配好时打字机逐字出）
 - [ ] 未带令牌 `curl -X POST http://IP:8010/v1/ingest` → **401**（安全生效）
 
@@ -217,13 +217,13 @@ curl http://127.0.0.1:8010/healthz            # {"ok":true}
 
 ```bash
 # 升级（拉新代码重建）
-bash /opt/zhike/scripts/deploy.sh
+bash /opt/bigrobot/scripts/deploy.sh
 # 日志
-docker logs -f zhike-core / zhike-gateway / zhike-napcat
+docker logs -f bigrobot-core / bigrobot-gateway / bigrobot-napcat
 # 备份（SQLite 在 volume 里）
 # 必须用 sqlite3 .backup：WAL 模式下直接 cp 可能拿到「主库已写、WAL 未合并」的不一致快照。
-docker run --rm -v zhike_core_data:/data -v "$PWD":/b alpine sh -c   'apk add --no-cache sqlite >/dev/null && sqlite3 /data/cs_agent.db ".backup /b/backup.db"'
-# 回滚：git -C /opt/zhike checkout <旧tag或sha> && bash scripts/deploy.sh
+docker run --rm -v bigrobot_core_data:/data -v "$PWD":/b alpine sh -c   'apk add --no-cache sqlite >/dev/null && sqlite3 /data/cs_agent.db ".backup /b/backup.db"'
+# 回滚：git -C /opt/bigrobot checkout <旧tag或sha> && bash scripts/deploy.sh
 ```
 
 **恢复演练（每季度至少一次，脚本化）**
@@ -232,7 +232,7 @@ docker run --rm -v zhike_core_data:/data -v "$PWD":/b alpine sh -c   'apk add --
 # 1) 停服务，保留现场
 docker compose -f deploy/docker-compose.yml stop core
 # 2) 用备份替换（同样走 sqlite3，不要直接覆盖正在使用的文件）
-docker run --rm -v zhike_core_data:/data -v "$PWD":/b alpine sh -c   'apk add --no-cache sqlite >/dev/null && sqlite3 /b/backup.db ".backup /data/cs_agent.db"'
+docker run --rm -v bigrobot_core_data:/data -v "$PWD":/b alpine sh -c   'apk add --no-cache sqlite >/dev/null && sqlite3 /b/backup.db ".backup /data/cs_agent.db"'
 # 3) 起服务并校验
 docker compose -f deploy/docker-compose.yml start core
 curl -s localhost:8010/healthz
@@ -245,7 +245,7 @@ ADMIN_TOKEN=... curl -s -H "X-Admin-Token: $ADMIN_TOKEN" localhost:8010/api/admi
 | 端点 | 用途 |
 |---|---|
 | `GET /healthz` | 存活探针（容器 healthcheck 用） |
-| `GET /metrics` | Prometheus 文本格式：`zhike_http_requests_total`（按路由模板/状态码）、`zhike_http_request_duration_seconds_sum|max`、`zhike_llm_calls_total{result=ok|fail|fallback}`、`zhike_uptime_seconds` |
+| `GET /metrics` | Prometheus 文本格式：`bigrobot_http_requests_total`（按路由模板/状态码）、`bigrobot_http_request_duration_seconds_sum|max`、`bigrobot_llm_calls_total{result=ok|fail|fallback}`、`bigrobot_uptime_seconds` |
 | `GET /api/admin/logs` | 最近事件（控制台「日志中心」） |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | 可选：OpenTelemetry trace 导出（需装 `requirements-tracing.txt`） |
 
@@ -253,17 +253,17 @@ ADMIN_TOKEN=... curl -s -H "X-Admin-Token: $ADMIN_TOKEN" localhost:8010/api/admi
 
 | 告警 | 表达式（示例） | 含义 / 处置 |
 |---|---|---|
-| 5xx 比例 | `sum(rate(zhike_http_requests_total{status=~"5.."}[5m])) / sum(rate(zhike_http_requests_total[5m])) > 0.02` | 服务端批量报错：先看 `/api/admin/logs?level=ERROR`，再查 LLM 端点连通性 |
-| LLM 失败率 | `rate(zhike_llm_calls_total{result="fail"}[5m]) / ignoring(result) sum(rate(zhike_llm_calls_total[5m])) > 0.2` | 模型不可用：系统会自动降级规则模式，检查 Key/额度/网络 |
-| 接口 P95 劣化 | `max by (path) (zhike_http_request_duration_seconds_max) > 2` | 单请求超 2s：查 SQLite 锁等待（`rate_hits`/审计链写）与检索索引重建 |
+| 5xx 比例 | `sum(rate(bigrobot_http_requests_total{status=~"5.."}[5m])) / sum(rate(bigrobot_http_requests_total[5m])) > 0.02` | 服务端批量报错：先看 `/api/admin/logs?level=ERROR`，再查 LLM 端点连通性 |
+| LLM 失败率 | `rate(bigrobot_llm_calls_total{result="fail"}[5m]) / ignoring(result) sum(rate(bigrobot_llm_calls_total[5m])) > 0.2` | 模型不可用：系统会自动降级规则模式，检查 Key/额度/网络 |
+| 接口 P95 劣化 | `max by (path) (bigrobot_http_request_duration_seconds_max) > 2` | 单请求超 2s：查 SQLite 锁等待（`rate_hits`/审计链写）与检索索引重建 |
 
 ## 6. 安全基线（生产必做）
 
 - `.env` 里 `ADMIN_TOKEN`、`CHANNEL_TOKEN` 均已随机化（脚本自动），不要改回占位符
-- 公网部署务必设 `CS_AGENT_LOCAL_TOKEN_BOOTSTRAP=0`：它会关闭「本机自动下发令牌」通道（默认只放行回环地址）
-- 不确定就收紧：`ZHIKE_BIND=127.0.0.1` + 反代/隧道对外
+- 公网部署务必设 `BIGROBOT_LOCAL_TOKEN_BOOTSTRAP=0`：它会关闭「本机自动下发令牌」通道（默认只放行回环地址）
+- 不确定就收紧：`BIGROBOT_BIND=127.0.0.1` + 反代/隧道对外
 - NapCat WebUI（6099）只绑本机，走 SSH 隧道访问
-- 公网直连场景建议 `CS_AGENT_CORS_ORIGINS` 填控制台实际域名
+- 公网直连场景建议 `BIGROBOT_CORS_ORIGINS` 填控制台实际域名
 
 ## 7. 常见问题
 

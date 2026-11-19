@@ -24,7 +24,7 @@ def fresh_root(tmp_path, monkeypatch):
     """把 CLI 的 ROOT/ENV_FILE 指向临时目录，模拟全新安装。"""
     example = tmp_path / ".env.example"
     example.write_text(
-        "# 示例配置\nADMIN_TOKEN=\nCHANNEL_TOKEN=\nCS_AGENT_DB=cs_agent.db\n",
+        "# 示例配置\nADMIN_TOKEN=\nCHANNEL_TOKEN=\nBIGROBOT_DB=cs_agent.db\n",
         encoding="utf-8",
     )
     (tmp_path / "VERSION").write_text("9.9.9", encoding="utf-8")
@@ -33,7 +33,7 @@ def fresh_root(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "ENV_FILE", tmp_path / ".env")
     monkeypatch.setattr(cli, "ENV_EXAMPLE", example)
     monkeypatch.setattr(cli, "VERSION_FILE", tmp_path / "VERSION")
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "cs_agent.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "cs_agent.db"))
     return tmp_path
 
 
@@ -114,23 +114,23 @@ def test_paths_frozen_mode_separates_writable_from_bundle(monkeypatch, tmp_path)
 
     monkeypatch.setattr(paths, "IS_FROZEN", True)
     monkeypatch.setattr(paths.sys, "_MEIPASS", str(bundle), raising=False)
-    monkeypatch.setattr(paths.sys, "executable", str(exe_dir / "zhike.exe"))
+    monkeypatch.setattr(paths.sys, "executable", str(exe_dir / "bigrobot.exe"))
     monkeypatch.setattr(paths, "_CACHED", None)
-    monkeypatch.delenv("ZHIKE_HOME", raising=False)
+    monkeypatch.delenv("BIGROBOT_HOME", raising=False)
 
     assert paths.bundle_dir() == bundle
     w = paths.writable_dir()
     assert w != bundle, "可写目录绝不能是 _MEIPASS（退出即删）"
-    assert w == exe_dir / "zhike-data", "优先用 exe 同级目录（绿色版可整体搬走）"
+    assert w == exe_dir / "bigrobot-data", "优先用 exe 同级目录（绿色版可整体搬走）"
 
 
-def test_paths_respects_zhike_home(monkeypatch, tmp_path):
-    """显式指定 ZHIKE_HOME 时优先用它。"""
+def test_paths_respects_bigrobot_home(monkeypatch, tmp_path):
+    """显式指定 BIGROBOT_HOME 时优先用它。"""
     custom = tmp_path / "custom-home"
     monkeypatch.setattr(paths, "IS_FROZEN", True)
     monkeypatch.setattr(paths.sys, "_MEIPASS", str(tmp_path), raising=False)
     monkeypatch.setattr(paths, "_CACHED", None)
-    monkeypatch.setenv("ZHIKE_HOME", str(custom))
+    monkeypatch.setenv("BIGROBOT_HOME", str(custom))
 
     assert paths.writable_dir() == custom
     assert custom.exists()

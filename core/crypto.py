@@ -1,7 +1,7 @@
 """LLM API Key 落库加密（Fernet 对称加密）。
 
 Key 来源优先级：
-1. 环境变量 ZHIKE_SECRET_KEY（32 字节 urlsafe base64，生产必须设）
+1. 环境变量 BIGROBOT_SECRET_KEY（32 字节 urlsafe base64，生产必须设）
 2. 否则从 DB 路径 + 机器 host 派生（开发便利，不跨机迁移）
 
 向后兼容：DB 里旧明文 key 不是 Fernet token（不以 'gAAAAA' 开头）时，直接当明文用。
@@ -28,10 +28,10 @@ def _get_fernet():
         _FERNET = None
         return None
 
-    key_material = os.environ.get("ZHIKE_SECRET_KEY", "").strip()
+    key_material = os.environ.get("BIGROBOT_SECRET_KEY", "").strip()
     if not key_material:
         # 开发兜底：从 DB 路径 + hostname 派生（不跨机）
-        seed = f"zhike::{socket.gethostname()}::{os.environ.get('CS_AGENT_DB', 'default')}".encode()
+        seed = f"bigrobot::{socket.gethostname()}::{os.environ.get('BIGROBOT_DB', 'default')}".encode()
         key_material = base64.urlsafe_b64encode(hashlib.sha256(seed).digest()).decode()
     else:
         # 用户给的 key 可能不是 32 字节，sha256 派生到合法长度

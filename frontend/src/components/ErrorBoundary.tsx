@@ -38,7 +38,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[zhike] render error', this.state.code, error, info.componentStack)
+    console.error('[bigrobot] render error', this.state.code, error, info.componentStack)
     this.setState({ info: info.componentStack || '' })
   }
 
@@ -73,6 +73,6 @@ export function installGlobalErrorHandlers(): void {
   if (typeof window === 'undefined') return
   window.addEventListener('unhandledrejection', (e) => {
     // 只记录，不弹窗骚扰用户：多数 rejection 是取消的请求
-    console.error('[zhike] unhandled rejection', e.reason)
+    console.error('[bigrobot] unhandled rejection', e.reason)
   })
 }

@@ -21,12 +21,12 @@
 
 ## exe 首次运行
 
-exe 所在目录通常是 `C:\\Program Files\\Zhike`（无写权限）或用户从下载目录直接双击。
+exe 所在目录通常是 `C:\\Program Files\\BigRobot`（无写权限）或用户从下载目录直接双击。
 可写目录按以下顺序选，第一个能建目录且能写的赢：
 
-1. 环境变量 `ZHIKE_HOME`（用户显式指定）
-2. exe 同级的 `zhike-data/`（绿色版，整个文件夹可搬走）
-3. `%LOCALAPPDATA%\\Zhike`（Windows 安装版的标准位置）
+1. 环境变量 `BIGROBOT_HOME`（用户显式指定）
+2. exe 同级的 `bigrobot-data/`（绿色版，整个文件夹可搬走）
+3. `%LOCALAPPDATA%\\BigRobot`（Windows 安装版的标准位置）
 """
 from __future__ import annotations
 
@@ -58,15 +58,29 @@ def _exe_dir() -> Path:
 
 
 def _candidates() -> list[Path]:
+    """可写目录候选，按优先级排列。
+
+    改名（Zhike → BigRobot）时**旧目录必须先于新目录检测**：老用户升级后
+    数据还在 `zhike-data/`，如果直接建新的 `bigrobot-data/`，等于让所有人
+    升级即失忆。所以策略是「旧目录存在就继续用，不存在才建新目录」。
+    """
     out: list[Path] = []
-    explicit = (os.environ.get("ZHIKE_HOME") or "").strip()
+    explicit = (os.environ.get("BIGROBOT_HOME") or os.environ.get("ZHIKE_HOME") or "").strip()
     if explicit:
         out.append(Path(explicit).expanduser())
-    out.append(_exe_dir() / "zhike-data")
     local = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+
+    legacy: list[Path] = [_exe_dir() / "zhike-data"]
     if local:
-        out.append(Path(local) / "Zhike")
-    out.append(Path(tempfile.gettempdir()) / "zhike-data")
+        legacy.append(Path(local) / "Zhike")
+    for p in legacy:
+        if p.is_dir():
+            out.append(p)
+
+    out.append(_exe_dir() / "bigrobot-data")
+    if local:
+        out.append(Path(local) / "BigRobot")
+    out.append(Path(tempfile.gettempdir()) / "bigrobot-data")
     return out
 
 

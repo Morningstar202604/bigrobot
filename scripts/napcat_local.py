@@ -34,7 +34,7 @@ RUN_LOG = NAPCAT_DIR / "run.log"
 PID_FILE = NAPCAT_DIR / "napcat.pid"
 WEBUI_PORT = int(os.environ.get("NAPCAT_WEBUI_PORT", "6099"))
 WS_PORT = int(os.environ.get("ONEBOT_WS_PORT", "3001"))
-WEBUI_TOKEN = "zhike-local-6099"
+WEBUI_TOKEN = "bigrobot-local-6099"
 
 
 def _ws_handshake_ok(port: int = WS_PORT) -> tuple[bool, str]:
@@ -233,7 +233,7 @@ def _launch_direct(uin: str, log_fh) -> subprocess.Popen:
 def cmd_start(uin: str, wait_s: int) -> int:
     if not NAPCAT_DIR.exists():
         print(f"[X] 未找到 NapCat：{NAPCAT_DIR}")
-        print("    先下载 Release 的 NapCat.Shell.zip 解压到这里（见 docs/QQ-LOCAL.md）")
+        print("    先下载 Release 的 NapCat.Shell.zip 解压到这里（见 docs/DEPLOY.md §4.3）")
         return 2
     for w in _version_warnings():
         print(f"[!] {w}")

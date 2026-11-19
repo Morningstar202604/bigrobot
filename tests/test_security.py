@@ -4,7 +4,7 @@ from core.security import RateLimiter
 
 
 def test_admin_token_required(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "t.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "t.db"))
     monkeypatch.setenv("ADMIN_TOKEN", "abc")
     from core.main import create_app
     from core import store
@@ -21,7 +21,7 @@ def test_admin_open_mode_warns(caplog, monkeypatch, tmp_path):
     """安全默认：ADMIN_TOKEN 未设置时，管理接口直接 503（不再 200 裸奔），并打告警日志。"""
     import logging
 
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "t2.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "t2.db"))
     monkeypatch.delenv("ADMIN_TOKEN", raising=False)
     from core.main import create_app
     from core import store

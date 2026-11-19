@@ -15,6 +15,7 @@ import { useFeedback } from './components/Feedback'
 import type { AgentConfig } from './types/api'
 import './pages2.css'
 import { t } from './lib/t'
+import { K, readJson, writeJson } from './lib/storage'
 
 /* ============ 角色预设：文案由后端 core/personas.py 单一事实源下发 ============ */
 interface PersonaPreset {
@@ -227,13 +228,10 @@ function ProviderPanel({ draft, patch }: { draft: AgentConfig; patch: (fn: (d: A
 
 /* ============ 角色库（AstrBot 情景管理对标）：
    命名保存当前人设，随时切换/删除，支持导出导入 JSON 迁移 ============ */
-const ROLE_LIB_KEY = 'zhike-persona-roles'
 interface RoleEntry { name: string; persona: string; temperature: number; savedAt: string }
 
-function loadRoles(): RoleEntry[] {
-  try { return JSON.parse(localStorage.getItem(ROLE_LIB_KEY) || '[]') } catch { return [] }
-}
-function saveRoles(rs: RoleEntry[]) { localStorage.setItem(ROLE_LIB_KEY, JSON.stringify(rs)) }
+function loadRoles(): RoleEntry[] { return readJson<RoleEntry[]>(K.roleLib, []) }
+function saveRoles(rs: RoleEntry[]) { writeJson(K.roleLib, rs) }
 
 function RoleLibrary({ draft, onApply }: { draft: AgentConfig; onApply: (r: RoleEntry) => void }) {
   const [roles, setRoles] = useState<RoleEntry[]>(loadRoles)
@@ -254,7 +252,7 @@ function RoleLibrary({ draft, onApply }: { draft: AgentConfig; onApply: (r: Role
     const blob = new Blob([JSON.stringify(roles, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = 'zhike-roles.json'
+    a.download = 'bigrobot-roles.json'
     a.click()
     URL.revokeObjectURL(a.href)
   }

@@ -14,7 +14,7 @@ _REPO_KB = pathlib.Path(__file__).resolve().parent.parent / "core" / "data" / "k
 @pytest.fixture(autouse=True)
 def _isolated_db(monkeypatch, tmp_path):
     """所有用例默认跑在临时库上：防止漏写 fixture 的用例（如 test_pipeline）往仓库根写 cs_agent.db。"""
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "autouse.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "autouse.db"))
     from core import store
 
     store._SCHEMA_READY.clear()
@@ -46,7 +46,7 @@ def _isolated_retrieval_index(monkeypatch, tmp_path):
 
 @pytest.fixture()
 def app(monkeypatch, tmp_path):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "test.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "test.db"))
     monkeypatch.setenv("ADMIN_TOKEN", ADMIN)
     monkeypatch.setenv("CHANNEL_TOKEN", CHANNEL)
     monkeypatch.delenv("USER_LLM_API_KEY", raising=False)

@@ -2,7 +2,7 @@
 
 前置：
     python scripts/seed_demo.py
-    CS_AGENT_DB=.demo/cs_agent.db CS_AGENT_STATIC_DIR=frontend/dist \
+    BIGROBOT_DB=.demo/cs_agent.db BIGROBOT_STATIC_DIR=frontend/dist \
       ADMIN_TOKEN=demo-admin CHANNEL_TOKEN=demo-chan \
       USER_LLM_API_KEY=demo USER_LLM_BASE_URL=http://127.0.0.1:9099/v1 USER_LLM_MODEL=mock-chat \
       python -m uvicorn core.main:app --port 8012
@@ -138,7 +138,7 @@ def main() -> int:
         page.wait_for_timeout(1800)
         caption(page, "试召回实时显示命中条目与分数", 2200)
 
-        goto(page, "/", "知客 Zhike · 可接渠道、可审计、可部署的客服 Agent", 2200)
+        goto(page, "/", "BigRobot BigRobot · 可接渠道、可审计、可部署的客服 Agent", 2200)
         caption(page, "MIT 开源 · GitCode / Gitee / GitHub 三平台同步", 2200)
 
         page.wait_for_timeout(800)

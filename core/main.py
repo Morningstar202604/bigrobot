@@ -169,16 +169,16 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     # /docs 与 /openapi.json 默认公开会把全部端点、参数结构、内部枚举送出去。
-    # 本地开发需要时显式 CS_AGENT_DOCS=1，生产默认关闭。
-    docs_on = os.environ.get("CS_AGENT_DOCS", "").strip().lower() in ("1", "true", "yes", "on")
+    # 本地开发需要时显式 BIGROBOT_DOCS=1，生产默认关闭。
+    docs_on = os.environ.get("BIGROBOT_DOCS", "").strip().lower() in ("1", "true", "yes", "on")
     app = FastAPI(
-        title="Zhike Secretary Core",
+        title="BigRobot Secretary Core",
         lifespan=lifespan,
         docs_url="/docs" if docs_on else None,
         redoc_url="/redoc" if docs_on else None,
         openapi_url="/openapi.json" if docs_on else None,
     )
-    cors_env = os.environ.get("CS_AGENT_CORS_ORIGINS", "").strip()
+    cors_env = os.environ.get("BIGROBOT_CORS_ORIGINS", "").strip()
     if cors_env:
         origins = [o.strip() for o in cors_env.split(",") if o.strip()]
     else:
@@ -759,7 +759,7 @@ def create_app() -> FastAPI:
     @app.post("/api/cards", dependencies=[Depends(require_admin)])
     def save_card(body: dict):
         card = body.get("card") or {}
-        # SillyTavern V2 卡自动识别（spec: chara_card_v2）→ 转换为知客卡
+        # SillyTavern V2 卡自动识别（spec: chara_card_v2）→ 转换为BigRobot卡
         if card.get("spec") == "chara_card_v2" or (card.get("data") or {}).get("name"):
             d = card.get("data") or card
             persona = "\n\n".join(
@@ -1163,29 +1163,29 @@ def create_app() -> FastAPI:
 
     # ---- 本机令牌引导（免手输管理员令牌）----
     # 只对回环地址开放：本机浏览器打开控制台时自动取令牌，等同"这台电脑的信任"。
-    # 公网/内网来源一律 403，绝不泄露令牌。可用 CS_AGENT_LOCAL_TOKEN_BOOTSTRAP=0 关闭。
+    # 公网/内网来源一律 403，绝不泄露令牌。可用 BIGROBOT_LOCAL_TOKEN_BOOTSTRAP=0 关闭。
     @app.get("/api/bootstrap/local-token")
     def bootstrap_local_token(request: Request):
-        if os.environ.get("CS_AGENT_LOCAL_TOKEN_BOOTSTRAP", "1").lower() in ("0", "false", "no", "off"):
+        if os.environ.get("BIGROBOT_LOCAL_TOKEN_BOOTSTRAP", "1").lower() in ("0", "false", "no", "off"):
             raise HTTPException(403, "本机令牌引导已关闭")
         host = (request.client.host if request.client else "") or ""
         # 可信回环来源：真实回环地址、localhost、TestClient 的 testclient。
         # 反代场景下 client.host 会变成反代地址，此时必须由反代显式声明本机身份
-        # （CS_AGENT_TRUSTED_PROXY=1 且带 X-Forwarded-For 回环），否则一律拒绝。
+        # （BIGROBOT_TRUSTED_PROXY=1 且带 X-Forwarded-For 回环），否则一律拒绝。
         trusted = {"127.0.0.1", "::1", "localhost", "testclient"}
         if host not in trusted:
             # 取最右一跳：反代通常把真实来源追加在末尾，客户端自带的
             # `X-Forwarded-For: 127.0.0.1` 在最左，取第一跳等于让攻击者自证本机。
             chain = [p.strip() for p in (request.headers.get("x-forwarded-for") or "").split(",") if p.strip()]
             fwd = chain[-1] if chain else ""
-            if not (os.environ.get("CS_AGENT_TRUSTED_PROXY", "").lower() in ("1", "true", "yes", "on")
+            if not (os.environ.get("BIGROBOT_TRUSTED_PROXY", "").lower() in ("1", "true", "yes", "on")
                     and fwd in {"127.0.0.1", "::1"}):
                 raise HTTPException(403, "仅限本机访问")
         token = security.admin_token()
         if not token:
             return {"available": False, "token": "", "reason": "ADMIN_TOKEN 未配置"}
         return {"available": True, "token": token,
-                "hint": "令牌只在本机回环地址下发；公网部署请用 CS_AGENT_LOCAL_TOKEN_BOOTSTRAP=0 关闭"}
+                "hint": "令牌只在本机回环地址下发；公网部署请用 BIGROBOT_LOCAL_TOKEN_BOOTSTRAP=0 关闭"}
 
     @app.get("/api/config", dependencies=[Depends(require_admin)])
     def get_config():
@@ -2040,48 +2040,48 @@ def create_app() -> FastAPI:
     @app.websocket("/ws/operator")
     async def ws_operator(ws: WebSocket):
         # 管理端实时推送：通过 Sec-WebSocket-Protocol 子协议传 token（避免 query string 进 access log / 浏览器历史）
-        # 客户端写法：new WebSocket(url, ["zhike-admin", token])
+        # 客户端写法：new WebSocket(url, ["bigrobot-admin", token])
         token = security.admin_token()
         if not token:
             await ws.close(code=4401)
             return
         subprotocols = ws.headers.get("sec-websocket-protocol", "")
         parts = [p.strip() for p in subprotocols.split(",")]
-        # 约定 ["zhike-admin", "<token>"]
+        # 约定 ["bigrobot-admin", "<token>"]
         client_token = parts[1] if len(parts) >= 2 else ""
         if not security.constant_time_equals(client_token, token):
             await ws.close(code=4401)
             return
         # 握手时必须回选 subprotocol，否则浏览器认为握手失败
-        await ws.accept(subprotocol="zhike-admin")
+        await ws.accept(subprotocol="bigrobot-admin")
         await hub.connect_operator(ws, already_accepted=True)
 
     @app.websocket("/ws/{sid}")
     async def ws(sid: str, ws: WebSocket, secret: str | None = None):
         """访客实时通道。
 
-        secret 优先从 Sec-WebSocket-Protocol 子协议取（["zhike-visitor", secret]）；
+        secret 优先从 Sec-WebSocket-Protocol 子协议取（["bigrobot-visitor", secret]）；
         query 参数保留兼容，但**会进 access log**（已复现：uvicorn 把
         `?secret=...` 原样打印），生产应走子协议。
         """
         subprotocols = ws.headers.get("sec-websocket-protocol", "")
         parts = [p.strip() for p in subprotocols.split(",")]
-        proto_secret = parts[1] if len(parts) >= 2 and parts[0] == "zhike-visitor" else ""
+        proto_secret = parts[1] if len(parts) >= 2 and parts[0] == "bigrobot-visitor" else ""
         if not store.check_session_secret(sid, proto_secret or secret or ""):
             await ws.close(code=4401)
             return
         if proto_secret:
             # 浏览器要求握手回选子协议，否则连接会被判失败
-            await ws.accept(subprotocol="zhike-visitor")
+            await ws.accept(subprotocol="bigrobot-visitor")
             await hub.connect(sid, ws, already_accepted=True)
         else:
             await hub.connect(sid, ws)
 
-    # ---- 单端口模式：可选托管前端构建产物（CS_AGENT_STATIC_DIR=frontend/dist）----
+    # ---- 单端口模式：可选托管前端构建产物（BIGROBOT_STATIC_DIR=frontend/dist）----
     # 必须最后调用：兜底路由会吞掉所有未匹配请求
     from core import spa as spa_mod
 
-    spa_mod.mount_spa(app, os.environ.get("CS_AGENT_STATIC_DIR", ""))
+    spa_mod.mount_spa(app, os.environ.get("BIGROBOT_STATIC_DIR", ""))
 
     return app
 

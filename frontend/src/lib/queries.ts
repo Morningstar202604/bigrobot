@@ -133,7 +133,7 @@ export async function exportKb(): Promise<void> {
   const blob = await r.blob()
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = 'zhike-kb.md'
+  a.download = 'bigrobot-kb.md'
   a.click()
   URL.revokeObjectURL(a.href)
 }

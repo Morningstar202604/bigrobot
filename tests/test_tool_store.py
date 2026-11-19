@@ -5,7 +5,7 @@ from core import store
 
 @pytest.fixture(autouse=True)
 def _db(tmp_path, monkeypatch):
-    monkeypatch.setenv("CS_AGENT_DB", str(tmp_path / "tools.db"))
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "tools.db"))
     store._SCHEMA_READY.clear()
     store.init_db()
 
@@ -15,13 +15,13 @@ def test_tool_store_path_isolation(monkeypatch, tmp_path):
 
     first = tmp_path / "first.db"
     second = tmp_path / "second.db"
-    monkeypatch.setenv("CS_AGENT_DB", str(first))
+    monkeypatch.setenv("BIGROBOT_DB", str(first))
     store._SCHEMA_READY.clear()
     store.init_db()
     tool_store.upsert_tool("only-first", "first", "first", {"topic": "string"})
     assert any(t["id"] == "only-first" for t in tool_store.active_tools())
 
-    monkeypatch.setenv("CS_AGENT_DB", str(second))
+    monkeypatch.setenv("BIGROBOT_DB", str(second))
     store._SCHEMA_READY.clear()
     store.init_db()
     assert all(t["id"] != "only-first" for t in tool_store.active_tools())

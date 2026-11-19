@@ -42,7 +42,7 @@ class SQLiteRateLimiter:
         conn = getattr(self._local, "conn", None)
         if conn is None:
             import sqlite3
-            path = os.environ.get("CS_AGENT_DB", "cs_agent.db")
+            path = os.environ.get("BIGROBOT_DB", "cs_agent.db")
             parent = os.path.dirname(os.path.abspath(path))
             if parent:
                 os.makedirs(parent, exist_ok=True)
