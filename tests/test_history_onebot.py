@@ -29,3 +29,19 @@ def test_onebot_history_ingest_is_idempotent(client, monkeypatch):
     texts = [m["content"] for m in store.get_messages(sid) if m["source"] == "platform"]
     assert "小明: 在吗" in texts
     assert any("[图片]" in t for t in texts)
+
+
+def test_voice_segment_keeps_audio_url(client, monkeypatch):
+    from core import history_ingest, store
+    from tests.conftest import create_web_session
+
+    sid, _ = create_web_session(client)
+    payload = {"messages": [
+        {"message_id": 31, "sender": {"nickname": "小明"},
+         "message": [{"type": "record", "data": {"url": "https://x/1.amr"}}]},
+    ]}
+    rows = history_ingest.onebot_history_rows(payload)
+    history_ingest.ingest_history(sid, rows)
+    msg = [m for m in store.get_messages(sid) if m["external_id"] == "31"][0]
+    assert "[语音]" in msg["content"]
+    assert msg["refs"] == ["https://x/1.amr"]

@@ -35,8 +35,10 @@ def ingest_history(session_id: str, rows: Iterable[dict], *, account_id: str = "
         sender = str(row.get("sender") or "").strip()
         if sender and role == "visitor":
             content = f"{sender}: {content}" if content else sender
+        audio = str(row.get("audio_url") or "").strip()
         msg_id = store.add_message(
             session_id, role, content,
+            refs=[audio] if audio else None,
             external_id=ext, source="platform",
         )
         if msg_id:
@@ -47,11 +49,12 @@ def ingest_history(session_id: str, rows: Iterable[dict], *, account_id: str = "
                 session_id, added, skipped, account_id)
     return {"added": added, "skipped": skipped, "total": added + skipped}
 
-def onebot_segments_to_text(message) -> str:
+def onebot_segments_to_text(message) -> tuple[str, str]:
     """OneBot 的 message 可能是字符串，也可能是 [{type,data}] 段数组。"""
     if isinstance(message, str):
-        return message
+        return message, ""
     parts = []
+    audio = ""
     for seg in message or []:
         if not isinstance(seg, dict):
             continue
@@ -64,7 +67,8 @@ def onebot_segments_to_text(message) -> str:
             parts.append("[表情]")
         elif seg.get("type") == "record":
             parts.append("[语音]")
-    return "".join(parts)
+            audio = str(data.get("url") or data.get("file") or "")
+    return "".join(parts), audio
 
 
 def onebot_history_rows(payload: dict) -> list[dict]:
@@ -75,10 +79,12 @@ def onebot_history_rows(payload: dict) -> list[dict]:
         if not ext:
             continue
         sender = (m.get("sender") or {}).get("nickname") or ""
+        text, audio = onebot_segments_to_text(m.get("message"))
         rows.append({
             "external_id": ext,
             "sender": sender,
-            "content": onebot_segments_to_text(m.get("message")),
+            "content": text,
+            "audio_url": audio,
         })
     return rows
 
