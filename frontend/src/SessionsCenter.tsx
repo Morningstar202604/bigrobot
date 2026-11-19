@@ -339,7 +339,7 @@ export default function SessionsCenter() {
                         const fd = new FormData(); fd.append('file', f)
                         setLoading('upload')
                         try {
-                          await http.post(`/api/channel/qq/groups/${pullGroup.trim()}/upload`, fd)
+                          await http.postForm(`/api/channel/qq/groups/${pullGroup.trim()}/upload`, fd)
                           await loadFiles()
                         } catch (e) { alert((e as Error).message) } finally { setLoading('') }
                       }} />
