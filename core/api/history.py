@@ -11,7 +11,9 @@ router = APIRouter(prefix="/api/sessions", tags=["history"])
 
 
 class PullIn(BaseModel):
-    group_id: str
+    """群历史给 group_id，私聊历史给 user_id；二选一。"""
+    group_id: str = ""
+    user_id: str = ""
     limit: int = 50
 
 
@@ -23,8 +25,13 @@ async def pull_history(sid: str, body: PullIn):
 
     from gateway import bridge
 
-    payload = await bridge.call_onebot(
-        "get_group_msg_history", {"group_id": body.group_id, "count": limit})
+    if body.group_id:
+        action, params = "get_group_msg_history", {"group_id": body.group_id, "count": limit}
+    elif body.user_id:
+        action, params = "get_friend_msg_history", {"user_id": body.user_id, "count": limit}
+    else:
+        raise HTTPException(400, "group_id 与 user_id 至少给一个")
+    payload = await bridge.call_onebot(action, params)
     if payload is None:
         # 没有在线协议端是"当前不可用"，不是服务端错误：让前端提示去扫码/启动
         raise HTTPException(409, "没有可用的协议端连接（先在渠道页启动并登录）")

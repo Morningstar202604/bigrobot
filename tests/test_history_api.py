@@ -34,3 +34,28 @@ def test_pull_is_idempotent(client, monkeypatch):
     assert r1.status_code == 200 and r1.json()["added"] == 1
     assert r2.json()["added"] == 0
     assert any(m["source"] == "platform" for m in store.get_messages(sid))
+
+
+def test_private_history_uses_friend_action(client, monkeypatch):
+    from gateway import bridge
+
+    async def fake(action, params):
+        assert action == "get_friend_msg_history"
+        assert params["user_id"] == "10001"
+        return PAYLOAD
+
+    monkeypatch.setattr(bridge, "call_onebot", fake)
+    sid, _ = create_web_session(client)
+    r = client.post(f"/api/sessions/{sid}/history/pull", json={"user_id": "10001"})
+    assert r.status_code == 200 and r.json()["added"] == 1
+
+
+def test_pull_requires_an_id(client, monkeypatch):
+    from gateway import bridge
+
+    async def fake(action, params):
+        raise AssertionError("不该调用协议端")
+
+    monkeypatch.setattr(bridge, "call_onebot", fake)
+    sid, _ = create_web_session(client)
+    assert client.post(f"/api/sessions/{sid}/history/pull", json={}).status_code == 400
