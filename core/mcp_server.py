@@ -56,18 +56,17 @@ READONLY_TOOLS = {
     "initiate_refund": "为订单发起退款申请（进入人工审核，不直接退款）。",
     "lookup_policy": "按主题查业务政策（退货/发货/隐私等）。",
     "web_search": "联网搜索实时信息。入参 query，可选 top_k。",
-    "read_webpage": "打开网页并返回正文。入参 url，可选 max_chars。",
+    "read_source": "读网页或本地文档并返回正文。入参 url 或 path。",
     "now": "查询当前日期、时间与星期。",
     "calc": "计算数学表达式（加减乘除、取余、乘方、括号）。",
-    "current_context": "读取当前对话上下文（MCP 下通常为空）。",
     "recall_memory": "读取某访客的长期记忆。入参 visitor_id / key。",
 }
 
 WRITE_TOOLS = {
     "remember": "记住一条关于某访客的信息。入参 visitor_id / key / value。",
     "remind": "给某访客设提醒。入参 visitor_id / text / when。",
-    "list_reminders": "列出某访客待触发的提醒。入参 visitor_id。",
-    "cancel_reminder": "取消一条提醒。入参 visitor_id / reminder_id。",
+    "reminders": "列出/取消某访客的提醒。op=list|cancel。",
+
 }
 
 

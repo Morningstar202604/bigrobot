@@ -257,7 +257,8 @@ def main() -> int:
 
         # 7) 批准后执行
         if ap_id:
-            httpx.post(f"{core}/api/approvals/{ap_id}/approve", headers=admin_h, timeout=10)
+            httpx.post(f"{core}/api/approvals/{ap_id}/decide", headers=admin_h,
+                         json={"approved": True}, timeout=10)
             r = exec_action({**kick, "approval_id": ap_id})
             check("批准后执行成功", r.status_code == 200 and r.json().get("status") == "executed",
                   f"{r.status_code}")
