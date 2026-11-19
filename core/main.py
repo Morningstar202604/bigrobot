@@ -1443,6 +1443,7 @@ def create_app() -> FastAPI:
     from core.api import reminders as reminders_api
     from core.api import history as history_api
     from core.api import observe as observe_api
+    from core.api import qq_members as qq_members_api
     from core.api import setup as setup_api
 
     app.include_router(kb_api.router)
@@ -1452,6 +1453,7 @@ def create_app() -> FastAPI:
     # 首次启动向导：只对回环开放，老实例自动豁免（见 core/api/setup.py）
     app.include_router(setup_api.router)
     app.include_router(observe_api.router)
+    app.include_router(qq_members_api.router)
     app.include_router(history_api.router)
 
     @app.post("/v1/gateway/heartbeat", dependencies=[Depends(require_channel)])
