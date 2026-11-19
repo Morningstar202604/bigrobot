@@ -85,23 +85,23 @@ def test_console_admin_endpoints_require_token(client, monkeypatch):
 
 
 def test_channel_adapters_reflects_gateway_heartbeat(client):
-    """/api/channels/adapters 必须反映网关真实上报的能力，而不是永远空列表。
+    """适配器列表 = 静态注册表 + 网关运行时状态。
 
-    core 与 gateway 是两个进程，core 里的 registry 永远是空的；此前的实现
-    直接查本地 registry，接口恒为 []（已实测）。
+    静态部分是 core/adapters_registry.py（谁接了什么一目了然）；
+    网关没上线时 qq 必须是 offline，不能假装可用。
     """
-    assert client.get("/api/channels/adapters").json()["adapters"] == []
+    body = client.get("/api/channels/adapters").json()["adapters"]
+    assert [a["key"] for a in body] == ["webchat", "qq"]
+    qq = next(a for a in body if a["key"] == "qq")
+    assert qq["status"] == "offline"
+    assert "group.member_list" in qq["capabilities"]
 
     client.post("/v1/gateway/heartbeat", json={
         "gateway": "onebot_v11", "status": "online",
         "detail": {"adapter": "nonebot2+onebot_v11", "self_id": "1000",
                    "capabilities": ["send.text", "send.image"]},
     })
-    adapters = client.get("/api/channels/adapters").json()["adapters"]
-    assert [a["name"] for a in adapters] == ["onebot_v11"]
-    assert adapters[0]["capabilities"] == ["send.image", "send.text"]
-    assert adapters[0]["supports"]["send.text"] is True
-    # 未上报的能力必须显式为 False（能力矩阵要完整，否则前端无法区分"不支持"与"没字段"）
-    assert adapters[0]["supports"]["send.file"] is False
-    # 能力名必须与 gateway/adapters/base.py 的常量一致（曾把 msg.delete 写成 delete.msg）
-    assert adapters[0]["supports"]["msg.delete"] is False
+    qq = next(a for a in client.get("/api/channels/adapters").json()["adapters"] if a["key"] == "qq")
+    assert qq["status"] == "online"
+    # 在线时以网关上报名称为准，避免界面显示一个实际不支持的能力
+    assert qq["live_capabilities"] == ["send.image", "send.text"]

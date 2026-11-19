@@ -1845,24 +1845,25 @@ def create_app() -> FastAPI:
 
     @app.get("/api/channels/adapters", dependencies=[Depends(require_admin)])
     def channel_adapters():
-        """已注册的渠道适配器与能力矩阵。
+        """渠道适配器与能力矩阵。
 
-        未接入网关时返回空列表——不假装有渠道。
+        静态表来自 core/adapters_registry.py（谁接了什么一目了然）；
+        网关在线时再叠加运行时状态，没上线就是 offline，不假装有渠道。
         """
-        # core 与 gateway 是两个进程：适配器注册表在网关侧，core 里查它永远是空的。
-        # 真实能力来自网关心跳上报的 capabilities；网关没上报就返回空列表，不假装有渠道。
-        info = dict(app.state.gateway_channels).get("onebot_v11") or {}
-        caps = list((info.get("detail") or {}).get("capabilities") or [])
-        if not caps:
-            return {"adapters": []}
-        all_caps = ["group.admin", "group.member_list", "msg.delete", "msg.history",
-                    "send.file", "send.image", "send.text"]
-        return {"adapters": [{
-            "name": "onebot_v11",
-            "capabilities": sorted(caps),
-            "supports": {c: c in caps for c in all_caps},
-            "status": info.get("status", "offline"),
-        }]}
+        from core import adapters_registry
+
+        runtime = dict(app.state.gateway_channels).get("onebot_v11") or {}
+        live = list((runtime.get("detail") or {}).get("capabilities") or [])
+        out = []
+        for a in adapters_registry.catalog():
+            key = a["key"]
+            if key == "qq":
+                caps = sorted(live) if live else a["capabilities"]
+                status = runtime.get("status", "offline")
+            else:
+                caps, status = a["capabilities"], "builtin"
+            out.append({**a, "status": status, "live_capabilities": caps})
+        return {"adapters": out}
 
     # ============================================================
     # Agent 多步任务（ReAct）
