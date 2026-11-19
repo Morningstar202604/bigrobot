@@ -15,7 +15,7 @@ from core import store
 logger = logging.getLogger("cs.events")
 
 
-def ingest_history(session_id: str, rows: Iterable[dict], *, account_id: str = "default") -> dict:
+def ingest_history(session_id: str, rows: Iterable[dict], *, account_id: str | None = None) -> dict:
     """把一批平台消息写进会话。
 
     每行至少要有 `external_id` 与 `content`；`role` 缺省 visitor，
@@ -40,6 +40,7 @@ def ingest_history(session_id: str, rows: Iterable[dict], *, account_id: str = "
             session_id, role, content,
             refs=[audio] if audio else None,
             external_id=ext, source="platform",
+            account_id=account_id,
         )
         if msg_id:
             added += 1

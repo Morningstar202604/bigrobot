@@ -70,15 +70,16 @@ def check_session_secret(session_id: str, secret: str) -> bool:
 
 def add_message(session_id: str, role: str, content: str, refs: list | None = None,
                 tool_used: str | None = None, thought: str = "",
-                external_id: str | None = None, source: str | None = None) -> int:
+                external_id: str | None = None, source: str | None = None,
+                account_id: str | None = None) -> int:
     """写一条消息。带 external_id 时幂等：同一 (session_id, external_id) 只落一次。"""
     with get_conn() as conn:
         cur = conn.execute(
             "INSERT OR IGNORE INTO messages "
-            "(session_id, role, content, refs, tool_used, thought, created_at, external_id, source) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "(session_id, role, content, refs, tool_used, thought, created_at, external_id, source, account_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (session_id, role, content, json.dumps(refs or []), tool_used,
-             (thought or None), _now(), external_id, source or role),
+             (thought or None), _now(), external_id, source or role, account_id),
         )
         if external_id and cur.rowcount == 0:
             row = conn.execute(
@@ -134,15 +135,15 @@ def get_messages(session_id: str, limit: int | None = None,
     with get_conn() as conn:
         if limit and limit > 0:
             rows = conn.execute(
-                "SELECT id, role, content, refs, tool_used, thought, deleted, created_at, external_id, source FROM ("
-                "  SELECT id, role, content, refs, tool_used, thought, deleted, created_at, external_id, source "
+                "SELECT id, role, content, refs, tool_used, thought, deleted, created_at, external_id, source, account_id FROM ("
+                "  SELECT id, role, content, refs, tool_used, thought, deleted, created_at, external_id, source, account_id "
                 f"  FROM messages WHERE session_id = ?{cond} ORDER BY id DESC LIMIT ?"
                 ") ORDER BY id",
                 (session_id, limit),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT id, role, content, refs, tool_used, thought, deleted, created_at, external_id, source "
+                "SELECT id, role, content, refs, tool_used, thought, deleted, created_at, external_id, source, account_id "
                 f"FROM messages WHERE session_id = ?{cond} ORDER BY id",
                 (session_id,),
             ).fetchall()
@@ -158,6 +159,7 @@ def get_messages(session_id: str, limit: int | None = None,
             "created_at": r["created_at"],
             "external_id": r["external_id"],
             "source": r["source"],
+            "account_id": r["account_id"],
         }
         for r in rows
     ]

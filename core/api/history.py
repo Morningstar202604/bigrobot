@@ -11,7 +11,11 @@ router = APIRouter(prefix="/api/sessions", tags=["history"])
 
 
 class PullIn(BaseModel):
-    """群历史给 group_id，私聊历史给 user_id；二选一。"""
+    """群历史给 group_id，私聊历史给 user_id；二选一。
+
+    account_id 可选：指定这批历史属于哪个账号，不传则落 NULL（老数据无法推断）。
+    """
+    account_id: str = ""
     group_id: str = ""
     user_id: str = ""
     limit: int = 50
@@ -36,7 +40,7 @@ async def pull_history(sid: str, body: PullIn):
         # 没有在线协议端是"当前不可用"，不是服务端错误：让前端提示去扫码/启动
         raise HTTPException(409, "没有可用的协议端连接（先在渠道页启动并登录）")
     rows = history_ingest.onebot_history_rows(payload)
-    return history_ingest.ingest_history(sid, rows)
+    return history_ingest.ingest_history(sid, rows, account_id=body.account_id or None)
 
 
 @router.post("/{sid}/messages/{message_id}/transcribe", dependencies=[Depends(require_admin)])
