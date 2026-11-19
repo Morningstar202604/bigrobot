@@ -116,3 +116,24 @@ async def friend_list():
         if isinstance(f, dict)
     ]
     return {"count": len(items), "friends": items}
+
+
+@router.get("/groups/{group_id}/notices", dependencies=[Depends(require_admin)])
+async def group_notices(group_id: str):
+    """群公告：OneBot 的 get_group_notice 返回 notices[]，只保留可读字段。"""
+    from gateway import bridge
+
+    payload = await bridge.call_onebot("get_group_notice", {"group_id": group_id})
+    if payload is None:
+        raise HTTPException(409, "没有可用的协议端连接（先在渠道页启动并登录）")
+    items = [
+        {
+            "notice_id": str(n.get("notice_id") or ""),
+            "text": n.get("text") or "",
+            "sender": str(n.get("sender_id") or ""),
+            "publish_time": n.get("publish_time"),
+        }
+        for n in (payload or [])
+        if isinstance(n, dict)
+    ]
+    return {"group_id": group_id, "count": len(items), "notices": items}

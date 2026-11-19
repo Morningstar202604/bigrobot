@@ -110,3 +110,15 @@ def test_upload_passes_local_path_and_cleans_up(client, monkeypatch, tmp_path):
                     files={"file": ("周报.txt", b"hello", "text/plain")})
     assert r.status_code == 200 and r.json()["name"] == "周报.txt"
     assert seen["name"] == "周报.txt"
+
+
+def test_group_notices(client, monkeypatch):
+    from gateway import bridge
+
+    async def fake(action, params):
+        assert action == "get_group_notice"
+        return [{"notice_id": "n1", "text": "周五团建", "sender_id": 10001}, "bad"]
+
+    monkeypatch.setattr(bridge, "call_onebot", fake)
+    body = client.get("/api/channel/qq/groups/410001/notices").json()
+    assert body["count"] == 1 and body["notices"][0]["text"] == "周五团建"
