@@ -10,6 +10,8 @@ import os
 
 import httpx
 
+from core import audio_convert
+
 logger = logging.getLogger("cs.events")
 
 
@@ -36,8 +38,13 @@ async def transcribe_url(audio_url: str, *, language: str = "zh-CN") -> str:
         if audio.status_code != 200:
             logger.warning("transcribe download failed %s", audio.status_code)
             return ""
-        # Azure 直接吃 wav/pcm；amr/ogg 需要先转码，这里如实返回空串而不是假装识别成功
-        ctype = audio.headers.get("content-type", "audio/wav")
+        # Azure 只吃 wav/pcm：先尝试转码（silk/amr/ogg），转不了就如实返回空串
+        suffix = audio_url.rsplit(".", 1)[-1][:5] if "." in audio_url else ""
+        wav = audio_convert.to_wav_bytes(audio.content, suffix)
+        if not wav:
+            logger.warning("transcribe: unsupported audio format %s", suffix)
+            return ""
+        payload, ctype = wav, "audio/wav"
         r = await client.post(
             endpoint,
             headers={
@@ -45,7 +52,7 @@ async def transcribe_url(audio_url: str, *, language: str = "zh-CN") -> str:
                 "Content-Type": ctype,
                 "Accept": "application/json",
             },
-            content=audio.content,
+            content=payload,
         )
     if r.status_code != 200:
         logger.warning("transcribe failed %s: %s", r.status_code, r.text[:120])
