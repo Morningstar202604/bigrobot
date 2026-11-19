@@ -48,9 +48,22 @@ The authoritative version string lives in [`VERSION`](VERSION), mirrored by
 - 删除 `core/spa.py:_precompressed()`：全仓无人调用、`dist` 里也没有 `.br/.gz`。
   构建期预压缩挪到性能批（2.4）连同测试一起做。
 
+### Changed（B1：动作定义单一事实源）
+
+- **15 个 QQ 动作工具不再各写一份描述与参数。** 原先 `core/tools.py:_QQ_ACTION_TOOLS`
+  把动作名、参数、描述抄了一遍，改一处就要改三处；现在只保留「工具名 → 动作名」一张映射，
+  描述/参数/风险全部从 `core/actions/registry.py` 生成（TOOL_META 总数仍为 51）。
+  参数以动作定义为准，顺带补回 4 个原本没暴露的可选参数（`folder` / `remark` /
+  `reason` / `reject_add_request`）。
+- **合并动作支持分 op 风险。** `ActionSpec` 新增 `op_risk` 与 `risk_of(op)`：
+  命中 op 用分级风险，未命中 op 按组默认，**拼错的 op 按最高风险**（不给绕过审批的后门）。
+  `authz.decide(spec, principal, op)` 与 `core/actions/service.py` 已接上，
+  `catalog()` 输出 `ops`，`agent_loop.available_tools()` 只把当前主体能做的 op
+  放进 JSON Schema 的 `enum` —— 这是后续把 51 个工具合并成 26 个的前置条件。
+
 ### 验证
 
-`pytest` 980 passed / 3 skipped，`ruff` 全过，`mypy` 92 文件 0 issue，
+`pytest` 982 passed / 3 skipped，`ruff` 全过，`mypy` 92 文件 0 issue，
 `oxlint` 0 error，`vitest` 16 passed，`vite build` 通过。
 
 ## [2.0.0] — 2026-11-19

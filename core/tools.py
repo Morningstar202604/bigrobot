@@ -25,6 +25,7 @@ from typing import Any, Callable
 import httpx
 
 from core import redact, reminder_parser, retrieval, store
+from core.actions import registry as actions_registry
 from core.tool_context import EMPTY, ToolContext
 
 
@@ -1721,71 +1722,47 @@ def _qq_tool(action: str, tool_name: str, desc: str, args: dict[str, str]):
     return run
 
 
-_QQ_ACTION_TOOLS: dict[str, dict] = {
-    "qq_group_ban": {
-        "action": "set_group_ban", "args": {"group_id": "string", "user_id": "string", "duration": "number"},
-        "desc": "禁言群成员（duration 秒，0=解禁）",
-    },
-    "qq_group_kick": {
-        "action": "set_group_kick", "args": {"group_id": "string", "user_id": "string"},
-        "desc": "把成员移出群（破坏性，需审批）",
-    },
-    "qq_group_card": {
-        "action": "set_group_card", "args": {"group_id": "string", "user_id": "string", "card": "string"},
-        "desc": "改群名片",
-    },
-    "qq_group_rename": {
-        "action": "set_group_name", "args": {"group_id": "string", "group_name": "string"},
-        "desc": "改群名",
-    },
-    "qq_group_notice": {
-        "action": "send_group_notice", "args": {"group_id": "string", "content": "string"},
-        "desc": "发群公告",
-    },
-    "qq_recall": {
-        "action": "delete_msg", "args": {"message_id": "string"},
-        "desc": "撤回一条消息",
-    },
-    "qq_upload_file": {
-        "action": "upload_group_file", "args": {"group_id": "string", "file": "string", "name": "string"},
-        "desc": "往群里传文件（file 为本机路径）",
-    },
-    "qq_friend_handle": {
-        "action": "set_friend_add_request", "args": {"flag": "string", "approve": "boolean"},
-        "desc": "同意/拒绝加好友请求",
-    },
-    "qq_group_handle": {
-        "action": "set_group_add_request",
-        "args": {"flag": "string", "sub_type": "string", "approve": "boolean"},
-        "desc": "同意/拒绝入群请求",
-    },
-    "qq_set_avatar": {
-        "action": "set_qq_avatar", "args": {"file": "string"},
-        "desc": "换机器人 QQ 头像（file 为本机图片路径或 http 链接）",
-    },
-    "qq_set_profile": {
-        "action": "set_qq_profile",
-        "args": {"nickname": "string", "personal_note": "string", "sex": "string"},
-        "desc": "改机器人 QQ 昵称 / 签名 / 性别",
-    },
-    "qq_poke": {
-        "action": "send_poke", "args": {"user_id": "string", "group_id": "string"},
-        "desc": "戳一戳对方（群里或私聊）",
-    },
-    "qq_emoji_like": {
-        "action": "set_msg_emoji_like", "args": {"message_id": "string", "emoji_id": "string"},
-        "desc": "给某条消息贴一个表情回应（emoji_id 为 QQ 表情 id，如 128077）",
-    },
-    "qq_essence": {
-        "action": "set_essence_msg", "args": {"message_id": "string"},
-        "desc": "把一条消息设为群精华",
-    },
-    "qq_forward": {
-        "action": "send_group_forward_msg", "args": {"group_id": "string", "messages": "string"},
-        "desc": "发合并转发的聊天记录（messages 为节点数组 JSON）",
-    },
+# 工具名 → 动作名。描述、参数、风险全部取自 core/actions/registry（单一事实源），
+# 这里只保留「这个动作用什么名字暴露给模型」这一件事：
+# 以后改参数只改 registry 一处，不会再出现工具描述与动作定义两边漂移。
+_TOOL_TO_ACTION: dict[str, str] = {
+    "qq_group_ban": "set_group_ban",
+    "qq_group_kick": "set_group_kick",
+    "qq_group_card": "set_group_card",
+    "qq_group_rename": "set_group_name",
+    "qq_group_notice": "send_group_notice",
+    "qq_recall": "delete_msg",
+    "qq_upload_file": "upload_group_file",
+    "qq_friend_handle": "set_friend_add_request",
+    "qq_group_handle": "set_group_add_request",
+    "qq_set_avatar": "set_qq_avatar",
+    "qq_set_profile": "set_qq_profile",
+    "qq_poke": "send_poke",
+    "qq_emoji_like": "set_msg_emoji_like",
+    "qq_essence": "set_essence_msg",
+    "qq_forward": "send_group_forward_msg",
 }
 
-for _tool_name, _meta in _QQ_ACTION_TOOLS.items():
-    _ASYNC_IMPLS[_tool_name] = _qq_tool(_meta["action"], _tool_name, _meta["desc"], _meta["args"])
-    TOOL_META[_tool_name] = {"name": _tool_name, "desc": _meta["desc"], "args": _meta["args"]}
+# 少数参数不是字符串：JSON Schema 类型集中一张表，其余默认 string
+_ARG_JSON_TYPES: dict[str, str] = {
+    "duration": "number", "count": "number", "message_seq": "number",
+    "file_count": "number", "busid": "number", "delay": "number",
+    "approve": "boolean", "enable": "boolean", "set": "boolean",
+    "no_cache": "boolean", "is_dismiss": "boolean", "auto_escape": "boolean",
+    "reject_add_request": "boolean",
+}
+
+# 模型需要、但动作定义里不该有的操作细节（示例值、格式约定）
+_TOOL_DESC_HINTS: dict[str, str] = {
+    "qq_emoji_like": "（emoji_id 为 QQ 表情 id，如 128077）",
+    "qq_upload_file": "（file 为本机路径）",
+    "qq_forward": "（messages 为节点数组 JSON）",
+}
+
+for _tool_name, _action in _TOOL_TO_ACTION.items():
+    _spec = actions_registry.get_spec(_action)
+    _desc = (_spec.summary + _TOOL_DESC_HINTS.get(_tool_name, "")
+             + ("（破坏性，需审批）" if _spec.risk == actions_registry.RISK_L2 else ""))
+    _args = {a: _ARG_JSON_TYPES.get(a, "string") for a in _spec.args}
+    _ASYNC_IMPLS[_tool_name] = _qq_tool(_action, _tool_name, _desc, _args)
+    TOOL_META[_tool_name] = {"name": _tool_name, "desc": _desc, "args": _args}

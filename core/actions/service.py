@@ -137,7 +137,7 @@ async def execute(
     principal = authz.parse_principal(principal_raw)
 
     # ---- 3. 权限判定 ----
-    decision = authz.decide(spec, principal)
+    decision = authz.decide(spec, principal, str(cleaned.get("op", "") or ""))
     log_id = uuid.uuid4().hex
     safe_params = redact.mask_value(cleaned)
     # 审批二次调用复用原审计行：否则同一 idempotency_key 会撞 UNIQUE 约束（500），

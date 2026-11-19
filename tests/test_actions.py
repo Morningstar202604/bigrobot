@@ -138,6 +138,53 @@ def test_unknown_principal_denied():
     assert d.allowed is False
 
 
+def test_merged_action_keeps_per_op_risk(monkeypatch):
+    """合并工具不能把整组抬成最高风险：发公告和踢人必须分开判。
+
+    这是「工具 51→26」的前置条件。若把 ban/kick/notice 收进一个
+    qq_group_admin 而不带 op 级风险，T1 档位下发一条群公告也会被要审批，
+    可用性直接崩掉。
+    """
+    monkeypatch.setenv("ACTION_L2_ENABLED", "true")
+    monkeypatch.setenv("AGENT_TIER", "1")
+    monkeypatch.setenv("ALLOW_TIER3", "true")
+    monkeypatch.setenv("AUTHORIZED_QQ", "999")
+    # T1 的可逆写需要显式白名单（按动作名放行）；L2 仍然逐次审批，不会被白名单带过
+    monkeypatch.setenv("ALLOWED_ACTIONS_T3", "qq_group_admin")
+    merged = registry.ActionSpec(
+        "qq_group_admin", "群管理（合并动作）", registry.RISK_L1,
+        args=("op", "group_id", "user_id", "content"),
+        op_risk=(("notice", registry.RISK_L1), ("kick", registry.RISK_L2)),
+    )
+
+    notice = authz.decide(merged, _p("agent@admin"), "notice")
+    assert notice.allowed is True and notice.needs_approval is False
+    assert notice.risk == registry.RISK_L1
+
+    kick = authz.decide(merged, _p("agent@admin"), "kick")
+    assert kick.allowed is True and kick.needs_approval is True
+    assert kick.risk == registry.RISK_L2
+
+    # 拼错的 op 不能成为绕过审批的后门
+    assert merged.risk_of("kik") == registry.RISK_L2
+    # 未传 op 时按组默认风险
+    assert merged.risk_of("") == registry.RISK_L1
+
+
+def test_catalog_exposes_ops_for_merged_action():
+    merged = registry.ActionSpec(
+        "qq_group_admin", "群管理（合并动作）", registry.RISK_L1,
+        op_risk=(("notice", registry.RISK_L1), ("kick", registry.RISK_L2)),
+    )
+    registry.register(merged)
+    try:
+        entry = next(c for c in registry.catalog() if c["name"] == "qq_group_admin")
+        ops = {o["op"]: o["risk"] for o in entry["ops"]}
+        assert ops == {"notice": registry.RISK_L1, "kick": registry.RISK_L2}
+    finally:
+        registry.REGISTRY.pop("qq_group_admin", None)
+
+
 def test_l2_stranger_cannot_raise_approval(monkeypatch):
     """L2 必须先判主体资格：陌生人不能靠造审批单把队列刷满。
 

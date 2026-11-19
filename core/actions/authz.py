@@ -161,9 +161,13 @@ def _can_request_destructive(principal: Principal) -> bool:
     return False
 
 
-def decide(spec: ActionSpec, principal: Principal) -> Decision:
-    """判定一次动作调用是否放行、是否需要审批。"""
-    risk = spec.risk
+def decide(spec: ActionSpec, principal: Principal, op: str = "") -> Decision:
+    """判定一次动作调用是否放行、是否需要审批。
+
+    `op` 只对合并动作有意义：风险按 op 分级（见 ActionSpec.op_risk），
+    这样一个工具里"发公告"和"踢人"不会被同一档风险绑死。
+    """
+    risk = spec.risk_of(op)
     tier = effective_agent_tier(principal)
 
     # ---- 硬规则 1：L2 永远需要人工确认（任何档位、任何主体）----

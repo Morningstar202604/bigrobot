@@ -32,11 +32,32 @@ class ActionSpec:
     required: tuple[str, ...] = ()  # 必填参数
     timeout_s: float = 10.0
     group: str = "general"          # 分类，便于控制台分组
+    # 一个动作合并了多个 op（例如把 ban/kick/card/notice 收进 qq_group_admin）时，
+    # 风险必须按 op 分级。否则整组被抬成最高档，"发群公告"也要走审批。
+    op_risk: tuple[tuple[str, "Risk"], ...] = ()
 
     @property
     def requires_approval(self) -> bool:
         """L2 永远需要审批；这是硬规则，不接受配置覆盖。"""
         return self.risk == RISK_L2
+
+    def risk_of(self, op: str = "") -> "Risk":
+        """取该次调用真正适用的风险等级。
+
+        合并动作：命中 op 用分级的风险；op 缺失按组默认；**未知 op 按最高风险**，
+        宁严不松——不能让拼错的 op 变成绕过审批的后门。
+        """
+        if not self.op_risk:
+            return self.risk
+        if not op:
+            return self.risk
+        for key, risk in self.op_risk:
+            if key == op:
+                return risk
+        return RISK_L2
+
+    def ops(self) -> tuple[str, ...]:
+        return tuple(key for key, _ in self.op_risk)
 
 
 # ---- 动作清单 ----
@@ -195,6 +216,7 @@ def catalog() -> list[dict]:
             "args": list(s.args),
             "required": list(s.required),
             "requires_approval": s.requires_approval,
+            "ops": [{"op": k, "risk": v, "risk_label": RISK_LABEL[v]} for k, v in s.op_risk],
         }
         for s in sorted(REGISTRY.values(), key=lambda x: (x.risk, x.group, x.name))
     ]

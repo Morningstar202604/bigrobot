@@ -67,8 +67,13 @@ def available_tools(principal: authz.Principal) -> list[dict]:
     """
     out = []
     for spec in registry.REGISTRY.values():
-        d = authz.decide(spec, principal)
-        if not d.allowed:
+        allowed_ops: list[str] = []
+        if spec.op_risk:
+            # 合并动作：只把「当前主体能做」的 op 摆给模型，省得它反复撞权限墙
+            allowed_ops = [op for op in spec.ops() if authz.decide(spec, principal, op).allowed]
+            if not allowed_ops:
+                continue
+        elif not authz.decide(spec, principal).allowed:
             continue
         out.append({
             "name": spec.name,
@@ -78,15 +83,20 @@ def available_tools(principal: authz.Principal) -> list[dict]:
             "required": list(spec.required),
             # OpenAI function-calling 的 parameters 必须是合法 JSON Schema；
             # 协议端只需原样透传，不再靠提示词里描述参数（那是 2023 年的做法）。
-            "parameters": _json_schema(spec),
+            "parameters": _json_schema(spec, allowed_ops),
         })
     return out
 
 
-def _json_schema(spec) -> dict:
-    """ActionSpec → JSON Schema（object）。所有参数按 string 声明，必填项进 required。"""
-    props = {name: {"type": "string", "description": f"{spec.name} 的 {name} 参数"}
-             for name in spec.args}
+def _json_schema(spec, ops: list[str] | None = None) -> dict:
+    """ActionSpec → JSON Schema（object）。所有参数按 string 声明，必填项进 required。
+
+    `ops` 非空时追加 op 参数（enum 只列当前主体可执行的 op）。
+    """
+    props: dict[str, dict] = {name: {"type": "string", "description": f"{spec.name} 的 {name} 参数"}
+                              for name in spec.args}
+    if ops:
+        props["op"] = {"type": "string", "enum": ops, "description": "子操作"}
     schema: dict = {"type": "object", "properties": props, "additionalProperties": False}
     if spec.required:
         schema["required"] = list(spec.required)
