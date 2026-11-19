@@ -31,7 +31,7 @@ def test_mcp_write_tools_opt_in(monkeypatch):
     monkeypatch.setenv("BIGROBOT_MCP_ALLOW_WRITE", "1")
     mcp = mcp_server._build_mcp()
     names = {t.name for t in asyncio.run(mcp.list_tools())}
-    assert "remember" in names and "list_reminders" in names
+    assert "remember" in names and "reminders" in names
 
 
 def test_mcp_disabled_tool_reports_not_enabled(monkeypatch):
