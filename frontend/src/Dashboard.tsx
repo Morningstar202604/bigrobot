@@ -419,6 +419,9 @@ interface QQDeployStatus {
   stage?: string
   pct?: number
   note?: string
+  pid?: number | null
+  alive?: boolean
+  watchdog?: { running: boolean; restarts: number; failed: boolean; last_exit: number | null }
 }
 
 // 二维码刷新周期（秒）。
@@ -563,6 +566,24 @@ function QQScanLogin({ onLoggedIn }: { onLoggedIn?: () => void }) {
                     </span>
                   )}
                 </div>
+
+                {installed && (
+                  <div style={{ display: 'flex', gap: 10, marginTop: 6, fontSize: 11 }}>
+                    <span title={t('协议端进程')}>
+                      <span style={{ color: deploy?.alive ? '#16a34a' : '#dc2626' }}>●</span>
+                      {' '}{t('进程')} {deploy?.alive ? t('运行') : t('停止')}
+                    </span>
+                    <span title={t('掉线自动重启')}>
+                      <span style={{ color: deploy?.watchdog?.running ? '#16a34a' : '#b45309' }}>●</span>
+                      {' '}{t('守护')} {deploy?.watchdog?.running ? t('开启') : t('关闭')}
+                    </span>
+                    <span title={t('已自动重启次数')}>
+                      <span style={{ color: deploy?.watchdog?.failed ? '#dc2626' : '#6b7280' }}>●</span>
+                      {' '}{t('重试')} {deploy?.watchdog?.restarts ?? 0}
+                      {deploy?.watchdog?.failed ? ` ${t('（已放弃）')}` : ''}
+                    </span>
+                  </div>
+                )}
 
                 {!installed && (
                   <div>
