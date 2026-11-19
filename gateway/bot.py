@@ -759,6 +759,8 @@ async def handle(event: MessageEvent):
         "text": msg.text,
         "display_name": msg.display_name,
         "message_id": msg.message_id,
+        # 收到这条消息的号：core 用它把会话挂到具体账号上（同群多号监听才分得清）
+        "self_id": str(_pick_bot().self_id) if _pick_bot() is not None else "",
     }
     # 群环境感知：@ 之前群里在聊什么（氛围）+ 群名（场景）
     if msg.is_group:
