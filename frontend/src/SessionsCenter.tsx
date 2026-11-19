@@ -87,13 +87,26 @@ export default function SessionsCenter() {
   const [pullGroup, setPullGroup] = useState('')
   const [pulling, setPulling] = useState(false)
   const [members, setMembers] = useState<{ user_id: string; nickname: string; role: string }[] | null>(null)
-  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [loading, setLoading] = useState('')
+  const [notices, setNotices] = useState<{ notice_id: string; text: string }[] | null>(null)
   const [files, setFiles] = useState<{ file_id: string; name: string; size: number; busid?: number }[] | null>(null)
-  const [loadingFiles, setLoadingFiles] = useState(false)
+
+
+  const loadNotices = async () => {
+    if (!pullGroup.trim()) return
+    setLoading('notices'); setFiles(null); setMembers(null)
+    try {
+      const r = await http.get<{ notices: { notice_id: string; text: string }[] }>(
+        `/api/channel/qq/groups/${pullGroup.trim()}/notices`)
+      setNotices(r.notices)
+    } catch (e) {
+      alert((e as Error).message)
+    } finally { setLoading('') }
+  }
 
   const loadFiles = async () => {
     if (!pullGroup.trim()) return
-    setLoadingFiles(true)
+    setLoading('files'); setMembers(null)
     try {
       const r = await http.get<{ files: { file_id: string; name: string; size: number; busid?: number }[] }>(
         `/api/channel/qq/groups/${pullGroup.trim()}/files`)
@@ -101,13 +114,13 @@ export default function SessionsCenter() {
     } catch (e) {
       alert((e as Error).message)
     } finally {
-      setLoadingFiles(false)
+      setLoading('')
     }
   }
 
   const loadMembers = async () => {
     if (!pullGroup.trim()) return
-    setLoadingMembers(true)
+    setLoading('members'); setFiles(null)
     try {
       const r = await http.get<{ count: number; members: { user_id: string; nickname: string; role: string }[] }>(
         `/api/channel/qq/groups/${pullGroup.trim()}/members`)
@@ -115,7 +128,7 @@ export default function SessionsCenter() {
     } catch (e) {
       alert((e as Error).message)
     } finally {
-      setLoadingMembers(false)
+      setLoading('')
     }
   }
 
@@ -296,19 +309,42 @@ export default function SessionsCenter() {
                   onChange={(e) => setPullGroup(e.target.value)}
                   aria-label={t('群号')}
                 />
-                <button className="btn ghost sm" onClick={() => void pullHistory()} disabled={pulling || !pullGroup.trim()}>
+                <button className="btn ghost sm" onClick={() => void pullHistory()} disabled={loading !== '' || !pullGroup.trim()}>
                   {pulling ? t('拉取中…') : t('拉取历史')}
                 </button>
-                <button className="btn ghost sm" onClick={() => void loadMembers()} disabled={loadingMembers || !pullGroup.trim()}>
-                  {loadingMembers ? t('加载中…') : t('成员')}
+                <button className="btn ghost sm" onClick={() => void loadMembers()} disabled={loading !== '' || !pullGroup.trim()}>
+                  {loading === 'members' ? t('加载中…') : t('成员')}
                 </button>
-                <button className="btn ghost sm" onClick={() => void loadFiles()} disabled={loadingFiles || !pullGroup.trim()}>
-                  {loadingFiles ? t('加载中…') : t('文件')}
+                <button className="btn ghost sm" onClick={() => void loadNotices()} disabled={loading !== '' || !pullGroup.trim()}>
+                  {loading === 'notices' ? t('加载中…') : t('公告')}
+                </button>
+                <button className="btn ghost sm" onClick={() => void loadFiles()} disabled={loading !== '' || !pullGroup.trim()}>
+                  {loading === 'files' ? t('加载中…') : t('文件')}
                 </button>
               </div>
+              {notices && (
+                <div className="rounded border border-[var(--line,#e5e7eb)] p-2 max-h-40 overflow-auto text-[12px] whitespace-pre-wrap">
+                  <div className="text-muted mb-1">{t('群公告')} {notices.length}</div>
+                  {notices.map((n) => <div key={n.notice_id}>{n.text}</div>)}
+                </div>
+              )}
               {files && (
                 <div className="rounded border border-[var(--line,#e5e7eb)] p-2 max-h-40 overflow-auto text-[12px]">
-                  <div className="text-muted mb-1">{t('群文件')} {files.length}</div>
+                  <div className="text-muted mb-1 flex justify-between items-center">
+                    <span>{t('群文件')} {files.length}</span>
+                    <label className="btn ghost sm cursor-pointer">
+                      {t('上传')}
+                      <input type="file" className="hidden" onChange={async (ev) => {
+                        const f = ev.target.files?.[0]; if (!f) return
+                        const fd = new FormData(); fd.append('file', f)
+                        setLoading('upload')
+                        try {
+                          await http.post(`/api/channel/qq/groups/${pullGroup.trim()}/upload`, fd)
+                          await loadFiles()
+                        } catch (e) { alert((e as Error).message) } finally { setLoading('') }
+                      }} />
+                    </label>
+                  </div>
                   {files.map((f) => (
                     <div key={f.file_id || f.name} className="flex justify-between gap-2 items-center">
                       <span className="truncate">{f.name}</span>
