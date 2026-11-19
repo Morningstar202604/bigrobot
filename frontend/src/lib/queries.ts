@@ -175,15 +175,29 @@ export function useInjectionRuleMutations() {
 }
 
 // ---- admin ----
+// 一页一聚合：overview/stats/report 是同一个响应里的三块，
+// 三个 hook 共用 queryKey → 一屏最多一次请求，各自 select 自己需要的子对象。
+type ReportShape = {
+  days: number
+  daily: { day: string; sessions: number; agent_replies: number; kb_hits: number; escalations: number }[]
+  totals: { sessions: number; agent_replies: number; kb_hits: number; escalations: number; kb_hit_rate: number | null; escalate_rate: number | null; csat: number | null; csat_n: number }
+}
+type ObserveOverview = AdminOverview & { stats: AdminStats; report: ReportShape }
+
+function useObserve<T>(select: (d: ObserveOverview) => T, refetchInterval?: number) {
+  return useQuery({
+    queryKey: qk.admin.overview,
+    queryFn: () => http.get<ObserveOverview>('/api/observe/overview?days=7'),
+    select,
+    ...(refetchInterval ? { refetchInterval } : {}),
+  })
+}
+
 export function useAdminOverview() {
-  return useQuery({ queryKey: qk.admin.overview, queryFn: () => http.get<AdminOverview & { stats: AdminStats; report: unknown }>('/api/observe/overview') })
+  return useObserve((d) => d)
 }
 export function useAdminStats() {
-  return useQuery({
-    queryKey: qk.admin.stats,
-    queryFn: () => http.get<AdminOverview & { stats: AdminStats }>('/api/observe/overview').then((d) => d.stats),
-    refetchInterval: 30_000,
-  })
+  return useObserve((d) => d.stats, 30_000)
 }
 export function useAdminMemory() {
   return useQuery({ queryKey: qk.admin.memory, queryFn: () => http.get<{ entries: MemoryEntry[] }>('/api/admin/memory') })
@@ -236,15 +250,7 @@ export function useLlmModels() {
   })
 }
 export function useAdminReport() {
-  return useQuery({
-    queryKey: ['admin', 'report'],
-    queryFn: () => http.get<{ report: {
-      days: number
-      daily: { day: string; sessions: number; agent_replies: number; kb_hits: number; escalations: number }[]
-      totals: { sessions: number; agent_replies: number; kb_hits: number; escalations: number; kb_hit_rate: number | null; escalate_rate: number | null; csat: number | null; csat_n: number }
-    } }>('/api/observe/overview?days=7').then((d) => d.report),
-    refetchInterval: 60_000,
-  })
+  return useObserve((d) => d.report, 60_000)
 }
 
 export function useAdminInjection() {

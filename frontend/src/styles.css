@@ -332,7 +332,6 @@ body {
   transition: background 0.15s, color 0.15s;
 }
 .shell-item svg { opacity: 0.85; }
-.shell-item:hover { background: var(--side-hover); color: var(--side-ink-strong); }
 .shell-item.active {
   background: var(--side-active);
   color: var(--side-ink-strong);

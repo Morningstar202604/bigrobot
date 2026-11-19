@@ -116,6 +116,15 @@ The authoritative version string lives in [`VERSION`](VERSION), mirrored by
 - 路由唯一路径 **97 → 93**；控制台首屏统计从 3 个请求变 1 个，日志页从 2 个变 1 个
 - 新模块 `core/api/observe.py`：直接从 `create_app` 闭包里搬出，`main.py` 继续减重
 
+### Changed（B4-2：请求层收敛）
+
+- **overview / stats / report 三个 hook 共用同一个 queryKey**：一屏只发一次
+  `/api/observe/overview?days=7`，各自 `select` 取 `stats` / `report` 子对象。
+  三个组件不用改，网络请求从 3 次变 1 次。
+- CSS 只清掉 1 条完全重复规则（730 → 729 行）。**如实记录：CSS 的 1916 行不是"重复"，
+  是同一批选择器在不同文件里各写一份、值还不一样**，合并必须配合真实视觉走查，
+  不能靠脚本批量删。这项留给有截图对比的批次做。
+
 ### 验证
 
 `pytest` 986 passed / 3 skipped，`ruff` 全过，`mypy` 92 文件 0 issue，
