@@ -179,5 +179,11 @@ def protocol_start(qq: str) -> str:
         [sys.executable, str(script), "start", "--qq", qq],
         cwd=str(ROOT), stdout=log_fh, stderr=log_fh,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    try:  # 启动即接管：掉线由 watchdog 自动重启，失败不影响本次启动
+        from core import qq_watchdog
+
+        qq_watchdog.start(qq)
+    except Exception:  # noqa: BLE001
+        logger.exception("qq watchdog start failed")
     return ("OK 协议端启动中（后台，约 2 分钟）。已登录过的号会自动登录；"
             "首次登录请回到「扫码登录」页扫码。")
