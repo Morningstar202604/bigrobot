@@ -50,7 +50,9 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             refs TEXT,
             tool_used TEXT,
             thought TEXT,
-            created_at TEXT
+            created_at TEXT,
+            external_id TEXT,
+            source TEXT
         );
         CREATE TABLE IF NOT EXISTS tickets (
             id TEXT PRIMARY KEY,
@@ -133,6 +135,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()}
     if "secret" not in cols:
         conn.execute("ALTER TABLE sessions ADD COLUMN secret TEXT")
+    _ensure_message_schema(conn)
     _ensure_action_schema(conn)
     _ensure_reminder_schema(conn)
     _seed_builtins(conn)
@@ -166,6 +169,22 @@ def _ensure_reminder_schema(conn: sqlite3.Connection) -> None:
     if "repeat_rule" not in rcols:
         conn.execute("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT DEFAULT ''")
 
+
+def _ensure_message_schema(conn) -> None:
+    """messages 补 external_id / source：外部平台消息要能幂等落库。
+
+    external_id 是平台侧消息 id，配合 (session_id, external_id) 的部分唯一索引，
+    同一批历史拉两次不会翻倍——这是 §13.3「历史落库」的前提。
+    """
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(messages)").fetchall()}
+    if "external_id" not in cols:
+        conn.execute("ALTER TABLE messages ADD COLUMN external_id TEXT")
+    if "source" not in cols:
+        conn.execute("ALTER TABLE messages ADD COLUMN source TEXT")
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_external "
+        "ON messages(session_id, external_id) WHERE external_id IS NOT NULL"
+    )
 
 def _ensure_action_schema(conn: sqlite3.Connection) -> None:
     """动作层表：审计日志 / 审批 / 审计哈希链。
