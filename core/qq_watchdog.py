@@ -64,7 +64,7 @@ def stop() -> dict:
 
 
 def _loop() -> None:
-    deploy = _deploy_override
+    deploy: Any = _deploy_override
     if deploy is None:
         from core import qq_deploy as deploy  # 延迟导入，避免与 qq_deploy 循环
     start_fn = deploy.protocol_start   # 测试替身只需这两个方法

@@ -143,6 +143,13 @@ def _deploy_worker() -> None:
 _proc: "subprocess.Popen | None" = None
 
 
+def proc_pid() -> int | None:
+    """协议端进程号；没起或已退出返回 None。"""
+    if _proc is None:
+        return None
+    return _proc.pid if _proc.poll() is None else None
+
+
 def proc_alive() -> bool:
     """协议端是否还在跑。给状态卡与看门狗共用，不依赖 state 字段猜测。"""
     return _proc is not None and _proc.poll() is None
