@@ -1127,7 +1127,6 @@ _SYNC_IMPLS: dict[str, Callable[..., dict]] = {
 # 否则 wrapper 的 op 指回自己，会无限递归。
 _SYNC_IMPLS["now_clock"] = tool_now
 _SYNC_IMPLS["recall_memory_legacy"] = tool_recall_memory
-_SYNC_IMPLS["qq_send_legacy"] = tool_qq_send
 # 通用工具（core/tools_general.py）：与业务无关，任何账号都能用。
 # 用 update 而不是在字面量里展开，是因为 tools_general 反过来要从本模块导入
 # ok_result/miss_result —— 模块级互相导入会循环（已实际触发过）。
@@ -1151,6 +1150,7 @@ _ASYNC_IMPLS: dict[str, Callable[..., Any]] = {
     "qq_groups": tool_qq_groups,
     "qq_friends": tool_qq_friends,
 }
+_ASYNC_IMPLS["qq_send_legacy"] = tool_qq_send
 
 # 元数据：名称/描述/参数/是否写操作（写操作在群聊里默认不自动执行）
 TOOL_META: dict[str, dict] = {
