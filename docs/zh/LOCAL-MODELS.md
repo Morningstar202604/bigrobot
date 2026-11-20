@@ -8,11 +8,13 @@ BigRobot 可以直接下载小体积 GGUF 模型，用 `llama.cpp` 在本机跑�
 
 | 模型 | 体积 | 上下文 | 为什么选它 |
 |---|---|---|---|
-| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | 工具调用与 Agent 评测领先 1.2B 以下同级；提醒、天气、文件和多步任务默认选它。 |
-| MiniCPM5-1B | 1.08B / Q4_K_M | 128K | 通用能力和长上下文更强，适合聊天与长文。 |
-| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | BotPsy 的基座；想要原厂通用模型时选它。 |
+| **MiniCPM5-1B（默认推荐）** | 1.08B / Q4_K_M | 128K | 2026-05 发布的 1B 级开源 SOTA；Agent 工具调用、代码和困难推理领先同尺寸，通用能力比 0.8B 更稳。 |
+| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | 工具调用特化，体积最小、响应最快；内存特别紧或只做提醒/天气时选它。 |
+| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | BotPsy 的基座，原厂通用基线；复杂 Agent 任务不如 MiniCPM5。 |
 
-三个都是 Apache-2.0，参数都低于 2B。下载前控制台会给出准确的文件大小和许可。
+三个都是 Apache-2.0，参数都严格低于 2B。下载前控制台会给出准确的文件大小和许可。
+
+MiniCPM5-2B 虽然宣传叫“2B-class”，官方总参数 2,516,756,480，已经超过 2B 硬上限，所以没有放进推荐目录。
 
 ## 下载与运行
 
@@ -48,6 +50,7 @@ pip install -r requirements-local.txt
 
 下面这些工具需要额外设施，没配就明确说“未接入”，不会假装成功：
 
+- `ocr`：本机装 `tesseract` 就能用，支持中英文；控制台上传图片后直接说“识别这张图的文字”即可，不需要额外 Python 包。
 - `describe_image`：要配 `multimodal.vision_model`；本地文字模型看不了图。
 - `generate_image`：要配 `IMAGE_API_BASE_URL` 和 `IMAGE_API_KEY`；llama.cpp 没有生图端点。
 - `fs` / `write_file`：要启动执行器并配 `EXECUTOR_URL`。

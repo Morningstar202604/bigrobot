@@ -390,6 +390,12 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
     time_block = "【当前时间】" + _now.strftime("%Y-%m-%d %H:%M") + "（星期" + _week + "，" + (_now.tzname() or "本地时区") + "）。涉及「现在几点/今天几号/还有几天」一律以此为准，不要用训练数据里的日期，也不要编造时间。"
     system = ctx["persona"] + chr(10) + time_block + chr(10)
     parts = []
+    web_part = ""
+    if ctx.get("web_block"):
+        # 联网结果必须排在最前：本地小模型预算很紧，放在最后会被挤成占位，
+        # MiniCPM5 实测因此完全忽略搜索结果、开始凭记忆编新闻。
+        web_part = "联网搜索结果（仅供参考，引用时说明来源）：\n" + str(ctx["web_block"])
+        parts.append(web_part)
     if modules_on.get("kb", True):
         parts.append("知识库条目：\n" + ctx["kb_block"])
     if modules_on.get("tools", True) and not native_tools:
@@ -415,8 +421,6 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
     if ctx.get("read_block"):
         # 已经替你打开/读到的原文。中性表述，避免模型说"系统日志/搜索结果"这类机制腔。
         parts.append(str(ctx["read_block"]))
-    if ctx.get("web_block"):
-        parts.append("联网搜索结果（仅供参考，引用时说明来源）：\n" + ctx["web_block"])
     if ctx.get("ambient_block"):
         parts.append(str(ctx["ambient_block"]))
     if ctx.get("group_name"):
@@ -482,6 +486,10 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
     window_budget = min(ctx_window // 4 * 2, 24_000) if ctx_window else 0
     if small_local:
         window_budget = min(window_budget, 900)
+        if web_part:
+            # 搜索结果要占正文，800 字装不下两条新闻；8K 上下文仍绰绰有余。
+            budget = max(budget, 2000)
+            window_budget = max(window_budget, 2000)
     budget = max(budget, window_budget)
     content_budget = max(300 if small_local else 800, budget - persona_len - len(tail) - 4)
 
@@ -491,6 +499,12 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
     # 预算不足时宁可每个模块只放一小段，也不能整块丢掉：
     # 丢掉工具清单会让模型以为"没有工具可用"，丢掉记忆会让它重复问已知信息。
     per_part = max(60, (content_budget - 2 * n) // n - overhead)
+    quotas = [per_part] * n
+    if small_local and web_part and n > 1:
+        web_quota = min(len(web_part), max(700, int(content_budget * 0.60)))
+        rest_budget = max(200, content_budget - web_quota)
+        per_other = max(40, (rest_budget - 2 * (n - 1)) // (n - 1) - overhead)
+        quotas = [web_quota] + [per_other] * (n - 1)
     for idx, part in enumerate(parts):
         remaining = content_budget - len(body) - 2
         if remaining <= 30:
@@ -499,7 +513,7 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
             stub = f"{head}：…（预算不足）"
             body += stub + "\n"
             continue
-        quota = remaining if idx == len(parts) - 1 else min(per_part, remaining)
+        quota = remaining if idx == len(parts) - 1 else min(quotas[idx], remaining)
         chunk = part if len(part) <= quota else part[:quota] + "…（已截断）"
         body += chunk + "\n\n"
     system += body

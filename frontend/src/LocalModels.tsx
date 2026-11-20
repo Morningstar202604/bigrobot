@@ -21,6 +21,7 @@ export interface LocalModel {
   tool_calling: boolean
   chinese: boolean
   recommended: boolean
+  released?: string
   badge: string
   tagline: string
   why: string
@@ -133,6 +134,10 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
   if (error) return <div className="p-4 text-sm" style={{ color: 'var(--danger)' }}>{(error as Error).message}</div>
   if (!data) return null
 
+  const rec = data.models.find((m) => m.recommended)
+  const recJob = rec ? data.jobs.find((j) => j.model_id === rec.id) : undefined
+  const recBusy = Boolean(recJob && ['queued', 'downloading', 'verifying', 'cancelling'].includes(recJob.status))
+
   return (
     <section className="bp-sec lm-panel">
       <div className="bp-sec-head">
@@ -148,6 +153,24 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
         </button>
       </div>
 
+      {rec && !rec.installed && !recBusy && (
+        <div className="lm-note ok">
+          <Download size={14} />
+          <span>推荐先装 <b>{rec.name}</b>：{rec.params_b}B / {fmtContext(rec.context)} ctx，下载后点卡片里的「启用」即可。</span>
+          <button className="btn sm" onClick={() => download.mutate(rec.id)} disabled={busy}>
+            <Download size={12} /> 下载推荐
+          </button>
+        </div>
+      )}
+      {rec && rec.installed && !rec.active && (
+        <div className="lm-note ok">
+          <Play size={14} />
+          <span><b>{rec.name}</b> 已装好，启用后会切到本地端点。</span>
+          <button className="btn sm" onClick={() => activate.mutate(rec)} disabled={busy || !data.llama_available}>
+            <Play size={12} /> 启用推荐
+          </button>
+        </div>
+      )}
       {!data.llama_available && (
         <div className="lm-note warn">
           <AlertTriangle size={14} />
@@ -184,7 +207,7 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
                     {m.recommended && <span className="badge ok">{m.badge}</span>}
                     {!m.recommended && <span className="badge muted">{m.badge}</span>}
                   </div>
-                  <div className="lm-sub">{m.params_b}B · {m.quant} · {fmtContext(m.context)} ctx · {m.license}</div>
+                  <div className="lm-sub">{m.params_b}B · {m.quant} · {fmtContext(m.context)} ctx · {m.license}{m.released ? ` · ${m.released} 发布` : ''}</div>
                 </div>
                 {running
                   ? <span className="badge ok">使用中</span>
@@ -240,6 +263,7 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
       </div>
 
       <div className="lm-hint">
+        先点推荐卡的「下载」，装好后点「启用」，程序会自动写入本地端点并切到小模型提示词。
         建议 2GB 内存以上；当前默认 8K 运行上下文，模型本身支持更长上下文，可在「能力参数」里调整。
         下载走 HuggingFace 镜像，失败会自动回退官方源；半截文件保留，下次续传。
       </div>

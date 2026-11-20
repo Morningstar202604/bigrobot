@@ -8,11 +8,13 @@ BigRobot can download a small GGUF model, run it with `llama.cpp`, and switch to
 
 | Model | Size | Context | Why it is here |
 |---|---|---|---|
-| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | Tool-use and agent scores lead the sub-1.2B class. Default choice for reminders, weather, files and multi-step work. |
-| MiniCPM5-1B | 1.08B / Q4_K_M | 128K | Strong general model with long context; useful for chat and long documents. |
-| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | The base model under BotPsy. Pick it when you want the original general model. |
+| **MiniCPM5-1B (default)** | 1.08B / Q4_K_M | 128K | Released 2026-05; 1B-class open SOTA for agentic tool use, coding and hard reasoning, with stronger general ability than 0.8B models. |
+| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | Tool-specialized, smallest and fastest; pick it for tight RAM or reminder/weather-only use. |
+| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | The base model under BotPsy; a general baseline, weaker on complex agent tasks than MiniCPM5. |
 
-All three are Apache-2.0 and below 2B. The console shows exact file size and license before download.
+All three are Apache-2.0 and strictly below 2B. The console shows exact file size and license before download.
+
+MiniCPM5-2B is marketed as "2B-class", but its official total parameter count is 2,516,756,480 — over the 2B hard limit, so it is not in the catalog.
 
 ## Download and run
 
@@ -48,6 +50,7 @@ Common utilities have deterministic intent routing, so they work in compact mode
 
 These tools need extra infrastructure and stay explicitly "not configured" rather than pretending success:
 
+- `ocr`: works with a local `tesseract` install (Chinese + English). Upload an image in the console and ask "read the text in this image"; no extra Python package is needed.
 - `describe_image`: set `multimodal.vision_model` (the local text model cannot read images).
 - `generate_image`: set `IMAGE_API_BASE_URL` and `IMAGE_API_KEY`; llama.cpp has no image endpoint.
 - `fs` / `write_file`: start the executor and set `EXECUTOR_URL`.

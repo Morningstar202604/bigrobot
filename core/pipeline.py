@@ -323,6 +323,21 @@ async def _direct_emote(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
                       confidence=0.9, mode="rule_react", ctx_used=ctx.get("used"))
 
 
+_WEB_INTENT_RE = re.compile(r"搜索|搜一下|搜下|查一下|查下|最新|新闻|资讯|动态|进展", re.I)
+
+
+def _wants_web_digest(text: str) -> bool:
+    return bool(_WEB_INTENT_RE.search(text or ""))
+
+
+_OCR_INTENT_RE = re.compile(
+    r"OCR|识别.*文字|文字.*识别|提取.*文字|读.*文字|写了什么|写了啥|图里.*字", re.I)
+
+
+def _wants_ocr(text: str) -> bool:
+    return bool(_OCR_INTENT_RE.search(text or ""))
+
+
 async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
     """确定性工具意图 → 直接执行，不等模型决定。
 
@@ -384,6 +399,15 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
                     "colours or units.")
         return AgentReply(
             text=text, confidence=0.9, mode="rule_react", ctx_used=ctx.get("used"))
+
+    if tctx.image_b64 and _wants_ocr(q):
+        res = await tools_mod.invoke("ocr", {}, tctx)
+        note = str((res or {}).get("note") or "").strip()
+        if note:
+            return AgentReply(
+                text=note, confidence=0.9 if res.get("found") else 0.4,
+                mode="rule_react", tool_used="ocr", tool_result=res,
+                escalate=False, ctx_used=ctx.get("used"))
 
     name, args = None, None
     # 搜索交给 _llm_answer 的 ReAct 链路：那里会在工具返回后再让本地模型
@@ -569,6 +593,26 @@ async def _rule_react(query: str, ctx: dict, cfg: dict) -> AgentReply:
     )
 
 
+def _clean_search_summary(text: str) -> str:
+    """把 1B 归纳出来的编号/markdown/来源行压成一段可读的话。"""
+    picked: list[str] = []
+    for raw in (text or "").splitlines():
+        for seg in re.split(r"[；;]", raw.replace("**", "")):
+            line = seg.strip()
+            if not line:
+                continue
+            if line.startswith("来源") or "http://" in line or "https://" in line:
+                continue
+            line = re.sub(r"^(?:内容|摘要|事实)\s*[：:]\s*", "", line)
+            line = re.sub(r"^\d+[.、)]\s*", "", line)
+            line = re.sub(r"^[-*•]\s*", "", line)
+            if not line:
+                continue
+            if "以下" in line or "搜索归纳" in line or line.startswith("以上信息"):
+                continue
+            picked.append(line)
+    return "；".join(picked)[:400].strip()
+
 async def _summarize_search(query: str, note: str, cfg: dict) -> str:
     """本地小模型的搜索归纳：纯文本补全，不要求 JSON、不触发模型冷却。"""
     llm_cfg = cfg.get("llm") or {}
@@ -578,7 +622,7 @@ async def _summarize_search(query: str, note: str, cfg: dict) -> str:
     if not base or not key or not model or not note:
         return ""
     messages = [
-        {"role": "system", "content": "你是搜索归纳助手。只根据资料写 2-3 个具体事实，不要罗列编号、链接，不要免责声明。"},
+        {"role": "system", "content": "你是搜索归纳助手。只根据资料写一段中文，2-3 个具体事实用分号连接。不要输出编号、来源、链接、免责声明，也不要写“根据资料/以下是”。"},
         {"role": "user", "content": "问题：" + query + "\n资料：\n" + str(note)[:3000]},
     ]
     text = await llm._post_chat(base, key, {
@@ -587,7 +631,7 @@ async def _summarize_search(query: str, note: str, cfg: dict) -> str:
     text = (text or "").strip()
     if not text or llm.is_promise_only(text):
         return ""
-    return text[:600]
+    return _clean_search_summary(text)
 
 
 async def _llm_answer(query: str, ctx: dict, cfg: dict, image_b64: str = "",
@@ -1082,7 +1126,8 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
             ctx_used=ctx["used"], mode="rule_react",
         )
 
-    if message.image_b64 and cfg.get("multimodal", {}).get("enable", True):
+    if (message.image_b64 and not _wants_ocr(query)
+            and cfg.get("multimodal", {}).get("enable", True)):
         # 视觉能力判定要看「模型真的支持图片」，而不是「配了模型名」。
         # 主模型 u2-flash 明确不支持 image_url（端点 400），之前只判断"有模型名"
         # 就把图丢给它，结果整轮失败掉回规则引擎——用户看到的就是"识别不了"。
@@ -1381,6 +1426,23 @@ async def _run_body(message: ChannelMessage, history: list[dict], visitor_key: s
     direct = await _direct_tool(query, ctx, cfg)
     if direct is not None:
         return direct
+
+    # 本地小模型 + 自动联网：不要把整段网页塞给 1B 再指望它自己归纳。
+    # 实测 MiniCPM5 看到两条新闻只复读标题，甚至回「没找到相关信息」；
+    # 用同一条模型跑一次「只写事实」的短归纳，稳定得多。
+    if (local_models.small_model_mode(cfg) and ctx.get("web_block")
+            and _wants_web_digest(query)):
+        try:
+            digest = await _summarize_search(query, ctx["web_block"], cfg)
+            if digest:
+                return AgentReply(
+                    text=digest, confidence=0.8, mode="llm_react",
+                    tool_used="web_search",
+                    tool_result={"tool": "web_search", "found": True,
+                                 "note": ctx["web_block"][:800], "source": "auto_web"},
+                    ctx_used=ctx.get("used"))
+        except Exception:
+            pass
 
     # 链接直读：消息里给了明确 URL 且要求看内容时，直接抓取再交给模型总结。
     # 不能指望模型每轮都主动选 read_source——实测它会先吐槽"占位符网站"

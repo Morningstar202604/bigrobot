@@ -615,6 +615,105 @@ async def tool_describe_image(ctx: ToolContext, source: str = "", question: str 
     return ok_result("describe_image", text, model=vision_model)
 
 
+def _ocr_available_langs(wanted: str) -> str:
+    """tesseract 缺语言包时静默回退到已装的语言，不让 OCR 直接报错。"""
+    import subprocess
+
+    try:
+        out = subprocess.run(["tesseract", "--list-langs"], capture_output=True,
+                             text=True, timeout=8).stdout
+        have = {line.strip() for line in out.splitlines()[1:] if line.strip()}
+    except Exception:
+        return "eng"
+    picked = [x for x in wanted.split("+") if x in have]
+    if not picked:
+        picked = ["eng"] if "eng" in have else sorted(have)[:1]
+    return "+".join(picked) or "eng"
+
+
+async def tool_ocr(ctx: ToolContext, source: str = "", lang: str = "", **_kw) -> dict:
+    """识别图片里的文字。默认读用户这条消息里的图。
+
+    用系统 tesseract 而不是再装一个 Python 视觉模型：本地小模型没有视觉能力，
+    OCR 是「图片→文字」的最小可用链路，也避免把截图上传到第三方。
+    """
+    import asyncio
+    import base64
+    import shutil
+    import subprocess
+    import tempfile
+
+    exe = shutil.which("tesseract")
+    if not exe:
+        return off_result("ocr", "本机没有装 tesseract；装好后重启即可（apt install tesseract-ocr tesseract-ocr-chi-sim）。")
+
+    raw = (source or "").strip()
+    if raw.startswith("http://") or raw.startswith("https://"):
+        from core import url_guard
+        try:
+            safe = url_guard.check_url(raw)
+        except url_guard.UnsafeUrl as e:
+            return miss_result("ocr", f"这个图片地址不能访问：{e}")
+        try:
+            from core.http_pool import get_client
+            resp = await get_client(timeout=15).get(safe)
+            resp.raise_for_status()
+            if len(resp.content) > 8_000_000:
+                return miss_result("ocr", "图片太大了（超过 8MB）。")
+            data = resp.content
+        except httpx.HTTPError as e:
+            return miss_result("ocr", f"图片下载失败（{type(e).__name__}）。")
+    elif raw.startswith("data:"):
+        try:
+            data = base64.b64decode(raw.split(",", 1)[-1])
+        except Exception:
+            return miss_result("ocr", "图片 data URL 解析失败。")
+    elif raw:
+        # 不读任意本地路径：只接受用户消息里的图或 URL/data URL。
+        if raw.startswith("iVBOR") or raw.startswith("/9j/"):
+            try:
+                data = base64.b64decode(raw)
+            except Exception:
+                return miss_result("ocr", "图片 base64 解析失败。")
+        else:
+            return need_ctx("ocr", "把图片直接发到聊天里，或给我图片 URL")
+    else:
+        if not ctx.image_b64:
+            return need_ctx("ocr", "图片（用户这条消息里没有图片）")
+        try:
+            raw_img = ctx.image_b64
+            if raw_img.startswith("data:"):
+                raw_img = raw_img.split(",", 1)[-1]
+            data = base64.b64decode(raw_img)
+        except Exception:
+            return miss_result("ocr", "图片 base64 解析失败。")
+
+    suffix = ".png"
+    with tempfile.NamedTemporaryFile(prefix="bigrobot-ocr-", suffix=suffix, delete=False) as fh:
+        fh.write(data)
+        path = fh.name
+    detected_lang = _ocr_available_langs(lang or "chi_sim+eng")
+    try:
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            [exe, path, "stdout", "-l", detected_lang, "--psm", "6"],
+            capture_output=True, text=True, timeout=30)
+        if proc.returncode != 0:
+            return miss_result("ocr", f"OCR 失败：{(proc.stderr or '').strip()[:160]}")
+        text = (proc.stdout or "").strip()
+        if not text:
+            return empty_result("ocr", "这张图里没有识别到文字。")
+        return ok_result("ocr", text[:2000], engine="tesseract",
+                         lang=detected_lang, chars=len(text))
+    except subprocess.TimeoutExpired:
+        return miss_result("ocr", "OCR 超时（图片可能太大或语言包加载失败）。")
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
 def tool_search_emote(ctx: ToolContext, keyword: str = "", **_kw) -> dict:
     """搜机器人自己收藏的表情包（网关侧 EmoteLib 的索引文件）。
 
@@ -1148,6 +1247,7 @@ _ASYNC_IMPLS: dict[str, Callable[..., Any]] = {
     "read_file": tool_read_file,
     "write_file": tool_write_file,
     "describe_image": tool_describe_image,
+    "ocr": tool_ocr,
     "qq_group_history": tool_qq_group_history,
     "qq_send": tool_qq_send,
     "send_image": tool_send_image,
@@ -1188,6 +1288,8 @@ TOOL_META: dict[str, dict] = {
                   "args": {"path": "string", "max_chars": "string"}},
     "describe_image": {"name": "看图", "desc": "识别图片内容，或读用户刚发的图里的文字",
                        "args": {"source": "string", "question": "string"}},
+    "ocr": {"name": "OCR 识图", "desc": "识别图片/截图里的文字（本地 Tesseract，支持中英）",
+            "args": {"source": "string", "lang": "string"}},
     "search_emote": {"name": "找表情包", "desc": "在收藏的表情包里按关键词找",
                      "args": {"keyword": "string"}},
     "qq_group_history": {"name": "读群记录", "desc": "读取群聊最近的聊天记录",

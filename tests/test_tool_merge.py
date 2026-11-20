@@ -1,7 +1,7 @@
-"""工具合并（B2：54 → 26）的护栏。
+"""工具合并（B2：54 → 26，加 OCR 后 27）的护栏。
 
 三件事必须同时成立，否则"合并"就是降级：
-1. 模型清单只剩 26 个，但被吸收的旧名仍然可调度（不打断已有脚本与审批记录）；
+1. 模型清单只剩 26 个基础工具 + 1 个 OCR，但被吸收的旧名仍然可调度（不打断已有脚本与审批记录）；
    新增未来任务能力不另开工具，而是作为 reminders 的 op=future/tasks/cancel_task；
 2. 合并工具按 op 分派到原实现，未知 op 明确报错而不是静默走默认分支；
 3. 老库迁移只清理内置行，且把开关状态继承给合并后的工具。
@@ -14,8 +14,8 @@ from core import tools as tools_mod
 from core.tool_context import EMPTY
 
 
-def test_tool_count_is_26():
-    assert len(tools_mod.TOOL_META) == 26
+def test_tool_count_is_27_with_ocr():
+    assert len(tools_mod.TOOL_META) == 27
 
 
 def test_retired_tools_stay_dispatchable():
@@ -87,3 +87,54 @@ def test_migration_retires_rows_and_inherits_enabled():
     assert rows["qq_group_admin"]["enabled"] == 1, "任一子能力开着，合并工具就该开着"
     assert "qq_group_ban" not in rows and "qq_group_notice" not in rows, "内置旧行应被清理"
     assert "qq_group_card" in rows and rows["qq_group_card"]["builtin"] == 0, "自建工具不能删"
+
+
+def test_minicpm5_is_the_default_recommendation():
+    from core import local_models
+
+    assert local_models.CATALOG[0]["id"] == "minicpm5-1b"
+    rec = [m for m in local_models.CATALOG if m.get("recommended")]
+    assert [m["id"] for m in rec] == ["minicpm5-1b"]
+    assert local_models.CATALOG[0]["context"] >= 131_072
+    assert local_models.CATALOG[0]["params_b"] < 2.0
+
+
+async def test_ocr_reads_an_uploaded_image():
+    import base64
+    import io
+    import shutil
+
+    import pytest
+
+    if not shutil.which("tesseract"):
+        pytest.skip("tesseract is not installed")
+    Image = pytest.importorskip("PIL.Image")
+    ImageDraw = pytest.importorskip("PIL.ImageDraw")
+    ImageFont = pytest.importorskip("PIL.ImageFont")
+
+    img = Image.new("RGB", (640, 160), "white")
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.load_default(size=42)
+    draw.text((20, 45), "BIGROBOT OCR 2026", fill="black", font=font)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    data_url = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+    from core.tool_context import ToolContext
+
+    ctx = ToolContext(visitor_id="ocr-test", channel_type="webchat",
+                      channel_user_id="u1", image_b64=data_url)
+    result = await tools_mod.invoke("ocr", {}, ctx)
+    assert result["tool"] == "ocr"
+    assert result["found"] is True, result
+    assert "BIGROBOT" in result["note"].upper()
+
+
+def test_search_summary_is_cleaned_for_chat():
+    from core.pipeline import _clean_search_summary
+
+    raw = "根据提供的资料，以下是两个具体事实：\n\n1. **AI 攻克黎曼猜想**：Anthropic 与 Claude 合作。\n2. **三星投资 Neocloud**：基于实际需求。"
+    clean = _clean_search_summary(raw)
+    assert "1." not in clean and "**" not in clean
+    assert "黎曼猜想" in clean and "Neocloud" in clean
+    assert "；" in clean

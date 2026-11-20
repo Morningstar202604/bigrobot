@@ -162,6 +162,20 @@ def clean_query(query: str) -> str:
     return q or (query or "").strip()
 
 
+def normalize_query(query: str) -> str:
+    """把用户口语问题归一成检索词；自动联网路径也必须走这里。
+
+    只在 Web 搜索入口做归一化是不够的：`build_context_async` 直接调用
+    `search()` 时会拿「搜索今天的人工智能新闻」原句去查，Bing 会返回 QQ 更新、
+    Samsung 内存之类的噪声。MiniCPM5 实测就照着第一条噪声编了回答。
+    """
+    q = (query or "").strip()
+    q = re.sub(r"^(?:帮我|请|麻烦)?(?:搜一下|搜搜|搜索|查一下|查查)\s*", "", q).strip()
+    if re.search(r"新闻|资讯|最新|今天|今日", q) and re.search(r"人工智能|AI|大模型", q, re.I):
+        q = "人工智能 AI 最新进展"
+    return q or (query or "").strip()
+
+
 _NEWS_HINT = re.compile(r"新闻|资讯|动态|头条|最新|今天|今日|昨天|本周|热点|发布|进展|融资|发布会")
 
 # 「今天/历史上的今天」类站点对任何含时间词的查询都是天然噪声源（必应会把它们排前列）
@@ -395,7 +409,7 @@ async def search(query: str, top_k: int = 5) -> dict:
     import asyncio as _asyncio
     import time as _time
 
-    q = (query or "").strip()
+    q = normalize_query(query)
     if not q:
         return {"ok": False, "provider": "", "results": [], "error": "空查询"}
 
