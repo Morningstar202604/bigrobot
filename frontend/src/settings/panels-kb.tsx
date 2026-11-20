@@ -34,6 +34,7 @@ export function KbPanel() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const collections = kbRes?.collections ?? []
+  const totalEntries = collections.reduce((sum, c) => sum + c.entry_count, 0)
   const targetCollection = collection || DEFAULT_COLLECTION
   const targetName = collectionName(collections, targetCollection)
 
@@ -68,7 +69,7 @@ export function KbPanel() {
           <input style={{ paddingLeft: 40 }} placeholder={tr('搜索 id / 标题 / 关键词…')} value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         <select value={collection} onChange={(e) => setCollection(e.target.value)} style={{ minWidth: 150 }} title={tr('切换知识库')}>
-          <option value="">全部知识库（{all.length}）</option>
+          <option value="">全部知识库（{totalEntries}）</option>
           {collections.map((c) => (
             <option key={c.id} value={c.id}>{c.name}（{c.entry_count}）</option>
           ))}
