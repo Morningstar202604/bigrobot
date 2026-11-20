@@ -544,7 +544,7 @@ def cmd_version(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="bigrobot",
-        description="BigRobot —— 自托管的 QQ / 网页私人秘书",
+        description="BigRobot —— 聊天账号控制台与 AI 助手",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
             常用：

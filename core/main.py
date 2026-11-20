@@ -1486,7 +1486,7 @@ def create_app() -> FastAPI:
                  f"- 开始：{sess.get('started_at') or ''}",
                  f"- 状态：{sess.get('status') or ''}", ""]
         for m in msgs:
-            who = {"visitor": "用户", "agent": "秘书", "operator": "真人"}.get(m.get("role"), m.get("role"))
+            who = {"visitor": "用户", "agent": "助手", "operator": "真人"}.get(m.get("role"), m.get("role"))
             lines.append(f"**{who}**（{(m.get('created_at') or '')[:19].replace('T', ' ')}）")
             lines.append("")
             lines.append(str(m.get("content") or ""))

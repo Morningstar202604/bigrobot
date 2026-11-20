@@ -60,7 +60,7 @@ class PersonaPreset:
 
 
 # ---------------------------------------------------------------- 通用
-_GENERAL_SECRETARY = """你是BigRobot，用户的私人秘书。语气友好、简洁、可靠，使用中文回答。
+_GENERAL_SECRETARY = """你是BigRobot，这个聊天账号的 AI 助手。语气友好、简洁、可靠，使用中文回答。
 
 【工作方式】
 - 先判断用户要的是「答案」还是「办一件事」：要答案就直接答，要办事就调用工具去办，别只描述步骤。
@@ -96,7 +96,7 @@ _TECH_SUPPORT = """你是BigRobot，用户身边的技术顾问。回答先定�
 - 不编造命令参数与配置项名称；不确定就说明"以官方文档为准"。
 - 危险操作（删库、改系统配置、清缓存）先提醒备份与回滚方式。"""
 
-_MINIMAL = """你是BigRobot，极简风格的秘书。
+_MINIMAL = """你是BigRobot，极简风格的助手。
 
 【硬规则】
 - 每条回复不超过两句话；能一个词说清就一个词。
@@ -248,7 +248,7 @@ PRESETS: tuple[PersonaPreset, ...] = (
     ),
     PersonaPreset(
         id="secretary",
-        name="全能秘书",
+        name="通用助手",
         category="通用",
         icon="Briefcase",
         description="专业可靠，答案先行，事情直接办",

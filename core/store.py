@@ -302,6 +302,11 @@ _WRITE_FILE_SEED = {
 }
 
 
+# 早期演示用的电商工具：代码保留（可被测试与外部接入复用），但不再默认注册到任何库。
+# 否则「能力」页会一直显示「查订单物流 / 申请退款」，和聊天账号控制台的定位对不上。
+DEMO_TOOL_IDS = {"query_order", "initiate_refund", "lookup_policy"}
+
+
 def _extra_tool_seeds() -> list[dict]:
     """内置工具播种：TOOL_META 是唯一事实源（含 tools_general 合并进来的通用工具）。"""
     from core.tools import TOOL_META as CODE_TOOLS
@@ -310,6 +315,7 @@ def _extra_tool_seeds() -> list[dict]:
         {"id": tid, "name": meta.get("name") or tid, "desc": meta.get("desc", ""),
          "args_json": json.dumps(meta.get("args") or {}, ensure_ascii=False), "builtin": 1}
         for tid, meta in CODE_TOOLS.items()
+        if tid not in DEMO_TOOL_IDS
     ]
     seeds.append(dict(_WRITE_FILE_SEED))   # 不进模型清单，但控制台可见、可直调
     return seeds
@@ -358,15 +364,7 @@ def _retire_builtin_tools(conn: sqlite3.Connection) -> None:
 def _seed_builtins(conn: sqlite3.Connection) -> None:
     existing_tools = conn.execute("SELECT COUNT(*) AS c FROM tools").fetchone()["c"]
     if existing_tools == 0:
-        builtin_tools = [
-            {"id": "query_order", "name": "查订单物流", "desc": "按订单号查询发货状态与物流单号",
-             "args_json": json.dumps({"order_id": "string"}, ensure_ascii=False), "builtin": 1},
-            {"id": "initiate_refund", "name": "申请退款", "desc": "按订单号发起退款并返回处理状态",
-             "args_json": json.dumps({"order_id": "string", "reason": "string"}, ensure_ascii=False), "builtin": 1},
-            {"id": "lookup_policy", "name": "查退改政策", "desc": "按主题检索退改签政策",
-             "args_json": json.dumps({"topic": "string"}, ensure_ascii=False), "builtin": 1},
-        ]
-        builtin_tools += _extra_tool_seeds()
+        builtin_tools = _extra_tool_seeds()
         for t in builtin_tools:
             conn.execute(
                 "INSERT INTO tools (id, name, desc, args_json, enabled, builtin, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)",

@@ -4,7 +4,7 @@
 
 A console for chat accounts you already run — not another bot framework.
 
-Most chat bots are built to answer messages. BigRobot starts from the other side: it takes over an existing account, shows what is actually in it, and puts an AI secretary on top. QQ is the first channel because QQ has no usable backend — you log in and see nothing. Here you see the groups, the members, the files and the history, and you can act on them.
+Most chat bots are built to answer messages. BigRobot starts from the other side: it takes over an existing account, shows what is actually in it, and puts an AI assistant on top. QQ is the first channel because QQ has no usable backend — you log in and see nothing. Here you see the groups, the members, the files and the history, and you can act on them.
 
 ## What it does
 
@@ -14,7 +14,7 @@ Most chat bots are built to answer messages. BigRobot starts from the other side
 | Visibility | Group and direct-message history stored locally, member list with roles, group files, notices, friends |
 | Action | Send text/image/voice/file, recall, mute, kick, edit card, publish notice |
 | Voice | Audio kept with the message, transcoded to wav, transcribed, written back into the transcript |
-| AI secretary | Tool calling with per-action risk levels, approvals, audit trail, knowledge base, reminders |
+| AI assistant | Tool calling with per-action risk levels, approvals, audit trail, knowledge base, reminders |
 | Console | One account dialog, one session drawer, capability-driven UI instead of per-platform hardcoding |
 
 ## Design notes
