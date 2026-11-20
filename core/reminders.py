@@ -59,7 +59,10 @@ async def _deliver_web(rec: dict, text: str) -> tuple[bool, str]:
     先按 visitor_id 取最近一个活跃会话。
     """
     raw = rec.get("chat_key") or ""
-    sid = raw.split(":", 1)[-1] if ":" in raw else raw
+    # 未来任务带原始网页会话 id；提醒没有这个字段，仍按 chat_key/最近活跃会话兜底。
+    sid = (rec.get("session_id") or "").strip()
+    if not sid:
+        sid = raw.split(":", 1)[-1] if ":" in raw else raw
     session = store.get_session(sid) if sid else None
     if not session:
         visitor = (rec.get("visitor_id") or sid or "").strip()
@@ -133,6 +136,17 @@ def next_due(rule: str, current_iso: str) -> str | None:
     return nxt.isoformat()
 
 
+async def deliver_raw(rec: dict, text: str) -> tuple[bool, str]:
+    """把一段文本投回记录的原渠道；未来任务与提醒共用。"""
+    channel = (rec.get("channel_type") or "webchat").lower()
+    try:
+        if channel.startswith("qq"):
+            return await _deliver_qq(rec, text)
+        return await _deliver_web(rec, text)
+    except Exception as e:  # 投递实现内部炸了也必须落 last_error，不能中断整轮扫描
+        return False, f"{type(e).__name__}: {str(e)[:120]}"
+
+
 async def deliver(rec: dict) -> bool:
     when = ""
     try:
@@ -141,14 +155,8 @@ async def deliver(rec: dict) -> bool:
         when = rec["due_at"]
     text = f"⏰ 提醒：{rec['text']}" + (f"（你设的是 {when}）" if when else "")
 
+    ok, err = await deliver_raw(rec, text)
     channel = (rec.get("channel_type") or "webchat").lower()
-    try:
-        if channel.startswith("qq"):
-            ok, err = await _deliver_qq(rec, text)
-        else:
-            ok, err = await _deliver_web(rec, text)
-    except Exception as e:  # 投递实现内部炸了也必须落 last_error，不能中断整轮扫描
-        ok, err = False, f"{type(e).__name__}: {str(e)[:120]}"
 
     if ok:
         rule = (rec.get("repeat_rule") or "").strip()

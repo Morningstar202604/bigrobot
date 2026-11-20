@@ -146,18 +146,22 @@ async def lifespan(app: FastAPI):
     app.state.limiter = ratelimit.SQLiteRateLimiter()
 
     # 提醒调度：到点主动推回原渠道（QQ 群/私聊 or 网页会话）
-    from core import reminders
+    from core import future_tasks, reminders
 
     _rem_stop = asyncio.Event()
     _rem_task = asyncio.create_task(reminders.run_forever(_rem_stop))
+    _ft_stop = asyncio.Event()
+    _ft_task = asyncio.create_task(future_tasks.run_forever(_ft_stop))
     try:
         yield
     finally:
         _rem_stop.set()
-        try:
-            await asyncio.wait_for(_rem_task, timeout=5)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            _rem_task.cancel()
+        _ft_stop.set()
+        for task in (_rem_task, _ft_task):
+            try:
+                await asyncio.wait_for(task, timeout=5)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                task.cancel()
     # 退出时关闭共享 HTTP 连接池，避免资源泄漏
     try:
         from core import http_pool
@@ -482,7 +486,8 @@ def create_app() -> FastAPI:
                                         ambient=ambient or [], group_name=group_name,
                                         channel_type=channel_type or "webchat",
                                         channel_user_id=channel_user_id or visitor_key,
-                                        group_id=group_id, message_id=message_id),
+                                        group_id=group_id, message_id=message_id,
+                                        session_id=sid),
                 history,
                 visitor_key,
             )
@@ -1444,6 +1449,7 @@ def create_app() -> FastAPI:
     # ---- 已抽出的 API 路由只在这里挂载，保持旧 URL 不变 ----
     from core.api import kb as kb_api
     from core.api import extensions as extensions_api
+    from core.api import future_tasks as future_tasks_api
     from core.api import qq_deploy as qq_deploy_api
     from core.api import qq_login as qq_login_api
     from core.api import reminders as reminders_api
@@ -1454,6 +1460,7 @@ def create_app() -> FastAPI:
 
     app.include_router(kb_api.router)
     app.include_router(extensions_api.router)
+    app.include_router(future_tasks_api.router)
     app.include_router(qq_deploy_api.router)
     app.include_router(qq_login_api.router)
     app.include_router(reminders_api.router)

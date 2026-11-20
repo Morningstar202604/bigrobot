@@ -278,6 +278,36 @@ def _v16_reminder_repeat(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT DEFAULT ''")
 
 
+def _v17_future_tasks(conn: sqlite3.Connection) -> None:
+    """0017：未来任务（到点唤醒 Agent 执行，而不是只发固定提醒）。"""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS future_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visitor_id TEXT NOT NULL,
+            chat_key TEXT NOT NULL,
+            channel_type TEXT NOT NULL DEFAULT 'webchat',
+            group_id TEXT,
+            channel_user_id TEXT,
+            session_id TEXT DEFAULT '',
+            persona_id TEXT DEFAULT '',
+            instruction TEXT NOT NULL,
+            due_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            started_at TEXT,
+            executed_at TEXT,
+            finished_at TEXT,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT DEFAULT '',
+            result TEXT DEFAULT ''
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_future_tasks_due ON future_tasks(status, due_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_future_tasks_visitor ON future_tasks(visitor_id, status)")
+
+
 MIGRATIONS: list[Migration] = [
     (1, "基线：标记已有结构", _v1_baseline),
     (2, "审计链 actor 索引", _v2_audit_index),
@@ -295,6 +325,7 @@ MIGRATIONS: list[Migration] = [
     (14, "角色卡与按会话绑定", _v14_character_cards),
     (15, "提醒与待办", _v15_reminders),
     (16, "周期提醒", _v16_reminder_repeat),
+    (17, "未来任务", _v17_future_tasks),
 ]
 
 LATEST_VERSION = max(v for v, _, _ in MIGRATIONS)

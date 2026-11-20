@@ -11,6 +11,7 @@
 | [PERSONA-EVAL.md](PERSONA-EVAL.md) | 角色评测怎么跑、看什么指标 |
 | [extensions.md](extensions.md) | 声明式 HTTP 扩展包与 MCP 客户端 |
 | [knowledge-base.md](knowledge-base.md) | 多知识库集合、角色绑定与资料摄入 |
+| [future-tasks.md](future-tasks.md) | 未来任务：到点让 Agent 执行并回推结果 |
 
 ## 存档（保留历史，不再维护）
 

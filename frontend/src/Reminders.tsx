@@ -5,7 +5,7 @@
  * 到点自动推回原渠道（QQ 群/私聊直接发消息，网页则写入会话）。
  */
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, Check, Clock, Loader2, Plus, Trash2, RefreshCw } from 'lucide-react'
+import { Bell, Bot, Check, Clock, Loader2, Plus, Trash2, RefreshCw } from 'lucide-react'
 import { http, isAuthError } from './lib/queries'
 import { useFeedback } from './components/Feedback'
 import { Spinner } from './components/Spinner'
@@ -13,6 +13,18 @@ import TokenGate from './components/TokenGate'
 import { EmptyState, PageHead } from './ui'
 import './pages.css'
 import { t } from './lib/t'
+
+interface FutureTask {
+  id: number
+  visitor_id: string
+  chat_key: string
+  channel_type: string
+  instruction: string
+  due_at: string
+  status: string
+  result?: string
+  last_error?: string | null
+}
 
 interface Reminder {
   id: number
@@ -64,6 +76,9 @@ function fmt(iso: string): string {
 
 export default function Reminders() {
   const [rows, setRows] = useState<Reminder[]>([])
+  const [tasks, setTasks] = useState<FutureTask[]>([])
+  const [taskText, setTaskText] = useState('')
+  const [taskWhen, setTaskWhen] = useState('明天9点')
   const [loading, setLoading] = useState(true)
   const [authErr, setAuthErr] = useState(false)
   const [err, setErr] = useState('')
@@ -75,8 +90,12 @@ export default function Reminders() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await http.get<{ reminders: Reminder[] }>('/api/reminders?status=pending')
+      const [r, ft] = await Promise.all([
+        http.get<{ reminders: Reminder[] }>('/api/reminders?status=pending'),
+        http.get<{ tasks: FutureTask[] }>('/api/future-tasks?status=pending'),
+      ])
       setRows(r.reminders || [])
+      setTasks(ft.tasks || [])
       setErr('')
     } catch (e) {
       if (isAuthError(e)) setAuthErr(true)
@@ -106,6 +125,31 @@ export default function Reminders() {
   const cancel = async (id: number) => {
     try {
       await http.del(`/api/reminders/${id}`)
+      fb.toast.success('已取消')
+      await load()
+    } catch (e) {
+      fb.toast.error((e as Error).message)
+    }
+  }
+
+  const createTask = async () => {
+    if (!taskText.trim() || busy) return
+    setBusy(true)
+    try {
+      await http.post('/api/future-tasks', { instruction: taskText.trim(), when: taskWhen })
+      fb.toast.success('未来任务已安排')
+      setTaskText('')
+      await load()
+    } catch (e) {
+      fb.toast.error((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const cancelTask = async (id: number) => {
+    try {
+      await http.del(`/api/future-tasks/${id}`)
       fb.toast.success('已取消')
       await load()
     } catch (e) {
@@ -216,6 +260,75 @@ export default function Reminders() {
                 </div>
                 <div className="ac-item-ops">
                   <button className="btn secondary sm" onClick={() => cancel(r.id)}>
+                    <Trash2 size={13} /> {t('取消')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="bp-sec">
+        <div className="bp-sec-head">
+          <h2><Bot size={14} /> {t('未来任务')}</h2>
+          <span>{tasks.length}</span>
+        </div>
+        <div className="hint" style={{ marginBottom: 10 }}>
+          {t('和提醒不同：到点不是发一句话，而是让 Agent 真的去做——查资料、读文件、汇总群聊，再把结果发回来。')}
+        </div>
+        <div className="ac-form">
+          <input
+            className="ac-input"
+            value={taskText}
+            onChange={(e) => setTaskText(e.target.value)}
+            placeholder={t('到点要做什么？如：汇总昨晚群聊并列出待办')}
+            maxLength={500}
+            onKeyDown={(e) => { if (e.key === 'Enter') createTask() }}
+          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {['1小时后', '今晚9点', '明天9点', '3天后'].map((w) => (
+              <button
+                key={w}
+                className={`btn sm ${taskWhen === w ? '' : 'secondary'}`}
+                onClick={() => setTaskWhen(w)}
+              >
+                {t(w)}
+              </button>
+            ))}
+            <input
+              className="ac-input"
+              style={{ maxWidth: 180 }}
+              value={taskWhen}
+              onChange={(e) => setTaskWhen(e.target.value)}
+              placeholder={t('执行时间')}
+            />
+            <button className="btn" onClick={createTask} disabled={busy || !taskText.trim()}>
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} {t('安排')}
+            </button>
+          </div>
+        </div>
+        {tasks.length === 0 ? (
+          <EmptyState
+            icon={<Bot size={22} />}
+            title={t('没有待执行的未来任务')}
+            desc={t('在聊天里说「明天早上帮我整理群消息」，或在上面直接安排。')}
+          />
+        ) : (
+          <div className="ac-list">
+            {tasks.map((r) => (
+              <div key={r.id} className="ac-item">
+                <div className="ac-item-main">
+                  <div className="ac-q"><Bot size={13} /> #{r.id} {r.instruction}</div>
+                  <div className="ac-meta">
+                    <em>{fmt(r.due_at)}</em>
+                    <em>{r.channel_type.startsWith('qq') ? 'QQ' : t('网页')}</em>
+                    <em>{r.status === 'pending' ? t('待执行') : r.status}</em>
+                    {r.last_error && <em title={r.last_error}>{t('上次执行失败')}</em>}
+                  </div>
+                </div>
+                <div className="ac-item-ops">
+                  <button className="btn secondary sm" onClick={() => cancelTask(r.id)}>
                     <Trash2 size={13} /> {t('取消')}
                   </button>
                 </div>

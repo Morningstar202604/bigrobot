@@ -24,7 +24,7 @@ from typing import Any, Callable
 
 import httpx
 
-from core import redact, reminder_parser, retrieval, store
+from core import future_task_store, redact, reminder_parser, retrieval, store
 from core.actions import registry as actions_registry
 from core.tool_context import EMPTY, ToolContext
 
@@ -215,6 +215,61 @@ def tool_remind(ctx: ToolContext, text: str, when: str, **_kw) -> dict:
         rule.split(":")[0], "")
     return ok_result("remind", f"好，{local} 提醒你：{text}{suffix}", reminder_id=rec.get("id"),
                      due_at=due.isoformat(), repeat_rule=rule)
+
+
+def tool_future_task(ctx: ToolContext, instruction: str, when: str, **_kw) -> dict:
+    """安排未来任务：到点让 Agent 执行，而不是只发固定提醒。"""
+    text = (instruction or "").strip()
+    if not text:
+        return need_ctx("future_task", "未来任务要做什么")
+    due = _parse_due(when or "")
+    if due is None:
+        return need_ctx("future_task", f"执行时间（「{when}」没看懂，请说清几点或多久后）")
+    rec = future_task_store.future_task_add(
+        visitor_id=ctx.visitor_id or "anonymous",
+        chat_key=ctx.chat_key,
+        instruction=text[:500],
+        due_at=due.isoformat(),
+        channel_type=ctx.channel_type,
+        group_id=ctx.group_id,
+        channel_user_id=ctx.channel_user_id,
+        session_id=ctx.session_id,
+        persona_id=ctx.persona_id,
+    )
+    local = due.astimezone().strftime("%m-%d %H:%M")
+    return ok_result("future_task", f"好，{local} 我会去做：{text[:80]}",
+                     task_id=rec.get("id"), due_at=due.isoformat())
+
+
+def tool_list_future_tasks(ctx: ToolContext, **_kw) -> dict:
+    if not ctx.visitor_id:
+        return need_ctx("list_future_tasks", "访客身份")
+    rows = future_task_store.future_task_list(ctx.visitor_id, status="pending")
+    if not rows:
+        return empty_result("list_future_tasks", "你现在没有待执行的未来任务。")
+    lines = []
+    for r in rows[:10]:
+        try:
+            local = datetime.fromisoformat(r["due_at"]).astimezone().strftime("%m-%d %H:%M")
+        except ValueError:
+            local = r["due_at"]
+        lines.append(f"#{r['id']} {local} {r['instruction']}")
+    return ok_result("list_future_tasks", "；".join(lines), count=len(rows))
+
+
+def tool_cancel_future_task(ctx: ToolContext, task_id: str, **_kw) -> dict:
+    if not ctx.visitor_id:
+        return need_ctx("cancel_future_task", "访客身份")
+    try:
+        tid = int(str(task_id).lstrip("#"))
+    except ValueError:
+        return need_ctx("cancel_future_task", "任务编号")
+    rec = future_task_store.future_task_get(tid)
+    if not rec or rec["visitor_id"] != ctx.visitor_id:
+        return empty_result("cancel_future_task", f"找不到 #{tid} 这个未来任务。")
+    if not future_task_store.future_task_cancel(tid):
+        return empty_result("cancel_future_task", f"#{tid} 已经执行或已取消。")
+    return ok_result("cancel_future_task", f"已取消未来任务 #{tid}。")
 
 
 def tool_list_reminders(ctx: ToolContext, **_kw) -> dict:
@@ -1018,6 +1073,9 @@ _SYNC_IMPLS: dict[str, Callable[..., dict]] = {
     "recall_memory": tool_recall_memory,
     "remember": tool_remember,
     "remind": tool_remind,
+    "future_task": tool_future_task,
+    "list_future_tasks": tool_list_future_tasks,
+    "cancel_future_task": tool_cancel_future_task,
     "list_reminders": tool_list_reminders,
     "cancel_reminder": tool_cancel_reminder,
     "search_emote": tool_search_emote,
@@ -1058,6 +1116,11 @@ TOOL_META: dict[str, dict] = {
                  "args": {"key": "string", "value": "string"}},
     "remind": {"name": "设提醒", "desc": "在指定时间提醒用户（10分钟后 / 明天9点）",
                "args": {"text": "string", "when": "string"}},
+    "future_task": {"name": "安排未来任务", "desc": "到指定时间让 Agent 执行一条指令，不只是发提醒",
+                    "args": {"instruction": "string", "when": "string"}},
+    "list_future_tasks": {"name": "查看未来任务", "desc": "列出还没执行的未来任务", "args": {}},
+    "cancel_future_task": {"name": "取消未来任务", "desc": "按编号取消一条未来任务",
+                           "args": {"task_id": "string"}},
     "list_reminders": {"name": "查看待提醒", "desc": "列出还没触发的提醒", "args": {}},
     "cancel_reminder": {"name": "取消提醒", "desc": "按编号取消一条提醒",
                         "args": {"reminder_id": "string"}},
@@ -1096,7 +1159,8 @@ TOOL_META: dict[str, dict] = {
     "qq_friends": {"name": "查好友", "desc": "列出机器人的 QQ 好友", "args": {}},
 }
 
-WRITE_TOOLS = frozenset({"remember", "remind", "cancel_reminder", "qq_send",
+WRITE_TOOLS = frozenset({"remember", "remind", "future_task", "cancel_future_task",
+                         "cancel_reminder", "qq_send",
                          "send_image", "send_voice", "generate_image"})
 
 # 需要「可信主体」才能用的工具：能读写主机文件、能以机器人身份往任意群发消息。
@@ -1866,10 +1930,15 @@ _MERGED_TOOLS: dict[str, dict] = {
         "ops": {"key": ("recall_memory", {}), "current": ("current_context", {})},
     },
     "reminders": {
-        "desc": "管理提醒：列出现有提醒（op=list）或按编号取消（op=cancel）",
-        "args": {"op": "string", "reminder_id": "string"},
+        "desc": ("管理提醒与未来任务：列出提醒（op=list）、取消提醒（op=cancel）；"
+                 "安排到点让 Agent 执行的任务（op=future）、列出未来任务（op=tasks）、"
+                 "取消未来任务（op=cancel_task）"),
+        "args": {"op": "string", "reminder_id": "string", "instruction": "string",
+                 "when": "string", "task_id": "string"},
         "default_op": "list",
-        "ops": {"list": ("list_reminders", {}), "cancel": ("cancel_reminder", {})},
+        "ops": {"list": ("list_reminders", {}), "cancel": ("cancel_reminder", {}),
+                "future": ("future_task", {}), "tasks": ("list_future_tasks", {}),
+                "cancel_task": ("cancel_future_task", {})},
     },
     "read_source": {
         "desc": "读一份外部资料：网页链接（op=url）或本机文档 PDF/DOCX/XLSX（op=path）",
@@ -1988,7 +2057,8 @@ MERGED_FROM: dict[str, list[str]] = {
     for name, meta in _MERGED_TOOLS.items()
 }
 MERGED_FROM["recall_memory"] = ["current_context"]
-MERGED_FROM["reminders"] = ["list_reminders", "cancel_reminder"]
+MERGED_FROM["reminders"] = ["list_reminders", "cancel_reminder",
+                                   "future_task", "list_future_tasks", "cancel_future_task"]
 MERGED_FROM["read_source"] = ["read_webpage", "parse_document"]
 MERGED_FROM["fs"] = ["list_files", "read_file"]
 MERGED_FROM["now"] = ["timestamp"]

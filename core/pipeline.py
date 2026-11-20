@@ -32,6 +32,8 @@ class ChannelMessage:
     group_name: str = ""
     # 触发消息的 OneBot message_id（「给这条点赞/撤回这条」要用）
     message_id: str = ""
+    # 当前会话 id；未来任务执行时用于加载原会话历史
+    session_id: str = ""
 
 
 @dataclass

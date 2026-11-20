@@ -150,6 +150,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     _ensure_message_schema(conn)
     _ensure_action_schema(conn)
     _ensure_reminder_schema(conn)
+    _ensure_future_task_schema(conn)
     _seed_builtins(conn)
 
 
@@ -180,6 +181,36 @@ def _ensure_reminder_schema(conn: sqlite3.Connection) -> None:
     rcols = {r["name"] for r in conn.execute("PRAGMA table_info(reminders)").fetchall()}
     if "repeat_rule" not in rcols:
         conn.execute("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT DEFAULT ''")
+
+
+def _ensure_future_task_schema(conn: sqlite3.Connection) -> None:
+    """未来任务表；必须与迁移 v17 同构（测试库只跑 _ensure_schema）。"""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS future_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visitor_id TEXT NOT NULL,
+            chat_key TEXT NOT NULL,
+            channel_type TEXT NOT NULL DEFAULT 'webchat',
+            group_id TEXT,
+            channel_user_id TEXT,
+            session_id TEXT DEFAULT '',
+            persona_id TEXT DEFAULT '',
+            instruction TEXT NOT NULL,
+            due_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            started_at TEXT,
+            executed_at TEXT,
+            finished_at TEXT,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT DEFAULT '',
+            result TEXT DEFAULT ''
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_future_tasks_due ON future_tasks(status, due_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_future_tasks_visitor ON future_tasks(visitor_id, status)")
 
 
 def _ensure_message_schema(conn) -> None:
