@@ -215,7 +215,9 @@ def protocol_start(qq: str) -> str:
     script = ROOT / "scripts" / "napcat_local.py"
     if not script.exists():
         return "X 缺少 scripts/napcat_local.py"
-    log_fh = open(ROOT / ".local" / "logs" / "napcat-start.log", "ab")
+    log_path = ROOT / ".local" / "logs" / "napcat-start.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)   # CI 里没有 .local/logs，缺目录会直接开不了
+    log_fh = open(log_path, "ab")
     global _proc
     _proc = subprocess.Popen(
         [sys.executable, str(script), "start", "--qq", qq],
