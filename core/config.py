@@ -57,11 +57,8 @@ def _defaults() -> dict:
         "capture_keywords": ["喜欢", "常用", "偏好", "每次", "习惯", "总是"],
         "visit_greeting": True,
     },
-    "tools": {
-        "query_order": True,
-        "initiate_refund": True,
-        "lookup_policy": True,
-    },
+    # 早期演示用的电商工具不再默认开启；需要时由工具注册表手动加。
+    "tools": {},
     "multimodal": {
         "enable": True,
         # 看图模型：留空时自动沿用主模型（agnes 系主模型本身支持图片输入，

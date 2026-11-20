@@ -1,3 +1,25 @@
+import json
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _kb_seed(monkeypatch, tmp_path):
+    """出厂库不再内置电商示例知识库，这条用例自己造一条。"""
+    from core import retrieval
+
+    kb = tmp_path / "ingest-kb.json"
+    kb.write_text(json.dumps({"kb": [{
+        "id": "KB001",
+        "text": "物流 发货 快递 多久发出 包裹",
+        "title": "物流发货与快递时效",
+        "answer": "订单付款成功后 48 小时内发出。",
+        "tags": ["物流", "发货"],
+    }]}, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(retrieval, "KB_PATH", kb)
+    retrieval._KB_CACHE = None
+
+
 def _ingest(client, text, user="u1", channel="webchat", group="g1"):
     # 默认用 webchat：QQ 渠道在「没接通模型」时按产品要求静默不回，
     # 那部分行为由 test_qq_silent_without_model 单独覆盖。

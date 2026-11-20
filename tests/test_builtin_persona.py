@@ -73,11 +73,11 @@ def test_persona_apply_writes_config(client):
     body = r.json()
     cfg = config.get_config()
     assert cfg["llm"]["temperature"] == 0.15
-    # tech 带完整角色卡：apply 后写入的是资料卡渲染稿（「老陈」，运维工程师），
+    # tech 带完整角色卡：apply 后写入的是资料卡渲染稿（「椋」，运维），
     # 不再是 personas.py 里那段简短工作流说明。
     assert body["has_character_card"] is True
-    assert "老陈" in cfg["context"]["persona"]
-    assert "运维工程师" in cfg["context"]["persona"]
+    assert "椋" in cfg["context"]["persona"]
+    assert "运维" in cfg["context"]["persona"]
 
     # 还原：零号也有角色卡，apply zero 写入的是卡片渲染稿而非出厂默认人设；
     # 这里必须直接写回出厂值，否则同进程其它用例拿到的就不是默认配置了。

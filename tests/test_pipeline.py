@@ -1,4 +1,44 @@
 import asyncio
+import json
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _pipeline_seed(monkeypatch, tmp_path):
+    """本模块需要一条示例知识库与一个订单工具。
+
+    出厂库已经不再预置电商示例（能力页不该出现「查订单物流」），
+    所以这里按测试自己的需要造一份最小数据，不依赖仓库种子。
+    """
+    from core import retrieval, store, tool_store
+
+    kb = tmp_path / "pipeline-kb.json"
+    kb.write_text(json.dumps({"kb": [{
+        "id": "KB001",
+        "text": "物流 发货 快递 多久发出 包裹 未收到 丢件",
+        "title": "物流发货与快递时效",
+        "answer": "订单付款成功后 48 小时内发出，国内主要城市 1-3 天送达。",
+        "tags": ["物流", "快递", "发货"],
+    }, {
+        "id": "KB002",
+        "text": "退款 退货 售后 七天无理由 质量问题 换货",
+        "title": "退款与七天无理由退货",
+        "answer": "签收后 7 天内支持无理由退货退款；质量问题 15 天内可换货。",
+        "tags": ["退款", "退货", "售后"],
+    }, {
+        "id": "KB003",
+        "text": "发票 开票 抬头 税号 报销 电子发票",
+        "title": "发票与开票",
+        "answer": "订单完成后可在订单详情页申请电子发票，填写抬头与税号，1 个工作日内开出。",
+        "tags": ["发票", "开票"],
+    }]}, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(retrieval, "KB_PATH", kb)
+    retrieval._KB_CACHE = None
+
+    store.init_db()
+    tool_store.upsert_tool("query_order", "查订单物流", "按订单号查询发货状态与物流单号",
+                           {"order_id": "string"}, enabled=True, builtin=True)
 
 from core.pipeline import ChannelMessage, run, run_stream
 

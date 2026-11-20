@@ -119,7 +119,7 @@ export default function AnnotationCenter() {
           <EmptyState
             icon={<Stamp size={22} />}
             title={t('还没有标注')}
-            desc={t('把最常被问到的 3-5 个问题标成标准答案，秘书答得又快又准。')}
+            desc={t('把最常被问到的 3-5 个问题标成标准答案，助手答得又快又准。')}
           />
         ) : (
           <div className="ac-list">

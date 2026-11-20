@@ -398,8 +398,8 @@ export default function BotPersona() {
     <div className={`bp-app ${mobile ? 'bp-mobile' : ''}`}>
       <div className="bp-head">
         <div>
-          <h1 className="bp-title">{t('秘书人设')}</h1>
-          <p className="bp-sub">{t('人设 · 提示词 · 生成参数 · 改完即时试问')}</p>
+          <h1 className="bp-title">{t('角色人设')}</h1>
+          <p className="bp-sub">{t('角色 · 提示词 · 生成参数 · 改完即时试问')}</p>
         </div>
         <div className="bp-head-actions">
           {dirty && <span className="bp-dirty">{t('未保存')}</span>}

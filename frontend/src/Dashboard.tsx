@@ -76,13 +76,13 @@ export default function Dashboard() {
 
   const hourOption: EChartsOption | undefined = st ? {
     tooltip: { trigger: 'axis' },
-    legend: { data: [t('用户'), t('秘书'), t('管理员')], textStyle: { color: 'rgba(128,128,145,.9)', fontSize: 11 }, top: 0 },
+    legend: { data: [t('用户'), t('助手'), t('管理员')], textStyle: { color: 'rgba(128,128,145,.9)', fontSize: 11 }, top: 0 },
     grid: { left: 36, right: 12, top: 30, bottom: 26 },
     xAxis: { type: 'category', data: st.messages_by_hour.map((m) => m.bucket), ...AXIS, axisLabel: { ...AXIS.axisLabel, formatter: (v: string) => v.slice(5).replace('T', ' ') } },
     yAxis: { type: 'value', ...AXIS, splitLine: { lineStyle: { color: 'rgba(128,128,145,.15)' } } },
     series: [
       { name: t('用户'), type: 'bar', stack: 'm', data: st.messages_by_hour.map((m) => m.visitor), itemStyle: { color: PALETTE[0] } },
-      { name: t('秘书'), type: 'bar', stack: 'm', data: st.messages_by_hour.map((m) => m.agent), itemStyle: { color: PALETTE[1] } },
+      { name: t('助手'), type: 'bar', stack: 'm', data: st.messages_by_hour.map((m) => m.agent), itemStyle: { color: PALETTE[1] } },
       { name: t('真人'), type: 'bar', stack: 'm', data: st.messages_by_hour.map((m) => m.operator), itemStyle: { color: PALETTE[2] } },
     ],
   } : undefined
@@ -522,7 +522,7 @@ function QQScanLogin({ onLoggedIn }: { onLoggedIn?: () => void }) {
               <button className="btn ghost sm" onClick={close}>{t('关闭')}</button>
             </div>
             <p className="bp-hint" style={{ marginTop: 0 }}>
-              {t('个人秘书本身不依赖 QQ；这里提供的是可选的机器人接入，全部流程在本页完成，不需要去克隆部署任何别的东西。')}
+              {t('账号助手本身不依赖 QQ；这里提供的是可选的机器人接入，全部流程在本页完成，不需要去克隆部署任何别的东西。')}
             </p>
 
             {busy && <div className="bp-hint"><Loader2 size={13} className="animate-spin inline-block" /> {t('检查部署状态…')}</div>}

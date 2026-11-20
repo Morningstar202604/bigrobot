@@ -744,15 +744,16 @@ def create_app() -> FastAPI:
         p = personas.get(preset_id)
         if p is None:
             raise HTTPException(404, f"没有这个预设角色：{preset_id}")
-        persona_text = render_for(p.id) or p.persona
+        card_text = render_for(p.id)
+        persona_text = card_text or p.persona
         config.update_config({"context": {"persona": persona_text},
                               "llm": {"temperature": p.temperature}})
         store.append_audit("admin", "persona.applied", {
             "preset": p.id,
-            "source": "character_card" if persona_text != p.persona else "preset",
+            "source": "character_card" if card_text else "preset",
         })
         return {"ok": True, "preset": p.as_dict(with_persona=False),
-                "has_character_card": persona_text != p.persona}
+                "has_character_card": bool(card_text)}
 
     # ---- 角色卡（SillyTavern chara_card 对标）：卡片 CRUD + ST V2 导入 + 按会话绑定 ----
 

@@ -421,7 +421,7 @@ export default function SessionsCenter() {
                   <div className="msg-body">
                     <div className="bubble">
                       <span className="text-[10px] text-muted mr-2">
-                        {m.role === 'visitor' ? '用户' : m.role === 'operator' ? '管理员' : '秘书'}
+                        {m.role === 'visitor' ? '用户' : m.role === 'operator' ? '管理员' : '助手'}
                         {(m as AgentMsg & { source?: string }).source === 'platform' && ' · QQ 历史'}
                       </span>
                       {m.role === 'visitor' ? m.content : <Markdown text={m.content} />}

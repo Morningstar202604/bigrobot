@@ -24,14 +24,14 @@ def test_identity_question_needs_character_anchor():
 
 
 def test_non_cat_character_is_not_judged_on_cat_words():
-    """切到「老陈」这类非猫角色后，正常自述不能被猫的判据误伤。
+    """切到「椋」这类非猫角色后，正常自述不能被猫的判据误伤。
 
     回归背景：早期判据是 `"猫" not in text`，对 14 个非猫角色全部误判——
     每条「你是谁」的回答都因为不含「猫」被标 high 并重写，既浪费调用
     又可能把正确答案改坏。
     """
-    tech_persona = "你是「老陈」。一个修了二十年机器的运维工程师。"
-    ok = quality.critique("我是老陈，修了二十年机器。什么问题，说。", "你是谁",
+    tech_persona = "你是「椋」。一个修了二十年机器的运维工程师。"
+    ok = quality.critique("我是椋，修了二十年机器。什么问题，说。", "你是谁",
                           channel="qq_group", persona=tech_persona)
     assert not any(i["code"] == "identity_missing" for i in ok)
 
@@ -146,7 +146,7 @@ def test_gate_falls_back_when_rewrite_fails(monkeypatch):
 
 
 def test_gate_fallback_follows_persona(monkeypatch):
-    """切到非猫角色后，兜底句不能说猫话——给「老陈」发「本喵」是二次穿帮。"""
+    """切到非猫角色后，兜底句不能说猫话——给「椋」发「本喵」是二次穿帮。"""
     import asyncio
 
     from core import pipeline, quality as q
@@ -168,7 +168,7 @@ def test_fallback_for_maps_codes():
     assert "零" in pipeline_fallback({"code": "ai_self"}, persona=cat)
     assert "发" in pipeline_fallback({"code": "capability_refusal"}, persona=cat)
     # 非猫角色：中性兜底，不出现猫味词
-    tech = "你是「老陈」。修了二十年机器。"
+    tech = "你是「椋」。修了二十年机器。"
     assert "喵" not in pipeline_fallback({"code": "ai_self"}, persona=tech)
     assert "接不住" in pipeline_fallback({"code": "filter_leak"}, persona=tech)
 
