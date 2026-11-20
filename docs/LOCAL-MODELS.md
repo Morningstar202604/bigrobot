@@ -63,7 +63,12 @@ These tools need extra infrastructure and stay explicitly "not configured" rathe
 
 ## API
 
-All routes require `X-Admin-Token`.
+All routes require `X-Admin-Token`. Set the token before starting the server, otherwise the admin API returns 503 by design:
+
+```bash
+export ADMIN_TOKEN="$(openssl rand -hex 32)"
+```
+
 
 | Route | Purpose |
 |---|---|

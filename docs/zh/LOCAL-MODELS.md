@@ -63,7 +63,12 @@ pip install -r requirements-local.txt
 
 ## API
 
-所有路由都需要 `X-Admin-Token`。
+所有路由都需要 `X-Admin-Token`。启动前先设置，未设置时管理接口按安全默认返回 503：
+
+```bash
+export ADMIN_TOKEN="$(openssl rand -hex 32)"
+```
+
 
 | 路由 | 用途 |
 |---|---|
