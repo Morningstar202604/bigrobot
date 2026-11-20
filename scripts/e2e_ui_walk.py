@@ -70,6 +70,8 @@ def walk(page, label, path, index):
         page.goto(f"{BASE}{path}", wait_until="domcontentloaded", timeout=20000)
         page.wait_for_timeout(300)
         page.screenshot(path=str(SHOT / f"{index:02d}-{label}.png"), full_page=False)
+        if page.locator("text=页面出错了").count():
+            rec["errors"].append("页面渲染失败（ErrorBoundary 兜底页）")
 
         buttons = page.locator("button:visible, a:visible")
         n = min(buttons.count(), 14)

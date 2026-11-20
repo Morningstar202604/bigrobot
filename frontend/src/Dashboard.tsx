@@ -290,7 +290,7 @@ export default function Dashboard() {
               <div className="flex flex-col justify-center gap-4 px-2" style={{ height: 240 }}>
                 {chs.map((c) => {
                   const adapter = c.channel === 'onebot_v11' ? adapters.data?.adapters?.[0] : undefined
-                  const caps = adapter ? Object.entries(adapter.supports).filter(([, ok]) => ok).map(([k]) => k) : []
+                  const caps = adapter ? Object.entries(adapter.supports ?? {}).filter(([, ok]) => ok).map(([k]) => k) : []
                   return (
                   <div key={c.channel} className="flex items-center gap-3 text-sm flex-wrap">
                     <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${c.status === 'online' ? 'bg-ok' : c.status === 'stale' ? 'bg-warn' : c.status === 'builtin' ? 'bg-brand' : 'bg-danger'}`} />
@@ -352,7 +352,7 @@ export default function Dashboard() {
               <div className="h-[250px] flex flex-col justify-center gap-4 px-2">
                 {chs.map((c) => {
                   const adapter = c.channel === 'onebot_v11' ? adapters.data?.adapters?.[0] : undefined
-                  const caps = adapter ? Object.entries(adapter.supports).filter(([, ok]) => ok).map(([k]) => k) : []
+                  const caps = adapter ? Object.entries(adapter.supports ?? {}).filter(([, ok]) => ok).map(([k]) => k) : []
                   return (
                   <div key={c.channel} className="flex items-center gap-3 text-sm flex-wrap">
                     <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${c.status === 'online' ? 'bg-ok' : c.status === 'stale' ? 'bg-warn' : c.status === 'builtin' ? 'bg-brand' : 'bg-danger'}`} />
