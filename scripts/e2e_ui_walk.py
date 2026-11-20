@@ -9,14 +9,12 @@
 import json
 import os
 import sys
-import time
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8010"
 START = int(sys.argv[2]) if len(sys.argv) > 2 else 1
-END = int(sys.argv[3]) if len(sys.argv) > 3 else len(PAGES)
 TOKEN = os.environ.get("ADMIN_TOKEN", "")
 OUT = Path("artifacts/e2e")
 SHOT = OUT / "shots"
@@ -40,6 +38,8 @@ PAGES = [
     ("观测-标注", "/annotations"),
     ("设置-参数", "/settings/params"),
 ]
+
+END = int(sys.argv[3]) if len(sys.argv) > 3 else len(PAGES)
 
 # 破坏性/写入性按钮不点
 SKIP_WORDS = ["删除", "清空", "重置", "停止", "移除", "保存", "提交", "退出",
