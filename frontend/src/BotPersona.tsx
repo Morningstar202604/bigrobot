@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Bot, Save, RotateCcw, Zap, Send, Sparkles, Headset,
-  Wrench, Heart, MessageCircle, Check, Loader2, FlaskConical,
-  Trash2, Download, Upload, Briefcase, BarChart3, GraduationCap,
-  CalendarCheck, UserCheck, Lightbulb, PenLine, CalendarClock, HeartHandshake,
-  BookOpen,
+  Bot, Save, RotateCcw, Zap, Send, Check, Loader2, FlaskConical,
+  Trash2, BookOpen,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useConfig, useUpdateConfig, http, isAuthError } from './lib/queries'
@@ -64,6 +61,9 @@ interface CharacterCardData {
   unknown_policy: string
   taboos: string[]
   voice_samples: string[]
+  lore?: Array<{ when: string; what: string }>
+  knowledge?: Array<{ topic: string; fact: string }>
+  avatar?: string
 }
 
 /* ============ 「查看设定」弹层：读 /api/personas/{id}/card 的结构化资料 ============ */
@@ -94,7 +94,13 @@ function CardViewer({ preset, onClose }: { preset: { id: string; name: string };
         {err && <div className="bp-hint">{err}</div>}
         {card && (
           <>
-            {card.tagline && <p className="dlg-msg" style={{ fontStyle: 'italic' }}>{card.tagline}</p>}
+            <div className="bp-card-head">
+              <img className="bp-card-portrait" src={card.avatar || `/characters/${preset.id}.webp`} alt={preset.name} />
+              <div>
+                <div className="bp-card-title">{card.name}</div>
+                {card.tagline && <p className="dlg-msg" style={{ fontStyle: 'italic', margin: '2px 0 0' }}>{card.tagline}</p>}
+              </div>
+            </div>
             {Object.keys(card.fields || {}).length > 0 && (
               <div>
                 <b style={{ fontSize: 12.5 }}>{t('设定事实')}</b>
@@ -102,6 +108,22 @@ function CardViewer({ preset, onClose }: { preset: { id: string; name: string };
                   {Object.entries(card.fields).map(([k, v]) => (
                     <li key={k}><b>{k}</b>：{String(v)}</li>
                   ))}
+                </ul>
+              </div>
+            )}
+            {card.lore && card.lore.length > 0 && (
+              <div>
+                <b style={{ fontSize: 12.5 }}>{t('经历年表')}</b>
+                <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12.5, lineHeight: 1.8, color: 'var(--ink-2)' }}>
+                  {card.lore.map((s, i) => <li key={i}><b>{s.when}</b>：{s.what}</li>)}
+                </ul>
+              </div>
+            )}
+            {card.knowledge && card.knowledge.length > 0 && (
+              <div>
+                <b style={{ fontSize: 12.5 }}>{t('专业底稿')}</b>
+                <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12.5, lineHeight: 1.8, color: 'var(--ink-2)' }}>
+                  {card.knowledge.map((s, i) => <li key={i}><b>{s.topic}</b>：{s.fact}</li>)}
                 </ul>
               </div>
             )}
@@ -144,24 +166,6 @@ function CardViewer({ preset, onClose }: { preset: { id: string; name: string };
   )
 }
 
-const PRESET_ICONS: Record<string, React.ReactNode> = {
-  Zap: <Zap size={16} />,
-  Briefcase: <Briefcase size={16} />,
-  MessageCircle: <MessageCircle size={16} />,
-  Sparkles: <Sparkles size={16} />,
-  Wrench: <Wrench size={16} />,
-  BarChart3: <BarChart3 size={16} />,
-  FlaskConical: <FlaskConical size={16} />,
-  GraduationCap: <GraduationCap size={16} />,
-  CalendarCheck: <CalendarCheck size={16} />,
-  UserCheck: <UserCheck size={16} />,
-  Lightbulb: <Lightbulb size={16} />,
-  PenLine: <PenLine size={16} />,
-  CalendarClock: <CalendarClock size={16} />,
-  HeartHandshake: <HeartHandshake size={16} />,
-  Heart: <Heart size={16} />,
-  Headset: <Headset size={16} />,
-}
 
 /* ============ LLM 提供商管理（AstrBot 多提供商对标）：
    保存 base_url+model 档案（Key 只跟随当前激活配置），一键切换 ============ */
@@ -441,10 +445,13 @@ export default function BotPersona() {
                       })
                     }
                   >
-                    <span className="bp-preset-ico">{PRESET_ICONS[p.icon] ?? <Bot size={16} />}</span>
-                    <span className="bp-preset-name">
-                      {p.name}
-                      {on && <Check size={13} className="bp-preset-check" />}
+                    <span className="bp-preset-head">
+                      <img className="bp-preset-avatar" src={`/characters/${p.id}.webp`} alt="" loading="lazy"
+                        onError={(e) => { e.currentTarget.src = '/logo.svg' }} />
+                      <span className="bp-preset-name">
+                        {p.name}
+                        {on && <Check size={13} className="bp-preset-check" />}
+                      </span>
                     </span>
                     <span className="bp-preset-desc">{p.description}</span>
                     {p.has_card && (

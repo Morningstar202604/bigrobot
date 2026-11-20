@@ -75,6 +75,12 @@ class CharacterCard:
     fields: dict = field(default_factory=dict)
     # 成段叙述：来历、世界、性格等。按 _RENDER_ORDER 拼装。
     narrative: dict = field(default_factory=dict)
+    # 经历年表：按时间排列的关键事件。被问到"过去"时按此回答，不许临场编。
+    lore: tuple[dict, ...] = ()
+    # 专业底稿：这个角色真正懂的领域知识（topic + fact），回答专业问题时优先引用。
+    knowledge: tuple[dict, ...] = ()
+    # 立绘：前端公开目录下的相对路径，缺省时 UI 用首字占位。
+    avatar: str = ""
     # 资料没覆盖时怎么办。不能只写"不要编"——要给可执行的话术。
     unknown_policy: str = ""
     # 角色卡的"禁区"：明确不许做的事，比笼统的"注意分寸"有用
@@ -120,6 +126,28 @@ class CharacterCard:
             if body:
                 parts.append(f"{title}\n{body}")
 
+        if self.lore:
+            rows = []
+            for item in self.lore:
+                when = str(item.get("when") or "").strip()
+                what = str(item.get("what") or "").strip()
+                if when and what:
+                    rows.append(f"- {when}：{what}")
+            if rows:
+                parts.append("【经历年表】\n下面是你真实经历过的事，按时间排。被问到过去就照这里说，"
+                             "不要新增没写过的事件：\n" + "\n".join(rows))
+
+        if self.knowledge:
+            rows = []
+            for item in self.knowledge:
+                topic = str(item.get("topic") or "").strip()
+                fact = str(item.get("fact") or "").strip()
+                if topic and fact:
+                    rows.append(f"- {topic}：{fact}")
+            if rows:
+                parts.append("【专业底稿】\n这些是你真正懂的东西。回答对应领域的问题时优先用这里的口径；"
+                             "底稿没写到的细节，说需要核实，不要凭印象补：\n" + "\n".join(rows))
+
         if self.voice_samples:
             samples = "\n".join(f"· {s}" for s in self.voice_samples)
             parts.append("【参考语气】\n下面是你平时说话的样子，学的是语气和节奏，不是照抄句子：\n" + samples)
@@ -139,6 +167,9 @@ class CharacterCard:
             "tagline": self.tagline,
             "fields": dict(self.fields),
             "narrative": dict(self.narrative),
+            "lore": [dict(x) for x in self.lore],
+            "knowledge": [dict(x) for x in self.knowledge],
+            "avatar": self.avatar,
             "unknown_policy": self.unknown_policy,
             "taboos": list(self.taboos),
             "voice_samples": list(self.voice_samples),
@@ -158,6 +189,9 @@ def load_card(path: Path) -> CharacterCard:
         tagline=str(data.get("tagline") or ""),
         fields=dict(data.get("fields") or {}),
         narrative=dict(data.get("narrative") or {}),
+        lore=tuple(data.get("lore") or ()),
+        knowledge=tuple(data.get("knowledge") or ()),
+        avatar=str(data.get("avatar") or ""),
         unknown_policy=str(data.get("unknown_policy") or ""),
         taboos=tuple(data.get("taboos") or ()),
         voice_samples=tuple(data.get("voice_samples") or ()),
