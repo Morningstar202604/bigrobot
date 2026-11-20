@@ -38,6 +38,20 @@ A 0.5B–1B model does not have room for a 2,000-character persona and thirty to
 
 This is a real setting, not a hidden prompt trick: `llm.local_compact` can be turned off in the config, and the console shows the compact tool list in `ctx_used`.
 
+## What works with a local model
+
+The eight compact tools are the tested path: time, reminders, weather, memory, arithmetic and web search. BigRobot routes them deterministically so a 0.8B model does not have to guess argument names.
+
+The full tool registry has 27 tools. With `local_compact=false` the model sees all of them, but sub-2B tool selection becomes less reliable; keep compact mode on unless you are debugging.
+
+These tools need extra infrastructure and stay explicitly "not configured" rather than pretending success:
+
+- `describe_image`: set `multimodal.vision_model` (the local text model cannot read images).
+- `generate_image`: set `IMAGE_API_BASE_URL` and `IMAGE_API_KEY`; llama.cpp has no image endpoint.
+- `fs` / `write_file`: start the executor and set `EXECUTOR_URL`.
+- QQ tools: connect a QQ/OneBot gateway and account.
+- `translate`: uses MyMemory first; if the free quota is exhausted it falls back to the current model, so a configured model is enough.
+
 ## Limits
 
 - CPU only on a 2-core / 4GB box: 8–20 seconds per short turn. GPU is not required, but it changes the experience.

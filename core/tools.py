@@ -407,6 +407,13 @@ def _html_to_text(raw: str) -> str:
 async def tool_web_search(query: str, top_k: str = "4", **_kw) -> dict:
     from core import websearch
 
+    # ddgs 对「今天的人工智能新闻」会返回三星内存、韩国高考这类噪声；
+    # 把口语化时间词换成搜索引擎能理解的查询词，结果相关性会明显变好。
+    q = (query or "").strip()
+    q = re.sub(r"^(?:帮我|请|麻烦)?(?:搜一下|搜搜|搜索|查一下|查查)\s*", "", q).strip()
+    if re.search(r"新闻|资讯|最新|今天|今日", q) and re.search(r"人工智能|AI|大模型", q, re.I):
+        q = "人工智能 AI 最新进展"
+
     if not websearch.available():
         return off_result("web_search", "联网搜索还没配置，先用我已有的资料回答。")
     try:
@@ -414,7 +421,7 @@ async def tool_web_search(query: str, top_k: str = "4", **_kw) -> dict:
     except (TypeError, ValueError):
         n = 4
     try:
-        result = await websearch.search(query, top_k=n)
+        result = await websearch.search(q or query, top_k=n)
     except Exception as e:
         return miss_result("web_search", f"搜索失败了（{type(e).__name__}）。", query=query)
     if not result.get("ok"):
@@ -428,7 +435,8 @@ async def tool_web_search(query: str, top_k: str = "4", **_kw) -> dict:
         snippet = redact.mask_text(str(r.get("content") or r.get("snippet") or ""))[:200]
         link = str(r.get("url") or "")
         lines.append(f"{i}. {title} — {snippet}（{link}）")
-    return ok_result("web_search", "\n".join(lines), query=query, count=len(items))
+    return ok_result("web_search", "\n".join(lines), query=q or query,
+                     original_query=query, count=len(items))
 
 
 # ============================================================
@@ -1383,6 +1391,7 @@ async def invoke_with(registry_map: dict | None, name: str, args: dict | None,
     `registry_map` 来自 build_context 的 ctx["tools"]（已按配置过滤启用项）；
     当它包含该工具时以它为准——否则测试替身与用户自定义实现都会被内置表盖掉。
     """
+    ctx = ctx or EMPTY
     args = dict(args or {})
     denied = _persona_denied(name, ctx)
     if denied is not None:
@@ -1404,6 +1413,7 @@ async def invoke_with(registry_map: dict | None, name: str, args: dict | None,
 
 async def invoke(name: str, args: dict | None, ctx: ToolContext = EMPTY) -> dict:
     """统一调用入口：同步/异步工具都能用。"""
+    ctx = ctx or EMPTY
     args = dict(args or {})
     denied = _persona_denied(name, ctx)
     if denied is not None:

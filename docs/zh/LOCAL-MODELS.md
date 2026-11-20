@@ -38,6 +38,20 @@ pip install -r requirements-local.txt
 
 这是配置项而不是暗改：`llm.local_compact` 可以关掉，`ctx_used` 里能看到实际生效的精简工具清单。
 
+## 本地模型能用到哪些工具
+
+八个核心工具是实测通路：时间、提醒、天气、记忆、算术、联网搜索。BigRobot 对这些请求做确定性路由，0.8B 不需要自己猜参数名。
+
+完整工具表有 27 个。关掉 `local_compact` 后模型能看到全部，但 2B 以下选工具会明显变差；除非在调试，否则建议保持精简模式。
+
+下面这些工具需要额外设施，没配就明确说“未接入”，不会假装成功：
+
+- `describe_image`：要配 `multimodal.vision_model`；本地文字模型看不了图。
+- `generate_image`：要配 `IMAGE_API_BASE_URL` 和 `IMAGE_API_KEY`；llama.cpp 没有生图端点。
+- `fs` / `write_file`：要启动执行器并配 `EXECUTOR_URL`。
+- QQ 类工具：要接 QQ/OneBot 网关和账号。
+- `translate`：先走 MyMemory，免费额度用完会用当前模型兜底；只要模型可用就能翻译。
+
 ## 限制
 
 - 2 核 / 4GB 纯 CPU：一轮短对话大约 8—20 秒。不是必须 GPU，但有无 GPU 体验差别很大。

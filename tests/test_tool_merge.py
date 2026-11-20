@@ -28,6 +28,12 @@ def test_retired_tools_stay_dispatchable():
         )
 
 
+async def test_null_tool_context_is_normalized():
+    result = await tools_mod.invoke("calc", {"expression": "2+2"}, None)
+    assert result["found"] is True
+    assert result["value"] == 4
+
+
 async def test_merged_op_dispatch_and_unknown_op():
     list_result = await tools_mod.invoke("reminders", {"op": "list"}, EMPTY)
     assert list_result.get("tool") != "reminders" or "connected" not in list_result or list_result

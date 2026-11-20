@@ -355,8 +355,30 @@ async def tool_weather(city: str = "", **_kw) -> dict:
         return miss_result("weather", "天气服务返回了无法解析的数据")
 
 
+async def _translate_with_model(body: str, source: str, target: str) -> str:
+    """免费翻译接口全挂时的兜底：用当前配置的模型翻译，只输出译文。"""
+    from core import config, llm
+
+    cfg = config.get_config()
+    llm_cfg = cfg.get("llm") or {}
+    if not llm_cfg.get("has_key") or not llm_cfg.get("api_key") or not llm_cfg.get("base_url"):
+        return ""
+    target_name = {"zh": "简体中文", "en": "English", "ja": "日本語"}.get(target, target)
+    source_name = {"zh": "中文", "en": "英文", "ja": "日文"}.get(source, "原文")
+    prompt = f"把下面的{source_name}翻译成{target_name}，只输出译文，不要解释：\n{body[:1500]}"
+    try:
+        text = await llm._post_chat(str(llm_cfg["base_url"]).rstrip("/"), str(llm_cfg["api_key"]), {
+            "model": llm_cfg.get("model") or "botpsy-0.8b",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 300, "temperature": 0.2,
+        })
+    except Exception:
+        return ""
+    return (text or "").strip()
+
+
 async def tool_translate(text: str = "", target: str = "zh", source: str = "auto", **_kw) -> dict:
-    """翻译（用 MyMemory 免费接口，无需 Key）。"""
+    """翻译（MyMemory 免费接口优先，失败/限额时用当前模型兜底）。"""
     body = (text or "").strip()
     if not body:
         return need_ctx("translate", "要翻译的文本")
@@ -373,15 +395,20 @@ async def tool_translate(text: str = "", target: str = "zh", source: str = "auto
         pair = f"{src}|{dst}" if src != "auto" else f"zh|{dst}" if dst != "zh" else f"en|zh"
         r = await client.get(
             "https://api.mymemory.translated.net/get",
-            params={"q": body[:500], "langpair": pair})
+            params={"q": body[:500], "langpair": pair},
+            headers={"User-Agent": "BigRobot/1.0 (+https://github.com/badhope/bigrobot)"})
         r.raise_for_status()
         data = r.json()
         translated = (data.get("responseData") or {}).get("translatedText") or ""
-        if not translated:
-            return miss_result("translate", "翻译服务没有返回结果")
-        return ok_result("translate", translated, translated=translated, target=dst)
-    except Exception as e:  # noqa: BLE001
-        return miss_result("translate", f"翻译服务暂时不可用（{type(e).__name__}）")
+        if translated and "MYMEMORY WARNING" not in translated:
+            return ok_result("translate", translated, translated=translated, target=dst)
+    except Exception:
+        translated = ""
+    # 免费接口 429（每日额度用尽）或不可达：用当前模型兜底，别让翻译工具直接废掉。
+    fallback = await _translate_with_model(body, src, dst)
+    if fallback:
+        return ok_result("translate", fallback, translated=fallback, target=dst, via="model")
+    return miss_result("translate", "翻译服务暂时不可用（免费接口限额/网络不通，模型兜底也没返回）")
 
 
 async def tool_exchange_rate(base: str = "USD", target: str = "CNY", amount: str = "1", **_kw) -> dict:
