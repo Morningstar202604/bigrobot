@@ -74,22 +74,41 @@ class KbStore:
         """在【进程内锁 + 跨进程文件锁】内完成「读 → 改 → 写」。
 
         fn(items) -> (result, new_items)；写入后清空 KB 缓存，下一次检索立即可见。
+        知识库集合元数据与条目一起落盘：拆成两个文件会出现只写一半的中间态。
         """
         with self._lock, self.file_lock():
-            retrieval._KB_CACHE = None
-            items = list(retrieval.load_kb())
+            retrieval.clear_cache()
+            doc = retrieval.load_kb_document()
+            items = list(doc["kb"])
             result, new_items = fn(items)
-            self.save(new_items)
-            retrieval._KB_CACHE = None
+            self.save(new_items, doc["collections"])
+            retrieval.clear_cache()
             return result, new_items
 
-    def save(self, items: list[dict]) -> None:
+    def mutate_collections(self, fn):
+        """集合元数据的原子读改写。
+
+        fn(collections, items) -> (result, new_collections, new_items)。
+        删除集合时需要把条目迁走，因此必须能同时改条目和元数据。
+        """
+        with self._lock, self.file_lock():
+            retrieval.clear_cache()
+            doc = retrieval.load_kb_document()
+            result, collections, items = fn(list(doc["collections"]), list(doc["kb"]))
+            self.save(items, collections)
+            retrieval.clear_cache()
+            return result, collections, items
+
+    def save(self, items: list[dict], collections: list[dict] | None = None) -> None:
         """原子写：临时文件（带 pid + uuid）→ os.replace，失败重试 3 次。"""
         p = retrieval.KB_PATH
         p.parent.mkdir(parents=True, exist_ok=True)
+        if collections is None:
+            collections = retrieval.load_collections()
         tmp = p.with_name(f"{p.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"kb": items}, f, ensure_ascii=False, indent=2)
+            json.dump({"version": 2, "kb": items, "collections": collections},
+                      f, ensure_ascii=False, indent=2)
             f.write("\n")
         last_err: Exception | None = None
         for attempt in range(3):

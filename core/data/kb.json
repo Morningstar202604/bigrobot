@@ -1,3 +1,13 @@
 {
-  "kb": []
+  "version": 2,
+  "kb": [],
+  "collections": [
+    {
+      "id": "default",
+      "name": "默认知识库",
+      "description": "所有角色共享的基础资料",
+      "persona_ids": [],
+      "enabled": true
+    }
+  ]
 }

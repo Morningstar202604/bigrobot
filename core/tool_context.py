@@ -34,6 +34,8 @@ class ToolContext:
     # 写类工具（改文件、发消息、生图）必须靠它做权限判定与审计——
     # 工具层原来完全绕过动作层的档位/审批，等于给提示注入留了一个后门。
     principal: str = ""
+    # 当前预设角色 id；知识库检索工具据此只查公共库+该角色绑定的库。
+    persona_id: str = ""
 
     @property
     def chat_key(self) -> str:

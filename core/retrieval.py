@@ -43,26 +43,124 @@ RETRIEVAL_DB = pathlib.Path(os.environ.get("BIGROBOT_RETRIEVAL_DB") or _RETRIEVA
 # 分词方案版本：索引结构或切词算法变化时递增，触发全量重建
 TOKENIZER_VERSION = 2
 
-_KB_CACHE: tuple[str, int, list[dict]] | None = None
+_KB_CACHE: tuple[str, int, dict] | None = None
 _INDEX_LOCK = threading.Lock()
 _INDEX_STATE: dict = {"sig": "", "fts5": False, "vec": False, "warned_vec": False}
+
+DEFAULT_COLLECTION = "default"
 
 
 # ---------- KB 源文件加载（保持人可读 JSON 为真相源） ----------
 
-def load_kb() -> list[dict]:
+def _default_collection() -> dict:
+    return {
+        "id": DEFAULT_COLLECTION,
+        "name": "默认知识库",
+        "description": "所有角色共享的基础资料",
+        "persona_ids": [],
+        "enabled": True,
+    }
+
+
+def _normalise_document(raw: object) -> dict:
+    """兼容 v1（只有 {"kb": [...]}）与 v2（多知识库）两种文件。"""
+    entries: list = []
+    collections: list = []
+    if isinstance(raw, list):
+        entries = raw
+    elif isinstance(raw, dict):
+        entries = raw.get("kb") or []
+        collections = raw.get("collections") or []
+    if not isinstance(entries, list):
+        entries = []
+    if not isinstance(collections, list):
+        collections = []
+
+    clean_cols: list[dict] = []
+    seen: set[str] = set()
+    for item in collections:
+        if not isinstance(item, dict) or not item.get("id"):
+            continue
+        cid = str(item.get("id")).strip()
+        if not cid or cid in seen:
+            continue
+        seen.add(cid)
+        pids = item.get("persona_ids") or []
+        clean_cols.append({
+            "id": cid,
+            "name": str(item.get("name") or cid)[:60],
+            "description": str(item.get("description") or "")[:300],
+            "persona_ids": [str(x) for x in pids if str(x).strip()] if isinstance(pids, list) else [],
+            "enabled": bool(item.get("enabled", True)),
+        })
+    if DEFAULT_COLLECTION not in seen:
+        clean_cols.insert(0, _default_collection())
+    known = {c["id"] for c in clean_cols}
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        cid = str(e.get("collection") or DEFAULT_COLLECTION)
+        e["collection"] = cid if cid in known else DEFAULT_COLLECTION
+        e.setdefault("source", "")
+    clean_cols.sort(key=lambda c: (0 if c["id"] == DEFAULT_COLLECTION else 1, c["name"]))
+    return {"version": 2, "collections": clean_cols, "kb": entries}
+
+
+def _load_document() -> dict:
     global _KB_CACHE
     key = str(KB_PATH)
+    # 先拿本地快照：另一个线程可能在 clear_cache() 后把它置 None，
+    # 直接 return _KB_CACHE[2] 会撞上 NoneType（并发写测试已复现）。
+    cache = _KB_CACHE
     try:
         mtime = KB_PATH.stat().st_mtime_ns
     except FileNotFoundError:
         # 部署到持久卷时首次启动可能还没有文件：返回空库，不抛异常打断服务启动
-        _KB_CACHE = (key, -1, [])
-        return _KB_CACHE[2]
-    if _KB_CACHE is None or _KB_CACHE[0] != key or _KB_CACHE[1] != mtime:
+        doc = _normalise_document({})
+        _KB_CACHE = (key, -1, doc)
+        return doc
+    if cache is None or cache[0] != key or cache[1] != mtime:
         with open(KB_PATH, encoding="utf-8") as f:
-            _KB_CACHE = (key, mtime, json.load(f)["kb"])
-    return _KB_CACHE[2]
+            doc = _normalise_document(json.load(f))
+        cache = (key, mtime, doc)
+        _KB_CACHE = cache
+    return cache[2]
+
+
+def load_kb_document() -> dict:
+    """完整知识库文档：条目 + 知识库集合（供管理 API / 存储层使用）。"""
+    return _load_document()
+
+
+def load_kb() -> list[dict]:
+    return _load_document()["kb"]
+
+
+def load_collections() -> list[dict]:
+    return _load_document()["collections"]
+
+
+def clear_cache() -> None:
+    global _KB_CACHE
+    _KB_CACHE = None
+
+
+def active_collections(persona_id: str | None = None) -> set[str]:
+    """当前角色可用的知识库集合。
+
+    - 没绑角色的集合（persona_ids 为空）对所有角色可用；
+    - 绑了角色的集合只对对应预设生效；
+    - 自定义角色没有预设 id，传空时只拿公共集合，避免串角色设定。
+    """
+    enabled = [c for c in load_collections() if c.get("enabled", True)]
+    if not persona_id:
+        return {c["id"] for c in enabled if not c.get("persona_ids")}
+    selected = {c["id"] for c in enabled
+                if not c.get("persona_ids") or persona_id in c.get("persona_ids", [])}
+    if selected:
+        return selected
+    # 角色专属库全被停用/删掉时，至少保留默认库，不让知识库整体失效。
+    return {c["id"] for c in enabled if c["id"] == DEFAULT_COLLECTION} or {c["id"] for c in enabled}
 
 
 def seed_kb_if_missing(seed_path: pathlib.Path | None = None) -> bool:
@@ -481,11 +579,13 @@ def _rrf_fuse(rankings: list[list[tuple[float, str]]], top_k: int, k: int = _RRF
     return [(s, eid) for eid, s in ranked[:top_k]]
 
 
-def retrieve_scored(query: str, top_k: int, min_overlap: float, use_embedding: bool | None = None) -> list[tuple[float, dict]]:
+def retrieve_scored(query: str, top_k: int, min_overlap: float,
+                    use_embedding: bool | None = None,
+                    collections: set[str] | None = None) -> list[tuple[float, dict]]:
     """混合检索：FTS5 BM25 + 向量，RRF 融合。返回 [(0~1 校准分, entry)]。
 
-    埋点：检索是每轮对话必经路径，但历史上没有耗时指标——KB 变大或向量模型
-    首次加载导致"回消息慢"时无法判断是不是检索的问题。这里按后端分档记录。
+    collections 为空/None 时检索全部；传入集合时只在这些知识库里召回。
+    过滤放在融合之后、按条目所属集合做，索引仍覆盖全库，避免每换一个角色就重建索引。
     """
     import time as _time
 
@@ -493,7 +593,7 @@ def retrieve_scored(query: str, top_k: int, min_overlap: float, use_embedding: b
 
     started = _time.perf_counter()
     try:
-        return _retrieve_scored_inner(query, top_k, min_overlap, use_embedding)
+        return _retrieve_scored_inner(query, top_k, min_overlap, use_embedding, collections)
     finally:
         backend = "vec" if _INDEX_STATE.get("vec") else (
             "fts5" if _INDEX_STATE.get("fts5") else "bigram")
@@ -504,16 +604,24 @@ def retrieve_scored(query: str, top_k: int, min_overlap: float, use_embedding: b
 
 
 def _retrieve_scored_inner(query: str, top_k: int, min_overlap: float,
-                           use_embedding: bool | None = None) -> list[tuple[float, dict]]:
-    kb = load_kb()
-    if not kb:
+                           use_embedding: bool | None = None,
+                           collections: set[str] | None = None) -> list[tuple[float, dict]]:
+    all_kb = load_kb()
+    if not all_kb:
         return []
+    kb = all_kb
+    if collections is not None:
+        kb = [e for e in all_kb if (e.get("collection") or DEFAULT_COLLECTION) in collections]
+        if not kb:
+            return []
 
     conn = _ensure_conn()
     if conn is not None:
         try:
-            rebuild_index_if_needed(conn, kb)
-            fts_hits = _fts_search(conn, query, top_k)
+            rebuild_index_if_needed(conn, all_kb)
+            # 先多召回一些候选：融合后要按集合过滤，候选太少会让专属库被全库结果挤空。
+            candidate_k = top_k * (8 if collections is not None else 3)
+            fts_hits = _fts_search(conn, query, candidate_k)
             vec_hits: list[tuple[float, str]] = []
             if use_embedding is not False:
                 vec_hits = _vec_search(conn, query, kb, top_k)
@@ -534,7 +642,13 @@ def _retrieve_scored_inner(query: str, top_k: int, min_overlap: float,
                     if norm < min_overlap:
                         continue
                     out.append((norm, eid_map[eid]))
-                return out
+                if out:
+                    return out
+                # 索引正常且没有任何条目过阈值：不要再用字面兜底把高分条目放回来，
+                # 否则 min_overlap 会被兜底链路静默绕过（已复现 0.99 仍返回 1.0）。
+                # 只有按集合过滤时例外：融合结果可能全被过滤，需在目标集合内再兜底。
+                if collections is None:
+                    return []
         except Exception as e:  # FTS/vec 故障（库锁、索引损坏、编码器异常）→ 退回 bigram
             logger.warning("retrieval index unavailable, falling back to bigram: %s: %s",
                            type(e).__name__, str(e)[:120])
@@ -561,8 +675,10 @@ def _retrieve_scored_inner(query: str, top_k: int, min_overlap: float,
     return scored[:top_k]
 
 
-def retrieve(query: str, top_k: int = 4, min_overlap: float = 0.0, use_embedding: bool | None = None) -> list[dict]:
-    return [e for _, e in retrieve_scored(query, top_k, min_overlap, use_embedding)]
+def retrieve(query: str, top_k: int = 4, min_overlap: float = 0.0,
+             use_embedding: bool | None = None,
+             collections: set[str] | None = None) -> list[dict]:
+    return [e for _, e in retrieve_scored(query, top_k, min_overlap, use_embedding, collections)]
 
 
 def mode() -> dict:

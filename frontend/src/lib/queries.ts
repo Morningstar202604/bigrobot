@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { qk } from './queryClient'
 import { useAppStore } from '../store/appStore'
 import type {
-  AgentConfig, KbEntry, AdminOverview, AdminStats, MemoryEntry,
+  AgentConfig, KbEntry, KbCollection, AdminOverview, AdminStats, MemoryEntry,
   InjectionLogEntry, ToolDef, InjectionRule, AgentHealth,
   SessionRow, LogEntry, ChannelStatus,
 } from '../types/api'
@@ -85,8 +85,18 @@ export function useUpdateConfig() {
 }
 
 // ---- kb ----
-export function useKb() {
-  return useQuery({ queryKey: qk.kb, queryFn: () => http.get<{ kb: KbEntry[]; embedding?: { available: boolean; enabled: string; model: string } }>('/api/kb') })
+export interface KbResponse {
+  kb: KbEntry[]
+  collections: KbCollection[]
+  embedding?: { available: boolean; enabled: string; model: string }
+}
+
+export function useKb(collection = '') {
+  const suffix = collection ? `?collection=${encodeURIComponent(collection)}` : ''
+  return useQuery({
+    queryKey: [...qk.kb, collection],
+    queryFn: () => http.get<KbResponse>(`/api/kb${suffix}`),
+  })
 }
 export function useKbMutations() {
   const qc = useQueryClient()
@@ -98,11 +108,55 @@ export function useKbMutations() {
   }
 }
 
+export interface PersonaOption {
+  id: string
+  name: string
+  category: string
+}
+
+export function usePersonaOptions() {
+  return useQuery({
+    queryKey: ['personas', 'kb'],
+    queryFn: () => http.get<{ presets: PersonaOption[] }>('/api/personas'),
+  })
+}
+
+export interface KbCollectionInput {
+  id?: string
+  name: string
+  description?: string
+  persona_ids?: string[]
+  enabled?: boolean
+}
+
+export function useKbCollectionMutations() {
+  const qc = useQueryClient()
+  const invalidate = () => qc.invalidateQueries({ queryKey: qk.kb })
+  return {
+    create: useMutation({
+      mutationFn: (c: KbCollectionInput) => http.post<{ collection: KbCollection }>('/api/kb/collections', c),
+      onSuccess: invalidate,
+    }),
+    update: useMutation({
+      mutationFn: (c: KbCollectionInput & { id: string }) => http.put<{ collection: KbCollection }>(`/api/kb/collections/${c.id}`, c),
+      onSuccess: invalidate,
+    }),
+    toggle: useMutation({
+      mutationFn: (p: { id: string; enabled: boolean }) => http.post<{ collection: KbCollection }>(`/api/kb/collections/${p.id}/toggle`, { enabled: p.enabled }),
+      onSuccess: invalidate,
+    }),
+    remove: useMutation({
+      mutationFn: (id: string) => http.del<{ deleted: string; moved: number }>(`/api/kb/collections/${id}?move_to=default`),
+      onSuccess: invalidate,
+    }),
+  }
+}
+
 // ---- kb 批量导入/导出 ----
 export function useKbImport() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (p: { text: string; replace: boolean }) =>
+    mutationFn: (p: { text: string; replace: boolean; collection?: string }) =>
       http.post<{ added: number; total: number }>('/api/kb/import', p),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.kb }),
   })
@@ -110,30 +164,33 @@ export function useKbImport() {
 
 export function useKbTest() {
   return useMutation({
-    mutationFn: (query: string) =>
-      http.post<{ query: string; top_k: number; min_overlap: number; embedding: string; hits: { id: string; title: string; score: number; answer: string }[] }>('/api/kb/test', { query }),
+    mutationFn: (p: { query: string; collection?: string }) =>
+      http.post<{ query: string; collection: string; top_k: number; min_overlap: number; embedding: string; hits: { id: string; title: string; score: number; answer: string }[] }>('/api/kb/test', p),
   })
 }
 
 export function useKbDocImport() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: (p: { file: File; collection?: string }) => {
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', p.file)
+      if (p.collection) fd.append('collection', p.collection)
       return http.postForm<{ added: number; total: number; file: string }>('/api/kb/import/document', fd)
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.kb }),
   })
 }
 
-export async function exportKb(): Promise<void> {
-  const r = await fetch('/api/kb/export', { headers: baseHeaders() })
+export async function exportKb(collection = '', format: 'markdown' | 'json' = 'markdown'): Promise<void> {
+  const qs = new URLSearchParams({ format })
+  if (collection) qs.set('collection', collection)
+  const r = await fetch(`/api/kb/export?${qs.toString()}`, { headers: baseHeaders() })
   if (!r.ok) throw new Error('导出失败')
   const blob = await r.blob()
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = 'bigrobot-kb.md'
+  a.download = format === 'json' ? 'bigrobot-kb.json' : 'bigrobot-kb.md'
   a.click()
   URL.revokeObjectURL(a.href)
 }

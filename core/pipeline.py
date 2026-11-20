@@ -124,7 +124,31 @@ def build_context(query: str, history: list[dict], cfg: dict, visitor_id: str) -
 
     emb_flag = cfg.get("retrieval", {}).get("embedding", "auto")
     use_emb = None if emb_flag == "auto" else (emb_flag == "on")
-    used["kb"] = {"enabled": bool(modules_on.get("kb", True)), "hits": []}
+    persona_text = ctx_cfg.get("persona") or persona_mod.default_persona()
+    persona_id = ""
+    try:
+        from core import personas as personas_mod
+
+        preset = personas_mod.match_persona(persona_text)
+        persona_id = preset.id if preset else ""
+    except Exception:  # 角色反查失败时不收缩知识库范围，保持旧行为
+        persona_id = ""
+    # 预设角色只拿「公共库 + 绑定到自己的库」；自定义角色没有预设 id，保持全库检索。
+    # 如果当前角色能看的集合本来就是全部（常见于只有默认库），不额外传过滤参数，
+    # 既保持旧行为，也让测试替身/第三方检索实现不必支持新参数。
+    visible_collections = retrieval.active_collections(persona_id) if persona_id else None
+    filter_collections = None
+    if visible_collections is not None:
+        all_enabled = {c["id"] for c in retrieval.load_collections() if c.get("enabled", True)}
+        # 可见集合就是全部时不必传过滤参数；否则按角色范围过滤。
+        if visible_collections != all_enabled:
+            filter_collections = visible_collections
+    used["kb"] = {
+        "enabled": bool(modules_on.get("kb", True)),
+        "hits": [],
+        "persona_id": persona_id,
+        "collections": sorted(visible_collections) if visible_collections is not None else None,
+    }
     # 查询改写（零成本规则版）：短问句/指代开头时，用记忆里的最近话题补全检索意图
     # 记忆模块关闭时不能再用 last_topic 改写——否则「关闭记忆」形同虚设，
     # 且会把历史话题带进本次检索（隐私问题，已复现）。
@@ -135,11 +159,20 @@ def build_context(query: str, history: list[dict], cfg: dict, visitor_id: str) -
         if last and last not in query:
             ret_query = f"{last} {query}"
             used["kb"]["rewritten"] = last
-    hits = retrieval.retrieve_scored(query, top_k, min_overlap, use_embedding=use_emb) if modules_on.get("kb", True) else []
+    def _retrieve(q: str):
+        if not modules_on.get("kb", True):
+            return []
+        # 只在有角色绑定时传 collections：保持旧调用/测试替身的签名兼容。
+        if filter_collections is not None:
+            return retrieval.retrieve_scored(
+                q, top_k, min_overlap, use_embedding=use_emb, collections=filter_collections)
+        return retrieval.retrieve_scored(q, top_k, min_overlap, use_embedding=use_emb)
+
+    hits = _retrieve(query)
     if ret_query != query:
         # 改写查询与原查询各检一遍，按条目取 max 合并：补语义召回的同时不稀释字面命中
         merged: dict[str, tuple[float, dict]] = {e["id"]: (s, e) for s, e in hits}
-        for s, e in retrieval.retrieve_scored(ret_query, top_k, min_overlap, use_embedding=use_emb):
+        for s, e in _retrieve(ret_query):
             if e["id"] not in merged or s > merged[e["id"]][0]:
                 merged[e["id"]] = (s, e)
         hits = sorted(merged.values(), key=lambda x: x[0], reverse=True)[:top_k]
@@ -177,7 +210,8 @@ def build_context(query: str, history: list[dict], cfg: dict, visitor_id: str) -
         "memory": mem,
         "history": rel_hist,
         "summary": summary,
-        "persona": ctx_cfg.get("persona") or persona_mod.default_persona(),
+        "persona": persona_text,
+        "persona_id": persona_id,
         "modules_on": modules_on,
         "used": used,
     }
@@ -822,6 +856,7 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
                    if str(message.channel_type or "").startswith("qq")
                    or message.channel_type == "onebot"
                    else f"visitor:{visitor_key or 'anonymous'}"),
+        persona_id=ctx.get("persona_id", ""),
     )
     # 反思修正：把"最近高频毛病"作为自我修正提醒注入上下文（带缓存，60s 内不重复查库）
     try:

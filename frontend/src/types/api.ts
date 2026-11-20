@@ -69,6 +69,19 @@ export interface KbEntry {
   title: string
   answer: string
   tags: string[]
+  collection?: string
+  source?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface KbCollection {
+  id: string
+  name: string
+  description: string
+  persona_ids: string[]
+  enabled: boolean
+  entry_count: number
 }
 
 export interface AdminOverview {

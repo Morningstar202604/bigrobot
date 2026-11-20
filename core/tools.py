@@ -107,8 +107,10 @@ def tool_initiate_refund(order_id: str, reason: str = "") -> dict:
             "note": f"退款申请已提交（单号 {refund_id or '待生成'}），当前状态：{status}。"}
 
 
-def tool_lookup_policy(topic: str) -> dict:
-    hits = retrieval.retrieve(topic, top_k=2)
+def tool_lookup_policy(topic: str, ctx: ToolContext = EMPTY) -> dict:
+    # 角色绑定了专属知识库时，工具也只查公共库 + 该角色库，不能把别的角色设定翻出来。
+    collections = retrieval.active_collections(ctx.persona_id) if ctx.persona_id else None
+    hits = retrieval.retrieve(topic, top_k=2, collections=collections)
     entries = [{"id": h["id"], "title": h["title"], "answer": h["answer"]} for h in hits]
     if entries:
         note = "；".join(f"【{e['title']}】{e['answer']}（依据 {e['id']}）" for e in entries)
@@ -1305,8 +1307,8 @@ def _make_kb_search_tool(t: dict):
     args_schema = t.get("args_json", {})
     search_arg = next(iter(args_schema.keys()), "topic")
 
-    def run(**kw):
-        return tool_lookup_policy(str(kw.get(search_arg, "")))
+    def run(ctx: ToolContext = EMPTY, **kw):
+        return tool_lookup_policy(str(kw.get(search_arg, "")), ctx=ctx)
     return run
 
 

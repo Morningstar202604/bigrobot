@@ -14,7 +14,8 @@ Most chat bots are built to answer messages. BigRobot starts from the other side
 | Visibility | Group and direct-message history stored locally, member list with roles, group files, notices, friends |
 | Action | Send text/image/voice/file, recall, mute, kick, edit card, publish notice |
 | Voice | Audio kept with the message, transcoded to wav, transcribed, written back into the transcript |
-| AI assistant | Tool calling with per-action risk levels, approvals, audit trail, knowledge base, reminders |
+| AI assistant | Tool calling with per-action risk levels, approvals, audit trail, reminders |
+| Knowledge base | Multi-collection retrieval, document ingestion, persona-scoped knowledge packs |
 | Extensions | Declarative HTTP packs and an MCP stdio client; installed tools join the same agent tool registry |
 | Console | One account dialog, one session drawer, capability-driven UI instead of per-platform hardcoding |
 
@@ -56,7 +57,7 @@ docs/      current docs plus an archive — see docs/README.md
 
 ## Docs
 
-[Deployment](docs/DEPLOY.md) · [Architecture](docs/ARCHITECTURE.md) · [Releasing](docs/RELEASING.md) · [Route audit](docs/route-audit.md) · [Persona eval](docs/PERSONA-EVAL.md) · [Extensions & MCP](docs/extensions.md)
+[Deployment](docs/DEPLOY.md) · [Architecture](docs/ARCHITECTURE.md) · [Releasing](docs/RELEASING.md) · [Route audit](docs/route-audit.md) · [Persona eval](docs/PERSONA-EVAL.md) · [Extensions & MCP](docs/extensions.md) · [Knowledge base](docs/knowledge-base.md)
 
 ## Status
 
