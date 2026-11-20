@@ -151,6 +151,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     _ensure_action_schema(conn)
     _ensure_reminder_schema(conn)
     _ensure_future_task_schema(conn)
+    _ensure_channel_event_schema(conn)
     _seed_builtins(conn)
 
 
@@ -211,6 +212,72 @@ def _ensure_future_task_schema(conn: sqlite3.Connection) -> None:
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_future_tasks_due ON future_tasks(status, due_at)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_future_tasks_visitor ON future_tasks(visitor_id, status)")
+
+
+def _ensure_channel_event_schema(conn: sqlite3.Connection) -> None:
+    """渠道事件表；必须与迁移 v18 同构（测试库只跑 _ensure_schema）。"""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS channel_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            channel_type TEXT NOT NULL DEFAULT 'qq_group',
+            channel_user_id TEXT,
+            group_id TEXT,
+            message_id TEXT,
+            operator_id TEXT,
+            self_id TEXT,
+            payload TEXT DEFAULT '',
+            handled INTEGER NOT NULL DEFAULT 0,
+            result TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_channel_events_type ON channel_events(event_type, id DESC)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_channel_events_group ON channel_events(group_id, id DESC)")
+
+
+def add_channel_event(kind: str, event_type: str, channel_type: str = "qq_group",
+                      channel_user_id: str | None = None, group_id: str | None = None,
+                      message_id: str | None = None, operator_id: str | None = None,
+                      self_id: str | None = None, payload: dict | None = None,
+                      result: str = "") -> dict:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO channel_events (kind, event_type, channel_type, channel_user_id, "
+            "group_id, message_id, operator_id, self_id, payload, handled, result, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+            (kind, event_type, channel_type, channel_user_id, group_id, message_id,
+             operator_id, self_id, json.dumps(payload or {}, ensure_ascii=False),
+             result[:300], _now()),
+        )
+        eid = cur.lastrowid
+    return channel_event_get(int(eid)) or {}
+
+
+def channel_event_get(eid: int) -> dict | None:
+    with get_conn() as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM channel_events WHERE id = ?", (eid,)).fetchone()
+    return dict(row) if row else None
+
+
+def list_channel_events(limit: int = 100, kind: str = "", event_type: str = "") -> list[dict]:
+    sql = "SELECT * FROM channel_events WHERE 1=1"
+    args: list = []
+    if kind:
+        sql += " AND kind = ?"
+        args.append(kind)
+    if event_type:
+        sql += " AND event_type = ?"
+        args.append(event_type)
+    sql += " ORDER BY id DESC LIMIT ?"
+    args.append(max(1, min(int(limit), 500)))
+    with get_conn() as conn:
+        conn.row_factory = sqlite3.Row
+        return [dict(r) for r in conn.execute(sql, args).fetchall()]
 
 
 def _ensure_message_schema(conn) -> None:

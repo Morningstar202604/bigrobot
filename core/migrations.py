@@ -308,6 +308,31 @@ def _v17_future_tasks(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_future_tasks_visitor ON future_tasks(visitor_id, status)")
 
 
+
+def _v18_channel_events(conn: sqlite3.Connection) -> None:
+    """0018：渠道事件表（入群/退群/撤回/请求），供审计与撤回软删除。"""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS channel_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            channel_type TEXT NOT NULL DEFAULT 'qq_group',
+            channel_user_id TEXT,
+            group_id TEXT,
+            message_id TEXT,
+            operator_id TEXT,
+            self_id TEXT,
+            payload TEXT DEFAULT '',
+            handled INTEGER NOT NULL DEFAULT 0,
+            result TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_channel_events_type ON channel_events(event_type, id DESC)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_channel_events_group ON channel_events(group_id, id DESC)")
+
 MIGRATIONS: list[Migration] = [
     (1, "基线：标记已有结构", _v1_baseline),
     (2, "审计链 actor 索引", _v2_audit_index),
@@ -326,6 +351,7 @@ MIGRATIONS: list[Migration] = [
     (15, "提醒与待办", _v15_reminders),
     (16, "周期提醒", _v16_reminder_repeat),
     (17, "未来任务", _v17_future_tasks),
+    (18, "渠道事件", _v18_channel_events),
 ]
 
 LATEST_VERSION = max(v for v, _, _ in MIGRATIONS)

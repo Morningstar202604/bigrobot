@@ -342,6 +342,17 @@ def create_app() -> FastAPI:
         # 同一个群被两个号同时监听时，历史不会混成一条。
         self_id: str = ""
 
+    class EventIn(BaseModel):
+        kind: str
+        event_type: str
+        channel_type: str = "qq_group"
+        channel_user_id: str = ""
+        group_id: str | None = None
+        message_id: str = ""
+        operator_id: str = ""
+        self_id: str = ""
+        payload: dict = {}
+
     # ---- 入参体积护栏（统一实现见 core/api/deps.py）----
     _check_payload = deps.check_payload
 
@@ -479,7 +490,8 @@ def create_app() -> FastAPI:
                     history = prev
             except Exception:  # 兜底失败不影响主流程
                 pass
-        visitor_msg_id = store.add_message(sid, "visitor", text or "（附图）")
+        visitor_msg_id = store.add_message(sid, "visitor", text or "（附图）",
+                                           external_id=message_id or None)
         try:
             reply = await pipeline.run(
                 pipeline.ChannelMessage(text=text, image_b64=image or "", web_search=web_search,
@@ -1454,6 +1466,7 @@ def create_app() -> FastAPI:
     from core.api import qq_deploy as qq_deploy_api
     from core.api import qq_login as qq_login_api
     from core.api import reminders as reminders_api
+    from core.api import channel_events as channel_events_api
     from core.api import history as history_api
     from core.api import observe as observe_api
     from core.api import qq_members as qq_members_api
@@ -1471,6 +1484,41 @@ def create_app() -> FastAPI:
     app.include_router(observe_api.router)
     app.include_router(qq_members_api.router)
     app.include_router(history_api.router)
+    app.include_router(channel_events_api.router)
+
+    @app.post("/v1/event", dependencies=[Depends(require_channel)])
+    def ingest_event(body: EventIn):
+        """接收网关 notice/request 事件。
+
+        通知事件不是聊天消息：不能塞进管线让模型当用户说话，否则一次入群
+        就会触发一次莫名其妙的回答。这里只落库，并让撤回事件做消息软删除。
+        """
+        from core import channel_events as events_mod
+
+        kind = (body.kind or "").strip().lower()
+        event_type = (body.event_type or "").strip()
+        if kind not in ("notice", "request") or not event_type:
+            raise HTTPException(400, "kind 必须是 notice/request，event_type 不能为空")
+        rec = {
+            "kind": kind,
+            "event_type": event_type,
+            "channel_type": body.channel_type,
+            "channel_user_id": body.channel_user_id or None,
+            "group_id": body.group_id,
+            "message_id": body.message_id or None,
+            "operator_id": body.operator_id or None,
+            "self_id": body.self_id or None,
+            "payload": body.payload or {},
+        }
+        action = events_mod.handle(rec)
+        saved = store.add_channel_event(
+            kind=kind, event_type=event_type, channel_type=body.channel_type,
+            channel_user_id=body.channel_user_id or None, group_id=body.group_id,
+            message_id=body.message_id or None, operator_id=body.operator_id or None,
+            self_id=body.self_id or None, payload=body.payload or {},
+            result=f"{action['action']}: {action['detail']}",
+        )
+        return {"ok": True, "event_id": saved.get("id"), **action}
 
     @app.post("/v1/gateway/heartbeat", dependencies=[Depends(require_channel)])
     def gateway_heartbeat(body: HeartbeatIn):

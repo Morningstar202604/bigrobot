@@ -72,6 +72,32 @@ const http = {
   },
 }
 
+// ---- channel events ----
+export interface ChannelEvent {
+  id: number
+  kind: string
+  event_type: string
+  channel_type: string
+  channel_user_id: string | null
+  group_id: string | null
+  message_id: string | null
+  operator_id: string | null
+  self_id: string | null
+  payload: Record<string, unknown>
+  handled: boolean
+  result: string
+  created_at: string
+}
+
+export function useChannelEvents(eventType = '', limit = 100) {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (eventType) params.set('event_type', eventType)
+  return useQuery({
+    queryKey: ['channel-events', eventType, limit],
+    queryFn: () => http.get<{ events: ChannelEvent[] }>(`/api/channel-events?${params.toString()}`),
+  })
+}
+
 // ---- config ----
 export function useConfig() {
   return useQuery({ queryKey: qk.config, queryFn: () => http.get<{ config: AgentConfig }>('/api/config') })

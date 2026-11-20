@@ -28,8 +28,13 @@ import httpx
 from core import http_pool
 
 import nonebot
-from nonebot import on_message
-from nonebot.adapters.onebot.v11 import Adapter as OneBotV11Adapter, MessageEvent
+from nonebot import on_message, on_notice, on_request
+from nonebot.adapters.onebot.v11 import (
+    Adapter as OneBotV11Adapter,
+    MessageEvent,
+    NoticeEvent,
+    RequestEvent,
+)
 from nonebot.rule import to_me
 
 from gateway.adapters import OneBot11Adapter, bus, registry
@@ -233,6 +238,17 @@ _LOOP_GUARD = LoopGuard(
 _OWNER_QQ = {q.strip() for q in os.environ.get("AUTHORIZED_QQ", "").split(",") if q.strip()}
 
 matcher = on_message(rule=to_me(), priority=5, block=False)
+
+# ---- 渠道事件：入群/退群/撤回/好友请求 ----
+# 只转发有业务意义的事件；group_upload 之类的文件事件不往核心灌，避免事件表变成垃圾桶。
+_FORWARD_NOTICES = {
+    "group_recall", "friend_recall", "group_increase", "group_decrease",
+    "group_admin", "group_card", "friend_add",
+}
+_FORWARD_REQUESTS = {"friend", "group"}
+
+notice_matcher = on_notice(priority=1, block=False)
+request_matcher = on_request(priority=1, block=False)
 
 # ---- 表情包收藏器（AstrBot「梗图学习」对标）：监听全部群消息，只收集绝不回复 ----
 _collector_matcher = on_message(priority=1, block=False)
@@ -444,6 +460,62 @@ def _pick_bot():
     """取当前在线的 bot。多账号时取第一个；无 bot 返回 None。"""
     bots = list(nonebot.get_bots().values())
     return bots[0] if bots else None
+
+
+def _event_payload(event) -> dict:
+    """只留可序列化的诊断字段，不把 Pydantic 对象/消息段塞进事件表。"""
+    keys = ("sub_type", "notice_type", "request_type", "user_id", "group_id",
+            "operator_id", "message_id", "target_id", "comment")
+    out: dict = {}
+    for k in keys:
+        v = getattr(event, k, None)
+        if v is not None and isinstance(v, (str, int, float, bool)):
+            out[k] = v
+    return out
+
+
+async def _forward_event(kind: str, event) -> None:
+    """把 OneBot 事件送到核心。失败只记日志，不阻断网关收消息。"""
+    notice_type = str(getattr(event, "notice_type", "") or "")
+    request_type = str(getattr(event, "request_type", "") or "")
+    event_type = notice_type if kind == "notice" else request_type
+    if kind == "notice" and notice_type not in _FORWARD_NOTICES:
+        return
+    if kind == "request" and request_type not in _FORWARD_REQUESTS:
+        return
+    group_id = getattr(event, "group_id", None)
+    user_id = getattr(event, "user_id", None)
+    body = {
+        "kind": kind,
+        "event_type": event_type,
+        "channel_type": "qq_group" if group_id else "qq_private",
+        "channel_user_id": str(user_id or ""),
+        "group_id": str(group_id) if group_id else None,
+        "message_id": str(getattr(event, "message_id", "") or ""),
+        "operator_id": str(getattr(event, "operator_id", "") or ""),
+        "self_id": str(getattr(event, "self_id", "") or ""),
+        "payload": _event_payload(event),
+    }
+    try:
+        client = http_pool.get_client(timeout=5)
+        resp = await client.post(
+            f"{CORE_BASE_URL}/v1/event", json=body, headers=_channel_headers())
+        if resp.status_code >= 400:
+            logger.warning("event %s/%s rejected: HTTP %s",
+                           kind, event_type, resp.status_code)
+    except Exception as e:
+        logger.warning("event %s/%s failed: %s: %s",
+                       kind, event_type, type(e).__name__, str(e)[:120])
+
+
+@notice_matcher.handle()
+async def _handle_notice(event: NoticeEvent):
+    await _forward_event("notice", event)
+
+
+@request_matcher.handle()
+async def _handle_request(event: RequestEvent):
+    await _forward_event("request", event)
 
 
 def _register_action_endpoint() -> None:
