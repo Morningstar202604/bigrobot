@@ -28,7 +28,6 @@ jobs:
         run: python scripts/check_version.py
       - name: Lint (syntax + bugbear + async blocking)
         run: ruff check core executor gateway scripts tests
-      # 全仓强制：126 个历史错误已全部清零，不再需要 advisory 兜底。
       - name: Type check (blocking)
         run: mypy core executor gateway
       - name: Tests + coverage gate

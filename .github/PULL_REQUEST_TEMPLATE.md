@@ -1,17 +1,17 @@
-## 改了什么
+## What changed
 
-<!-- 一句话说明，关联 issue 用 #123 -->
+<!-- One sentence; link an issue with #123 -->
 
-## 为什么
+## Why
 
-## 怎么验证的
+## How it was verified
 
 - [ ] `python -m pytest tests -q`
-- [ ] `ruff check core executor gateway scripts --select E9,F63,F7,F82,F401,F841`
-- [ ] `cd frontend && npm run build && npm test`
+- [ ] `python -m ruff check core executor gateway scripts tests`
+- [ ] `cd frontend && npx tsc --noEmit && npm test && npm run build`
 
-## 检查项
+## Checks
 
-- [ ] 没有提交密钥、令牌、真实 QQ 号/群号、聊天记录或数据库文件
-- [ ] 新增/变更的行为有测试覆盖
-- [ ] 文档已同步（README / DEPLOY / docs）
+- [ ] No keys, tokens, real QQ or group ids, chat logs or database files
+- [ ] New or changed behaviour has tests
+- [ ] Docs updated (README / DEPLOY / docs)

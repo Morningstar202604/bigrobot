@@ -3,7 +3,7 @@
 > **先跑一次自检**：`python scripts/qq_doctor.py`。它会直接告诉你这台机器该走哪条路
 > （本机注入 / Docker / 需要先修什么），比对着文档猜快得多。
 
-> **本机部署（Windows，想免扫码、复用已登录的 QQ）**：看 [QQ-LOCAL.md](QQ-LOCAL.md)。
+> **本机部署（Windows，想免扫码、复用已登录的 QQ）**：看 [QQ-LOCAL-v1.md](QQ-LOCAL-v1.md)。
 > 本文是 Docker/服务器路径，首次登录需要扫码一次。
 
 本文记录 **实测过** 的接入路径，不是通用教程。每一步都注明失败时看什么。
@@ -13,7 +13,7 @@
 | 情况 | 走哪条 | 原因 |
 |---|---|---|
 | 机器上没有装桌面版 QQ，或愿意跑容器 | **Docker（本文）** | 容器自带一份 QQ，宿主机 QQ 版本与你无关 |
-| 已登录桌面 QQ，想复用凭据免扫码 | 本机注入（[QQ-LOCAL.md](QQ-LOCAL.md)） | 复用 `Tencent Files` 里的登录态 |
+| 已登录桌面 QQ，想复用凭据免扫码 | 本机注入（[QQ-LOCAL-v1.md](QQ-LOCAL-v1.md)） | 复用 `Tencent Files` 里的登录态 |
 | 本机注入曾经能用、现在群里不回 | **多半是 QQ 自动升级了**，见下 | 注入是按 QQ 内部结构打补丁的，版本一变就静默失效 |
 
 ### 为什么本机注入会「静默失效」
@@ -47,7 +47,7 @@ NAPCAT_WEBUI_TOKEN=<NapCat 启动日志里的 token，或 compose 里自设的�
 
 ## 用 compose 起容器（推荐）
 
-仓库已带一份可直接用的配置：[`docs/napcat-compose.yaml`](napcat-compose.yaml)。
+仓库已带一份可直接用的配置：[`docs/napcat-compose.yaml`](../napcat-compose.yaml)。
 
 ```bash
 docker compose -f docs/napcat-compose.yaml up -d

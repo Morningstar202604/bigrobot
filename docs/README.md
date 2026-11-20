@@ -1,37 +1,43 @@
-# 文档索引
+# Documentation
 
-## 现行（改代码时要同步更新）
+English · [中文](zh/README.md)
 
-| 文档 | 用途 |
+## Current
+
+Update these when the code changes.
+
+| Document | Purpose |
 |---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 分层与进程模型：core / gateway / executor 各自职责 |
-| [DEPLOY.md](DEPLOY.md) | 部署与启动（含 QQ 协议端） |
-| [RELEASING.md](RELEASING.md) | 版本号与发布流程 |
-| [route-audit.md](route-audit.md) | 路由消费者审计口径与结论 |
-| [PERSONA-EVAL.md](PERSONA-EVAL.md) | 角色评测怎么跑、看什么指标 |
-| [extensions.md](extensions.md) | 声明式 HTTP 扩展包与 MCP 客户端 |
-| [knowledge-base.md](knowledge-base.md) | 多知识库集合、角色绑定与资料摄入 |
-| [future-tasks.md](future-tasks.md) | 未来任务：到点让 Agent 执行并回推结果 |
-| [channel-events.md](channel-events.md) | 渠道事件：入群/退群/撤回/请求落库，撤回软删除 |
-| [multi-account.md](multi-account.md) | 多账号隔离：会话、记忆、动作、提醒按机器人账号分开 |
-| [persona-capabilities.md](persona-capabilities.md) | 角色能力边界：工具/技能/MCP/扩展白名单 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Process model and layer responsibilities: core, gateway, executor |
+| [DEPLOY.md](DEPLOY.md) | Install, start, QQ protocol side, verification, operations |
+| [RELEASING.md](RELEASING.md) | Versioning and release steps |
+| [route-audit.md](route-audit.md) | How routes are checked for real consumers |
+| [PERSONA-EVAL.md](PERSONA-EVAL.md) | Persona evaluation methods and results |
+| [COMPARISON.md](COMPARISON.md) | Product boundary: what BigRobot is and is not |
+| [extensions.md](extensions.md) | Declarative HTTP packs and the MCP client |
+| [knowledge-base.md](knowledge-base.md) | Collections, persona binding and ingestion |
+| [future-tasks.md](future-tasks.md) | Schedule an agent run and deliver the result |
+| [channel-events.md](channel-events.md) | Notices, requests and recall soft-delete |
+| [multi-account.md](multi-account.md) | Session, memory and action isolation per bot account |
+| [persona-capabilities.md](persona-capabilities.md) | Per-persona tool, skill, MCP and extension scope |
 
-## 存档（保留历史，不再维护）
+## Archive
 
-`docs/archive/` 下是 `*-v1.md` 与早期竞品调研。它们记录了当时的判断，**不要按里面的命令操作**——入口和脚本已经变过。
+`docs/archive/` keeps early `*-v1.md` notes and competitor research. It records what was believed at the time; commands and entry points may be stale. Do not follow them.
 
-## 资产
+## Assets
 
-| 路径 | 内容 |
+| Path | Content |
 |---|---|
-| `docs/screenshots/` | 控制台截图，由 `scripts/take_screenshots.py` 生成 |
-| `docs/media/` | README 用的演示视频 |
-| `docs/logo*.svg` `og-1200x630.png` | 品牌资产 |
-| `docs/index.html` | 项目落地页 |
-| `docs/napcat-compose.yaml` | 协议端 compose 示例 |
+| `docs/screenshots/` | Console screenshots produced by `scripts/take_screenshots.py` |
+| `docs/media/` | Demo media |
+| `docs/logo*.svg`, `docs/og-1200x630.png` | Brand assets |
+| `docs/index.html` | Project landing page |
+| `docs/napcat-compose.yaml` | Protocol-side compose example |
 
-## 维护约定
+## Conventions
 
-1. **新增文档先问归属**：现行就放根，历史就放 `archive/`，别在根上堆。
-2. 涉及命令的文档，改脚本时必须同步改文档（`scripts/qq_login`、`persona_eval` 等都被文档直接引用）。
-3. 截图由脚本生成，不手工替换。
+1. Put current docs at the root of `docs/`; history goes in `archive/`.
+2. If a document references a script, changing the script means changing the document.
+3. Screenshots are generated, not hand-edited.
+4. Chinese translations live under `docs/zh/` and link back to the English page.

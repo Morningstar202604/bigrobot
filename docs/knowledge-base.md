@@ -1,65 +1,66 @@
-# 知识库：多集合、角色绑定与资料摄入
+# Knowledge base: collections, persona binding and ingestion
 
-知识库不是一张平铺的 FAQ 表。每个角色有自己的历史、设定和专业底稿；
-业务 FAQ 又要对所有角色共用。混在一个数组里，检索时必然互相串味。
+English · [中文](zh/knowledge-base.md)
 
-## 数据模型
+A knowledge base is not one flat FAQ table. Each persona has its own history, setting notes and specialist material; shared business answers still need to reach every persona. One mixed array makes retrieval bleed across topics.
 
-真相源仍是可读、可导出的 `core/data/kb.json`：
+## Data model
+
+The source of truth is a readable, exportable `core/data/kb.json`:
 
 ```json
 {
   "version": 2,
   "collections": [
-    {"id": "default", "name": "默认知识库", "persona_ids": [], "enabled": true}
+    {"id": "default", "name": "Default", "persona_ids": [], "enabled": true}
   ],
   "kb": [
-    {"id": "KB101", "collection": "default", "title": "发货时效", "text": "...", "answer": "..."}
+    {"id": "KB101", "collection": "default", "title": "Delivery time", "text": "...", "answer": "..."}
   ]
 }
 ```
 
-- `collections`：知识库集合。`persona_ids` 为空表示全角色共用；非空时只对列出的预设角色生效。
-- `kb[].collection`：条目所属集合，缺省为 `default`。
-- 旧版只有 `{"kb": [...]}` 的文件会自动按默认库读取，不需要手工迁移。
-- 条目可带 `source`（来源文件名/`manual`/`import`）和 `created_at`/`updated_at`，便于回溯。
+- `collections`: `persona_ids` empty means shared by all; a non-empty list limits the collection to those preset personas.
+- `kb[].collection`: owning collection; defaults to `default`.
+- An old file with only `{"kb": [...]}` is read as the default collection; no manual migration.
+- Entries may carry `source` (`manual`, `import` or a file name) and `created_at` / `updated_at` for traceability.
 
-## 检索范围
+## Retrieval scope
 
-- 自定义角色没有预设 id：检索全部集合，保持旧行为。
-- 预设角色：只检索公共集合 + 绑定到自己的集合。
-- `lookup_policy` 工具与对话上下文使用同一套范围，避免工具把别的角色设定翻出来。
-- 集合停用后，任何角色都不会召回它。
+- Custom personas have no preset id and search every collection, preserving the old behaviour.
+- Preset personas search shared collections plus collections bound to them.
+- The `lookup_policy` tool and chat context use the same scope, so a tool cannot surface another persona's notes.
+- A disabled collection is never retrieved by any persona.
 
-## 摄入方式
+## Ingestion
 
-| 方式 | 入口 | 说明 |
-| --- | --- | --- |
-| 单条新增 | `POST /api/kb` | 可指定 `collection`；ID 留空自动编号 |
-| Markdown 批量 | `POST /api/kb/import` | `replace=true` 只清空目标集合 |
-| 文档导入 | `POST /api/kb/import/document` | PDF / DOCX / XLSX / MD / TXT，按标题与段落分块，保留来源文件名 |
-| 历史资料 | 同上 | 角色年表、访谈、设定稿按 Markdown 标题分节导入对应角色库 |
-| 导出 | `GET /api/kb/export` | 默认 Markdown；`format=json` 保留多库元数据 |
+| Path | Entry point | Notes |
+|---|---|---|
+| Single entry | `POST /api/kb` | Optional `collection`; leave the id empty to auto-number |
+| Markdown batch | `POST /api/kb/import` | `replace=true` clears only the target collection |
+| Document import | `POST /api/kb/import/document` | PDF, DOCX, XLSX, MD, TXT; chunked by heading and paragraph; source file name kept |
+| Historical material | Same | Timelines, interviews and setting drafts imported by Markdown heading into a persona collection |
+| Export | `GET /api/kb/export` | Markdown by default; `format=json` keeps collection metadata |
 
-分块上限 500 字，单文档 10 MB。解析失败会返回可读的 400，不会写半截数据。
+Chunks are capped at 500 characters and documents at 10 MB. A parse failure returns a readable 400 and writes no partial data.
 
-## 管理 API
+## Management API
 
-| 方法 | 路径 | 用途 |
-| --- | --- | --- |
-| `GET` | `/api/kb?collection=<id>` | 列出条目；不带参数返回全部 |
-| `GET` | `/api/kb/collections` | 集合列表与条目数 |
-| `POST` | `/api/kb/collections` | 新建集合 |
-| `PUT` | `/api/kb/collections/{id}` | 改名、改说明、改角色绑定、启停 |
-| `POST` | `/api/kb/collections/{id}/toggle` | 单独启停 |
-| `DELETE` | `/api/kb/collections/{id}?move_to=default` | 删除集合，条目迁移到目标库 |
-| `POST` | `/api/kb/test` | 指定集合试召回 |
+| Method | Path | Use |
+|---|---|---|
+| `GET` | `/api/kb?collection=<id>` | List entries; omit the parameter for all |
+| `GET` | `/api/kb/collections` | Collections and entry counts |
+| `POST` | `/api/kb/collections` | Create a collection |
+| `PUT` | `/api/kb/collections/{id}` | Rename, describe, bind personas, enable or disable |
+| `POST` | `/api/kb/collections/{id}/toggle` | Toggle one collection |
+| `DELETE` | `/api/kb/collections/{id}?move_to=default` | Delete and move entries to a target collection |
+| `POST` | `/api/kb/test` | Test retrieval in a collection |
 
-所有管理接口都要求管理员令牌。
+Every management endpoint requires the admin token.
 
-## 边界
+## Boundaries
 
-- 默认库不能删除，只能改名/停用；删除其它库时条目默认迁到默认库，不会静默丢失。
-- 集合 ID 只能用小写字母、数字、下划线、短横线，2–41 字符。
-- 角色绑定只接受当前存在的预设角色 ID；未知 ID 直接 400。
-- 知识库文件写入仍走进程内锁 + 文件锁 + 临时文件原子替换；索引是派生缓存，文件 mtime 变化自动重建。
+- The default collection cannot be deleted, only renamed or disabled. Deleting another collection moves entries to the default unless a target is given; nothing is silently lost.
+- Collection ids use lowercase letters, digits, underscores and hyphens, 2–41 characters.
+- Persona binding accepts only existing preset ids; an unknown id is a 400.
+- Writes use an in-process lock, a file lock and an atomic temporary-file replace. The index is a derived cache and rebuilds when the file mtime changes.

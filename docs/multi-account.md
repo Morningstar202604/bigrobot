@@ -1,63 +1,52 @@
-# 多账号隔离
+# Multi-account isolation
 
-同一个 QQ 群可能同时有两个机器人账号在监听。以前会话映射只按 `channel` 建键，
-两个号会共用一条会话、一份上下文，甚至 A 号收到的消息被 B 号发出去。现在按
-`(channel, account_id)` 隔离。
+English · [中文](zh/multi-account.md)
 
-## 会话映射
+Two bot accounts can watch the same QQ group at once. A session keyed only by `channel` would share one conversation and one context, and a message received by account A could be sent by account B. Sessions are now keyed by `(channel, account_id)`.
 
-`channel_sessions` 的主键从 `channel` 改成 `(channel, account_id)`：
+## Session mapping
+
+`channel_sessions` uses `(channel, account_id)` as its primary key:
 
 ```text
-qq_group:12345  qq:10001  -> 会话 A
-qq_group:12345  qq:20002  -> 会话 B
+qq_group:12345  qq:10001  -> session A
+qq_group:12345  qq:20002  -> session B
 ```
 
-账号统一成 `qq:10001` 形态。网关传来的裸 `self_id=10001`、旧的
-`qq_group:10001` 都会被归一。
+Accounts are canonicalised to `qq:10001`. A bare gateway `self_id=10001` or an old `qq_group:10001` is normalised.
 
-### 老库兼容
+### Legacy databases
 
-迁移会重建表，把旧行放进 `account_id=''` 的兼容桶。第一次有具体账号进入同一
-渠道时，如果旧会话没有归属、或归属正好是这个号，就把它认领到新键，不丢上下文；
-归属不同则新建会话，绝不把另一个号的历史接过来。
+Migration rebuilds the table and puts old rows in the `account_id=''` bucket. When a concrete account first enters the same channel, an unowned legacy session, or one already owned by that account, is claimed so context is not lost. A differently owned session is left alone and a new one is created; another account's history is never adopted.
 
-## 访客身份
+## Visitor identity
 
-QQ 渠道的访客键会带账号后缀：
+QQ visitor keys carry an account suffix:
 
 ```text
 qq_group:42#qq:10001
 qq_group:42#qq:20002
 ```
 
-记忆、提醒、未来任务都以这个键为维度；用户档案也会在 `qq:<用户号>` 后追加
-同样的账号后缀。因此同一个用户在两个号上不会互相污染。网页访客不传账号，保持原键不变。
+Memory, reminders and future tasks use this key. User profiles append the same suffix after `qq:<user id>`, so one person on two bot accounts does not mix state. Web visitors have no account and keep their old keys.
 
-## 动作路由
+## Action routing
 
-- 工具调用 `send_group_msg` / `send_private_msg` / 查询类动作时，把当前
-  `ToolContext.account_id` 带到网关。
-- 网关 `/internal/action` 按 `account_id` 找对应 bot；指定账号离线时返回 503，
-  不再悄悄用第一个在线号代发。
-- 普通消息回复也按来源 `self_id` 选 bot，适配器里每个账号各有一份绑定。
-- 控制台手动执行动作时：优先用请求里的 `account_id`；没传则按 `session_id`
-  反查会话所属账号；都没有才回落到第一个在线 bot。
+- Tools that send a group or private message, or query the protocol side, carry `ToolContext.account_id` to the gateway.
+- `POST /internal/action` resolves the bot by `account_id`. If that account is offline it returns 503 instead of silently using the first online bot.
+- Normal replies also select the bot by the source `self_id`; each account has its own adapter binding.
+- A console action uses the request's `account_id` first, then the account of the session named by `session_id`, then the first online bot.
 
-## 提醒与未来任务
+## Reminders and future tasks
 
-`reminders` / `future_tasks` 新增 `account_id`。到点投递时按原账号发送；
-升级前的老记录 `account_id` 为空，仍按旧行为走第一个在线 bot。
+`reminders` and `future_tasks` store `account_id`. Delivery goes through the original account. Rows created before the upgrade have an empty account and keep the old first-online-bot behaviour.
 
-## 重置
+## Reset
 
-`POST /v1/channel/reset` 支持 `self_id`，只删当前账号的映射并关闭该会话；
-同群另一个号不受影响。
+`POST /v1/channel/reset` accepts `self_id`; it removes only that account's mapping and closes that session. Another account in the same group is untouched.
 
-## 当前边界
+## Current boundaries
 
-- `tickets` 没有单独加账号列，它通过 `session_id` 关联到已隔离的会话。
-- 群级档案/黑话仍按群共享（同一个群的语言环境本来就应该共享）；如果未来要按
-  “机器人在这个群里的人设”再分一层，再加 `account_id` 维度即可。
-- 多账号同时在线依赖 NapCat 确实登录了多个号；网关只在 `get_bots()` 里能看到
-  的号之间路由。
+- `tickets` has no separate account column; it joins an already isolated session by `session_id`.
+- Group-level profiles and slang remain shared per group. The language environment of a group is shared by design; if a future feature needs a per-bot persona inside one group, add an `account_id` dimension there.
+- Multiple accounts online depend on NapCat actually running those accounts; the gateway can only route to bots visible in `get_bots()`.

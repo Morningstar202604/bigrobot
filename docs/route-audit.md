@@ -1,17 +1,14 @@
-# 路由消费者审计
+# Route consumer audit
 
-统计口径：`app.openapi()["paths"]`，逐条在 `frontend/src`、`scripts`、`tests`、`gateway` 中搜索调用点。
-占位符 `{x}` 按路径段匹配（`[^/'"]+`），能命中前端模板字符串 `${...}`。
+English · [中文](zh/route-audit.md)
 
-**容易踩的坑（两次都踩过）**：
+The audit counts routes from `app.openapi()["paths"]`, then searches for each path in `frontend/src`, `scripts`, `tests` and `gateway`. Placeholders `{x}` match a path segment (`[^/'"]+`), including template literals such as `${...}`.
 
-1. 用转义后的字面量 `{group_id}` 去搜，会把所有带参数路由误判成"没人用"（曾误报 31 条，真实 3 条）。
-2. 只扫 `.ts/.tsx` 会漏 `.jsx`——`OperatorDesk.jsx` 一直在调 `/api/operator/notes/{sid}`，漏扫就会误删在用的接口。
+Two mistakes seen before:
 
-当前结果（96 条）：前端 79、脚本/测试/网关 16、**无人调用 1**。
+1. Searching the escaped literal `{group_id}` marks every parameterised route as unused. The audit once reported 31 dead routes; the real number was 3.
+2. Scanning only `.ts` and `.tsx` misses `.jsx`. `OperatorDesk.jsx` calls `/api/operator/notes/{sid}`; a partial scan would have deleted a live route.
 
-| 路由 | 状态 | 处置 |
-|---|---|---|
-| `/api/debug/conn` | 无消费者 | 默认返回 404，`BIGROBOT_DEV=1` 才可用 |
+The only route with no consumer today is `/api/debug/conn`. It returns 404 unless `BIGROBOT_DEV=1` is set.
 
-维护约定：新增路由必须同时有调用点或测试，否则不合并；删除前先跑本审计。
+Maintenance rule: a new route needs a caller or a test, otherwise it is not merged. Run this audit before deleting anything.

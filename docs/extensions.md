@@ -1,31 +1,33 @@
-# 扩展包与 MCP
+# Extensions and MCP
 
-BigRobot 的外部能力接入分两条路：
+English · [中文](zh/extensions.md)
 
-| 方式 | 适合什么 | 运行在哪 | 安全边界 |
+BigRobot has two ways to add external capability:
+
+| Path | Best for | Runs in | Boundary |
 |---|---|---|---|
-| 声明式 HTTP 扩展 | 调 REST API、读健康接口、接内部服务 | 核心进程只发 HTTP 请求 | 默认拒绝内网、写操作需管理员 |
-| MCP 客户端（stdio） | 现成的 MCP 服务器：文件系统、数据库、搜索、浏览器 | 独立子进程 | 每次调用起进程；工具默认只读，写权限显式声明 |
+| Declarative HTTP pack | REST APIs, health endpoints, internal services | Core process makes HTTP calls | Private addresses blocked by default; writes need a trusted subject |
+| MCP client (stdio) | Existing MCP servers: files, databases, search, browsers | Separate child process | Process per call; read by default, writes declared explicitly |
 
-两条路的工具都会进入 Agent 的工具清单，和内置 27 个工具一样被模型调用。
+Tools from both paths enter the same agent tool registry as built-in tools.
 
-## 一、安装扩展
+## Install a pack
 
-控制台：`能力 → 扩展 → 扩展包`。
+Console: **Capabilities → Extensions → Packs**.
 
-- **上传 zip**：zip 根目录（或唯一子目录）必须有 `manifest.json`；
-- **从链接安装**：支持公开可访问的 zip 直链；安装时会校验每个重定向目标，拒绝内网和云元数据地址。
+- **Upload a zip**: the zip root, or its only subdirectory, must contain `manifest.json`.
+- **Install from a link**: a publicly reachable zip URL. Every redirect target is checked; private and cloud-metadata addresses are rejected.
 
-安装后写入 `data/extensions/<id>/`；停用/删除立刻生效。覆盖安装会保留最近 3 个版本，可点“回滚”。
+Installed packs live in `data/extensions/<id>/`. Disable and delete take effect immediately. Overwriting keeps the last three versions and supports rollback.
 
-## 二、manifest.json
+## `manifest.json`
 
 ```json
 {
   "id": "weather-http",
   "name": "Weather",
   "version": "0.0.1",
-  "description": "查天气",
+  "description": "Current weather",
   "author": "you",
   "kind": "http",
   "base_url": "https://api.example.com",
@@ -34,7 +36,7 @@ BigRobot 的外部能力接入分两条路：
   "tools": [
     {
       "name": "weather_now",
-      "description": "查某城市当前天气",
+      "description": "Current weather for a city",
       "method": "GET",
       "path": "/weather",
       "risk": "read",
@@ -43,7 +45,7 @@ BigRobot 的外部能力接入分两条路：
           "type": "string",
           "required": true,
           "in": "query",
-          "description": "城市名"
+          "description": "City name"
         }
       },
       "headers": {
@@ -53,51 +55,49 @@ BigRobot 的外部能力接入分两条路：
   ],
   "skills": [
     {
-      "name": "天气查询",
-      "description": "先查再答，不要凭记忆报天气",
+      "name": "Weather lookup",
+      "description": "Look it up; do not answer from memory",
       "file": "skills/weather.md"
     }
   ]
 }
 ```
 
-字段说明：
-
-| 字段 | 说明 |
+| Field | Meaning |
 |---|---|
-| `id` | 小写字母/数字/下划线/短横线，2–41 字符；目录名与 id 一致 |
-| `kind` | v1 只允许 `http`；Python 插件入口不开放 |
-| `base_url` | 只允许 `http/https`；默认必须是公网地址 |
-| `allow_private` | 管理员显式允许内网/回环地址（本地开发 API 用）；云元数据地址永远拒绝 |
-| `allow_untrusted` | 允许非管理员调用**只读**工具；写工具永远要求可信主体 |
-| `tools[].method` | `GET` / `POST` |
-| `tools[].risk` | `read` / `write`；`write` 会走权限闸门 |
-| `tools[].params[].in` | `query` / `path` / `body`；路径参数用 `{name}` 占位 |
-| `tools[].headers` | 值支持 `${ENV:NAME}`，缺变量时调用会失败而不是静默发空值 |
-| `skills[].file` | 相对扩展目录的 Markdown；安装时读入，渲染到提示词 |
+| `id` | Lowercase letters, digits, underscores and hyphens; 2–41 characters; directory name must match |
+| `kind` | `http` only in v1. Python entry points are not accepted |
+| `base_url` | `http` or `https`; must be public by default |
+| `allow_private` | Admin opt-in for private or loopback addresses; cloud metadata is always rejected |
+| `allow_untrusted` | Lets non-admin subjects call **read-only** tools; write tools always need a trusted subject |
+| `tools[].method` | `GET` or `POST` |
+| `tools[].risk` | `read` or `write`; writes pass through the permission gate |
+| `tools[].params[].in` | `query`, `path` or `body`; path parameters use `{name}` |
+| `tools[].headers` | Values support `${ENV:NAME}`; a missing variable fails the call instead of sending an empty value |
+| `skills[].file` | Markdown relative to the pack directory; read on install and rendered into the prompt |
 
-工具名必须全局唯一：不能和内置工具重名，也不能和已安装扩展重名。
+Tool names must be globally unique: not the same as a built-in tool or another installed pack.
 
-## 三、MCP 服务器
+## MCP servers
 
-控制台：`能力 → 扩展 → MCP`。
+Console: **Capabilities → Extensions → MCP**.
 
-填写：
+Fill in:
 
-- 名称：显示用；
-- 命令：`npx` / `uvx` / `python3` / 绝对路径；
-- 参数：每行一个；
-- 环境变量：每行 `KEY=value`；敏感值建议写 `env:NAME`，运行时从进程环境读取，不落库；
-- 权限：`read` / `write`；
-- 允许普通成员：只对只读服务器生效。
+- Name: display label.
+- Command: `npx`, `uvx`, `python3` or an absolute path.
+- Arguments: one per line.
+- Environment: `KEY=value` per line. For secrets use `env:NAME`; the value is read from the process environment and is not stored.
+- Permission: `read` or `write`.
+- Allow ordinary members: read-only servers only.
 
-添加后点刷新按钮，BigRobot 会拉起子进程、`initialize`、`list_tools`，把工具缓存到配置里。之后每轮对话构建不再启动子进程，只有真正调用工具时才启动。
+After saving, press refresh. BigRobot starts the child process, calls `initialize`, lists tools and caches them. Later turns do not start the process until a tool is actually called.
 
-当前 transport：stdio。SSE/HTTP 流式 MCP 还没接；需要时再加。
+Transport is stdio. Streamable HTTP and SSE MCP are not wired yet.
 
-## 四、当前限制
+## Current limits
 
-- 不支持 Python 插件直接跑在核心进程。AstrBot 插件在宿主 Python 环境执行，官方也提示市场插件不保证安全；BigRobot 先做声明式 HTTP，后续如果要做 Python 宿主，必须走独立进程 + 权限清单。
-- MCP 每次调用起一个子进程：隔离好，但冷启动慢；高频工具后续可以加长连接池。
-- 扩展只能声明 HTTP 工具，不能注册命令、不能自带前端页面。需要更复杂的交互时，先走 MCP 或等扩展页槽位。
-- 写工具目前只做“可信主体”判定，没接完整的审批流；需要审批的写操作应放进 `policy/approvals` 或后续扩展权限模型。
+- No Python plugins inside the core process. Declarative HTTP is deliberate; a Python host, if added, must run in a separate process with a permission manifest.
+- A new MCP child process per call gives good isolation but slow cold starts. A connection pool can come later for hot tools.
+- Packs can declare HTTP tools only; they cannot register commands or ship frontend pages. Use MCP or wait for extension slots.
+- Write tools currently require a trusted subject but do not enter the full approval chain. Put approval-sensitive operations in `policy/approvals` until the extension permission model grows.

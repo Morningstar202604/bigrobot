@@ -1,32 +1,33 @@
-# 贡献者行为准则 / Contributor Covenant
+# Contributor Covenant
 
-## 我们的承诺
+English · [中文](CODE_OF_CONDUCT.zh.md)
 
-为了营造开放、友好的环境，我们承诺：参与本项目的每个人都不受骚扰，无论年龄、体型、可见或不可见的残疾、族裔、性别认同与表达、经验水平、教育程度、社会经济状况、国籍、外貌、种族、宗教或性取向。
+## Our pledge
 
-## 我们的标准
+We pledge to make participation in this project harassment-free for everyone, regardless of age, body size, visible or invisible disability, ethnicity, gender identity and expression, level of experience, education, socio-economic status, nationality, appearance, race, religion or sexual orientation.
 
-有助于营造积极环境的行为：
+## Our standards
 
-- 使用欢迎与包容的语言
-- 尊重不同的观点与经验
-- 优雅地接受建设性批评
-- 关注对社区最有利的事情
-- 对其他社区成员表示同理心
+Behaviour that helps:
 
-不可接受的行为：
+- Using welcoming and inclusive language.
+- Respecting different viewpoints and experiences.
+- Accepting constructive criticism gracefully.
+- Focusing on what is best for the community.
+- Showing empathy to other community members.
 
-- 性化的语言或图像，以及不受欢迎的性关注
-- 挑衅、侮辱/贬损的评论，以及人身或政治攻击
-- 公开或私下的骚扰
-- 未经明确许可发布他人的私人信息（如住址、邮箱、QQ 号）
-- 其他在专业环境中可合理认定为不当的行为
+Behaviour that is unacceptable:
 
-## 执行
+- Sexualised language or imagery, or unwelcome sexual attention.
+- Trolling, insulting or derogatory comments, and personal or political attacks.
+- Public or private harassment.
+- Publishing another person's private information without explicit permission, including an address, email or QQ number.
+- Other conduct that would reasonably be considered inappropriate in a professional setting.
 
-可向维护者报告滥用、骚扰或其他不可接受的行为：通过仓库 Issue 请求私下沟通渠道。
-所有投诉都会被及时、公正地审查与调查。维护者有义务对事件报告者保密。
+## Enforcement
 
-## 归属
+Report abuse, harassment or other unacceptable behaviour to the maintainers through a repository issue asking for a private channel. All complaints are reviewed promptly and fairly. Maintainers keep reporters' identities confidential.
 
-本准则改编自 [Contributor Covenant](https://www.contributor-covenant.org) 2.1 版。
+## Attribution
+
+Adapted from [Contributor Covenant](https://www.contributor-covenant.org), version 2.1.

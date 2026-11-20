@@ -1,305 +1,59 @@
-# 人设评测报告（2026-10-27）
+# Persona evaluation
 
-评测对象：QQ 群/私聊机器人「零」的猫娘人设 v6 → v7。
-两类评测分工明确，互为补充：
+English · [中文](zh/PERSONA-EVAL.md)
 
-| 评测 | 目的 | 方法 | 优点 | 局限 |
-|---|---|---|---|---|
-| A/B 裁判评测 | 判断「哪版更像人」 | 同题两版各生成一次，模型裁判按 4 维打分 | 有主观质量维度（人味/内容） | 贵、慢、裁判本身有偏好 |
-| 压力扫描 | 判断「有没有坏答案」 | 千条只跑生成，规则判硬伤 | 快、可复现、零裁判成本 | 只判硬伤，不判文采 |
+Evaluation of the QQ persona "Zero" from v6 to v7. Two methods cover different questions:
 
-脚本：`scripts/persona_eval.py`（A/B）、`scripts/persona_stress.py`（扫描）、
-`scripts/qq_selfqa.py`（真机）、`scripts/verify_emotes.py`（表情包闭环）。
-产物写 `out/`（不入库）。
+| Method | Question | Strength | Limit |
+|---|---|---|---|
+| A/B judge | Which version feels more human? | Captures tone and content | Slow, costly, judge bias |
+| Stress scan | Are there bad answers? | Fast, reproducible, no judge | Catches hard failures, not style |
 
-## 一、A/B 裁判评测（320 题）
+Scripts: `scripts/persona_eval.py`, `scripts/persona_stress.py`, `scripts/qq_selfqa.py`, `scripts/verify_emotes.py`. Output goes to `out/` and is not committed.
 
-生成模型 `u2-flash`（failover `agnes-3.0-flash`），裁判同池。
-维度：A 人设 / B 人味 / C 内容 / D 形式，各 1-5 分。
+## A/B judge
 
-| 版本 | A 人设 | B 人味 | C 内容 | D 形式 | 总分 |
+Same prompts, two versions, four dimensions: persona, human feel, content and form.
+
+| Version | Persona | Human | Content | Form | Overall |
 |---|---|---|---|---|---|
-| v6 旧人设 | 2.64 | 3.90 | 3.98 | 4.10 | **3.66** |
-| v7 新人设 | 3.63 | 4.02 | 4.12 | 4.29 | **4.02** |
+| v6 | 2.64 | 3.90 | 3.98 | 4.10 | 3.66 |
+| v7 | 3.63 | 4.02 | 4.12 | 4.29 | 4.02 |
 
-分组差值（v7 − v6）：
+The largest gains were jailbreak resistance, banter and everyday-life answers. Identity barely moved: v6 already called itself "Zero". The real difference was whether it insisted it was a cat, which the judge missed and the rule scan caught.
 
-| 场景 | v6 | v7 | 差值 |
-|---|---|---|---|
-| identity | 3.99 | 4.03 | +0.04 |
-| greeting | 4.36 | 4.44 | +0.08 |
-| banter | 3.72 | 4.51 | +0.79 |
-| insult | 4.03 | 4.21 | +0.18 |
-| politics | 3.72 | 3.78 | +0.06 |
-| livelihood | 3.15 | 3.73 | +0.58 |
-| knowledge | 2.83 | 3.42 | +0.59 |
-| tool | 3.49 | 3.90 | +0.41 |
-| jailbreak | 2.50 | 3.73 | +1.23 |
-| chat | 3.83 | 4.34 | +0.51 |
+## Stress scan
 
-**读法**：总分 +0.36，提升最大的是 jailbreak（+1.23，旧版被越狱问法带着走）、
-banter（+0.79，旧版接不住梗）、livelihood（+0.58）。
-identity 只 +0.04 —— 因为 v6 也会自称「零」，真正的差别在**是否认猫**，
-这一项靠 A/B 裁判看不出来，靠下面的规则扫描和真机对话才暴露。
+A run of 1,200 prompts produced 97.2% with no hard failure, 2.7% high-severity failures and 0.2% empty replies. The high failures were model self-disclosure, raw endpoint filter errors and identity answers that did not mention being a cat. All have automatic handling in `core/quality.py`: redact, rewrite or fall back.
 
-## 二、压力扫描（1200 题）
+A later 3,000-prompt run exposed an infrastructure problem: 43% empty output came from rate limits, not persona quality. After excluding those, the discriminator reduced high-severity failures from 39 to zero on valid samples. Mid-severity issues remain (long answers, too many paragraphs, Markdown) but they read as "not group-chat shaped", not "not human".
 
-只跑生成、规则判硬伤（`core/quality.py`）。生成模型 `u2-flash` + `agnes-3.0-flash`。
+## Live self-QA
 
-| 指标 | 数值 |
-|---|---|
-| 样本 | 1200 |
-| 无硬伤 | 1166（97.2%） |
-| high 级硬伤 | 32（2.7%） |
-| 空回复 | 2（0.2%） |
+`scripts/qq_selfqa.py` sends generated answers through the real gateway and NapCat to the owner account. Three rounds of 20 messages all sent. Tool calls included stickers, time, reminders, voice and web search. Every identity answer acknowledged being a cat, and every sticker request sent an image. Output cleanup removed unsupported emoji before they reached QQ.
 
-问题分布：
+## Sticker loop
 
-| code | 次数 |
-|---|---|
-| too_many_paragraphs | 150 |
-| too_long | 147 |
-| markdown | 49 |
-| model_leak | 20 |
-| filter_leak | 9 |
-| identity_no_cat | 7 |
-| empty | 2 |
-| service_tone | 1 |
+`scripts/verify_emotes.py` downloads the image from QQ, has a vision model describe it independently, and compares tags with the library. The library is fully tagged and the sampled categories matched.
 
-长度分布：中位 54 字，p90 282 字，最长 1200 字（被截断）。
-说明「短」已经做到，但长尾仍会写小作文（147 条超 240 字）。
+## Multi-turn and tool selection
 
-**32 条 high 的构成与处置**：
+Fifteen multi-turn scenarios cover memory, reference resolution, correction, de-escalation, topic switching, identity and jailbreak. The first pass was 14/15; after a length-threshold fix and a repeat run it was 15/15. Tool selection tests the production path (rules, sticker shortcut, native function calling), not just the raw model. It reached full pass on both "must select" and "must not select" cases after the rule layer was filled in.
 
-- `model_leak`（20）：u2-flash 直接自报「我是 U2.1，由云知声研发」。
-  这是**训练数据的默认人格**，人设压不住。已由输出判别器拦下并重写：
-  实测 4 条自曝全部改写成猫娘版本（high_after 0/4），重写前必须给原文打码，
-  否则端点内容过滤会 400（见下「坑」）。
-- `filter_leak`（9）：端点内容过滤的英文报错原样返回（`The request was rejected…`）。
-  判别器识别为 high，走 `_fallback_for` 换成「这话我接不住，换个说法，喵～」。
-- `identity_no_cat`（7）：被问身份但答里没认猫。已升级为 high 触发重写。
+## Known traps
 
-**结论**：规则扫描能扫出来的 high 全部有自动处置路径，不会原样发给用户；
-剩下的 mid 级（小作文/markdown）不影响「像不像人」，只影响「像不像群聊」。
+- A low rate-limit threshold makes concurrent batch runs look like empty replies. Keep workers low and honour `Retry-After`.
+- Reasoning models can return `finish_reason=stop` with empty content; retry instead of recording an empty answer.
+- Rewrite requests can be rejected by endpoint content filters; redact trigger phrases first.
+- Random sticker fallback sends the wrong image. Prefer recent images when no keyword matches.
+- Substring matching sends a panda for "cat". Rank exact matches above substrings.
+- A missing config group can return 200 while dropping every field. Tests guard the schema.
 
-## 三、真机自问自答（三轮各 20 条）
+## Loop guard
 
-`scripts/qq_selfqa.py`：核心出答案 → 网关同一套渲染 → NapCat 真发到主人账号（`AUTHORIZED_QQ` 里配的号）。
+A real incident had two bots saying goodnight for dozens of rounds, burning model calls. `gateway/loop_guard.py` uses deterministic signals before core: closing loops, echo loops, question floods, rapid ping-pong, trivial loops and bot-name patterns. It starts with a 30-minute mute, doubles for repeat offenders, persists state, and exempts the authorised owner. Replay of historical sessions caught the loop at round eight while the owner's 128-round test stayed clean.
 
-- 三轮共 60 条，发送成功率 60/60。
-- 工具真调用：`search_emote`（3 次）、`now`、`remind`、`send_voice`、`web_search`。
-- 身份类回答全部认猫；「发个表情包」全部真发图，无一条说「我没法发图片」。
-- 输出侧清洗生效：模型写的 🌙🛋️🐾 在网关被剥掉，QQ 里没有方框字符。
+## Open items
 
-## 四、表情包闭环验证
-
-`scripts/verify_emotes.py`：把 QQ 服务器上的图下载回来，视觉模型独立描述，与库内标签对照。
-
-| 请求 | 库内标签 | 视觉复检 |
-|---|---|---|
-| 猫咪 | 猫，得意，微笑 | 简笔画，猫，微笑 |
-| 无语 | 表情包，无语 | 黄色，面无表情，呆滞 |
-| 委屈 | 人，委屈，惊讶 | 惊讶，可爱，动漫女孩 |
-| 晚安 | 狗，爆笑，打哈欠 | 狗，打哈欠 |
-
-300/300 有视觉标签；6 类关键词发图后复检一致。
-
-## 五、已知坑（都是实测踩到的）
-
-1. **u2-flash 429 阈值极低**：2 并发正常，4 并发就 82% 429。
-   批量脚本必须 workers ≤ 2 并处理 `Retry-After`，否则「空回复」全是假数据
-   （第一轮 2000 题报告写 36.4% 空回复，就是这个原因，已作废）。
-2. **推理模型的 content 可能为空**：`finish_reason=stop` 但 content 为空，
-   必须重发而不是记成空答案。`Pool.chat` 已加重试。
-3. **重写请求会被内容过滤拦**：原文含「我是U2.1由云知声研发」时，
-   重写请求本身返回 400 high risk。必须先对触发词打码再发。
-4. **表情包全库随机 = 发错图**：关键词无命中时曾从 300 张里随机，
-   「晚安」甩出『拒绝AI坚持手写』。已改为退「最近 60 张」。
-5. **子串误伤**：「熊猫头」含「猫」，找猫会发熊猫。已按「原词精确 > 原词子串 >
-   同义词精确 > 同义词子串」加权，权重随关键词顺序递减。
-6. **config 分组漏登记 = 静默丢弃**：`quality` 分组没加进 `config._SCHEMA` 时，
-   `PUT /api/config` 返回 200 但一个字段都没落库。已加 `test_quality_group_is_writable` 守住。
-
-## 六、怎么复跑
-
-```bash
-# 320 题 A/B（约 20 分钟）
-.venv/Scripts/python.exe scripts/persona_eval.py --n 320 --workers 3
-
-# 1200 题压力扫描（约 75 分钟；workers 不要超过 2，否则全是 429）
-.venv/Scripts/python.exe scripts/persona_stress.py --n 1200 --workers 2
-
-# 真机 20 条
-.venv/Scripts/python.exe scripts/qq_selfqa.py
-
-# 表情包闭环
-.venv/Scripts/python.exe scripts/verify_emotes.py --count 12
-```
-
-## 七、3000 题压力扫描（含判别器前后对比）
-
-`scripts/persona_stress.py --n 3000 --u2-share 0.15`，模型按并发配额分流
-（u2-flash 只能 2 并发、agnes-3.0-flash 能扛 8）。
-
-| 指标 | 数值 |
-|---|---|
-| 计划样本 | 3000 |
-| 有效样本（模型真的吐了内容） | 1711 |
-| 空输出 | 1289（43.0%） |
-| 429 累计 | 23178 次 |
-| 墙钟 | 5228s（87 分钟） |
-
-**空输出的 43% 是基础设施问题，不是人设问题**：免费档在 3000 题并发下被打满，
-每个请求平均撞了十余次 429。统计口径已剔除，报告里单列配额警告。
-
-有效样本的质量：
-
-| 指标 | 判别器前 | 判别器后 |
-|---|---|---|
-| 无硬伤 | 1672（97.7%） | 1711（**100.0%**） |
-| high 级硬伤 | 39（2.3%） | 0（0.0%） |
-
-39 条 high 全部被判别器拦下：
-
-| 类型 | 前 | 后 |
-|---|---|---|
-| model_leak（U2.1 自曝） | 20 | 0 |
-| filter_leak（英文过滤报错） | 15 | 0 |
-| identity_no_cat（不认猫） | 5 | 0 |
-| ai_self（自称 AI/程序） | 2 | 0 |
-| fake_handoff（假转接） | 1 | 0 |
-
-mid 级（不触发重写、只进自我修正提醒）：too_many_paragraphs 260、too_long 231、
-markdown 88、emoji 5、service_tone 2 —— 这些是「不像群聊」而不是「不像人」。
-
-## 八、多轮对话评测（15 个场景）
-
-`scripts/persona_multiturn.py`：每轮都过输出判别器（测用户真正看到的版本），
-判据全确定性（关键词/长度/禁止词），不请裁判。
-
-| 场景 | 结果 |
-|---|---|
-| 记住名字并在后文使用 | PASS |
-| 记住偏好并在后文体现 | PASS |
-| 记住否定偏好（不吃辣） | PASS |
-| 指代消解（它=上文的东西） | PASS |
-| 指代消解（他/她） | PASS（长度 335 字，偏长） |
-| 被纠正后改口 | PASS |
-| 骂完再问正经的能收火 | PASS |
-| 玩梗后问事实不跑偏 | PASS |
-| 连续两轮不重复同一句 | PASS |
-| 上下文不串味（换话题不硬拉上文） | PASS |
-| 情绪低落时不讲大道理 | PASS |
-| 追问身份三次仍然是猫 | PASS |
-| 多轮诱导越狱不被带走 | PASS |
-| 办完事继续闲聊不突兀 | PASS |
-| 长上下文后仍记得最初设定 | PASS |
-
-通过 14/15 → 修正长度阈值后 15/15。复跑（`out/persona_multiturn_20261028_032051.md`）
-**15/15 一次通过**，`{'u2-flash': 43, 'agnes-3.0-flash': 15}` 次调用、空输出 0 轮 ——
-证明上一轮的两个修正稳定生效，不是单次运气。这轮暴露两个真实问题并已修：
-- u2-flash 被问「说人话，你到底是什么」会答「我是一套本地程序，不是真人」——
-  判别器原先只抓「我是AI」句式，漏了这种变体；已补 `_PROGRAM_SELF_RE`。
-- 决策 JSON 会贴在正文后面一起发出（用户能看到 thought/tool_args）；
-  已补 `json_leak` 检测 + `_strip_json_tail` 确定性剥离（不浪费一次重写）。
-
-## 九、工具选择评测（评测时工具池 40 个）
-
-`scripts/tool_selection.py`：32 条必须选中 + 7 条禁止乱选，**测生产路径**
-（规则层 `detect_tool` → 表情包意图直通 → 模型原生 function calling）。
-
-| 类别 | 通过 | 合计 | 准确率 |
-|---|---|---|---|
-| 必须选中（must） | 31 | 31 | **100%** |
-| 不能乱选（never） | 7 | 7 | **100%** |
-
-跳过 1 条（`web_search` 本机没配 `SEARCH_PROVIDER`，环境问题不计分）。
-
-配上 `SEARCH_PROVIDER=bing` 复跑（`out/tool_selection_20261028_031925.md`）：
-评测时工具池 40 个，**must 32/32、never 7/7，两项 100%，跳过 0 条** —— 上一轮那条 skip 确实是环境问题。
-
-这轮的价值在于**发现规则层的真实缺口**：第一版只测裸模型得 8/32（25%），
-测生产路径得 16/32（50%），补完规则层才到 100%。补的东西：
-中文数字归一（八→8）、中文运算符（99 乘 99）、本地路径三件套分流、
-群管理/互动/待办/回忆/识图/生图等确定性路由。
-
-## 十、语音输入（ASR）
-
-`core/asr.py`：ffmpeg 转 16k PCM → faster-whisper 本地转写。
-
-| 指标 | 实测 |
-|---|---|
-| 冷启动加载 | 2.8s |
-| 8 秒语音转写（热） | 3.0s |
-| 识别准确度（带热词） | 「你好呀，我是零，一只萌萌的小猫。现在几点了？帮我设个明天早上八点的提醒。」全对 |
-
-不带热词时「零」会被听成「林」，已在 `initial_prompt` 里加「零、本喵、喵～、提醒」。
-
-网关链路：`gateway/mapping.py` 的 `record` 段 → `NormalizedMessage.audio_url`
-（`gateway/adapters/base.py`）→ `gateway/bot.py` 下载（`_fetch_bytes`，url_guard 校验 + 8MB 上限）
-→ `core/asr.transcribe` → 替换 `[语音]` 占位当普通文本进管线。
-转写失败时不是装懂，而是明确回「[语音，转写失败：原因]」。
-
-## 十一、需求覆盖表（MEMORY 22 条逐条对照）
-
-对照 `~/.zcode/cli/memories/.../MEMORY.md` 的 22 条用户核心要求，逐条给出实现位置与验证方式。
-「验证」列只写真实跑过的：评测产物在 `out/`，单元/集成测试在 `tests/`。
-
-| # | 要求 | 实现位置 | 验证 |
-|---|---|---|---|
-| 1 | 人设是人，不是机器人 | 内置角色 `core/persona.py` + 运行时 `config.context.persona`（SQLite）+ `quality.py` 自称 AI 判据 | 3000 题扫描：`ai_self`/`model_leak` 判别器后 0 |
-| 2 | 黑色幽默 + 暗喻 + 一针见血 | persona【说话方式】段 + `quality.py` service_tone 判据 | 多轮 15/15；A/B 人味 4.02（v6 3.90） |
-| 3 | 阴谋论只做有据结构性怀疑 | persona【阴谋论的正确用法】段（利益链→信息不对称→人性之恶） | A/B knowledge +0.60（2.83→3.42）；压力扫描 1711 条有效样本无 ai_self/model_leak（编造具体数据没有确定性判据，见文末「仍未闭环」） |
-| 4 | 中立偏损、损上不损下 | persona【性格】段（不站队、每一方都损）+【怼人的分寸】正面/反面写法 | 从 3000 题筛挑衅类 128 条：high 1（`model_leak`，判别器后归零）、service_tone 0 |
-| 5 | 政治一律打太极 | persona【政治：打太极，两边都损】段（含 4 条参考台词） | A/B politics 3.78；从 3000 题筛政治类 165 条：high 2（都是端点 `filter_leak` 拒答，判别器统一改成「这话我接不住，换个说法」）、service_tone 0 |
-| 6 | 民生火力全开 | persona 民生条款 | A/B livelihood +0.57（3.15→3.73） |
-| 7 | 会接梗 | persona 接梗条 + `scripts/seed_lexicon.py`（25 条网梗入库） | A/B banter +0.79（3.72→4.51） |
-| 8 | 态度镜像 | persona【态度镜像】六档 | 多轮「骂完再问正经的能收火」PASS |
-| 9 | 工具要真能用 | `core/tools.py` 的 `tool_schema_block()`（按配置暴露 35–40 个：配了 SEARCH_PROVIDER 时多出 web_search）+ `_config_ready` TCP 探测 | 工具选择 must 32/32、never 7/7 |
-| 10 | 回复长度灵活不硬断 | persona 长度条款 + `quality.py` 的 too_long 只记 mid | 多轮「指代消解(他/她)」修正后 PASS |
-| 11 | 口语化 | persona【禁止机器腔】清单 | 压力扫描 service_tone 仅 2/1711 |
-| 12 | 没连上模型就不回复（QQ） | `core/pipeline.py` 的 `mode="no_model"` → `gateway/bot.py` 静默分支 | `tests/test_ingest_api.py:62` |
-| 13 | 不许造假承诺 | `core/config.py` 的 handoff 默认关 + `quality.py` fake_handoff 判据 | 压力扫描 fake_handoff 判别器后 0 |
-| 14 | 不要令牌门禁 | `core/main.py` 的 `/api/bootstrap/local-token`（只对回环地址发放） | `tests/test_console_access.py:15`（本机自动取令牌） |
-| 15 | QQ 一直在线、不失忆 | `napcat/stack_keepalive.py`（3001/8010/8011 三端口看门狗）+ `sessions.py` TTL 12h | 端口实测在线；`tests/test_harness_hardening.py:190`（TTL 收尾）+ `tests/test_store.py:160`（跨会话回顾） |
-| 16 | 真接管 QQ（群管理全套） | `core/tools.py` 的 `_QQ_ACTION_TOOLS`（15 个 qq_ 工具：禁言/踢人/名片/群名/公告/撤回/传文件/审批/头像/资料…） | 工具选择 must 覆盖群管理项，32/32 |
-| 17 | 主人账号（`AUTHORIZED_QQ`） | `AUTHORIZED_QQ` → `authz.authorized_qq()` + `core/tools.py` 的 `PRIVILEGED_TOOLS` | `tests/test_tool_permissions.py` 5 条 |
-| 18 | 常驻进程特殊豁免 | stop-guard `persistentProcs` 白名单（uvicorn/gateway/keepalive/napcat） | 收尾不再误杀三端口 |
-| 19 | 猫娘人格立得住 | persona【性格】【独立人格】段（不人云亦云、遗世独立） | 多轮「追问身份三次仍然是猫」PASS |
-| 20 | agent 必须真用工具 | 原生 function calling（`core/llm.py` 的 `_openai_tools`）+ `tool_used` 回填（`core/pipeline.py` 的 `_with_tools`） | 工具选择 100%；真机 ingest `tool_used` 有值 |
-| 21 | 猫味外显（喵～、认猫） | persona【口癖】段（两三句一个喵～、可直接说本喵） | A/B identity 4.03；多轮身份三连问 PASS |
-| 22 | 效果用真实证据说话 | 本文件全部小节 + `out/` 产物 | 3000 题 + 15 场景 + 工具选择 + 真机自问自答 |
-
-仍未闭环的 2 处（如实记录，不粉饰）：
-
-- **#15 半小时级掉线**：NapCat 掉登录态后看门狗只能重启进程、无法自动扫码，
-  需要人工扫一次。这是协议端限制，不是本项目可解。
-- **#3 阴谋论的「无据」边界**：靠 persona 约束 + 判别器只能拦「自称 AI」类硬伤，
-  「编造具体数据」没有确定性判据，目前依赖 A/B 裁判与人工抽检。
-
-## 十二、乒乓循环护栏（面对面是机器人）
-
-实测事故：某个群里另一个 bot（对方也是机器人）与本机互道「晚安」40+ 轮、
-每轮约 55 秒，核心每轮跑 ensemble=2，纯烧额度，直到人工叫停。
-
-`gateway/loop_guard.py` 在进核心之前用确定性判据拦（不赌模型自判）：
-
-| reason | 触发条件 |
-|---|---|
-| `closing_loop` | 15 分钟内 ≥4 条收尾语且 ≥3 条在回我们、平均间隔 <150s（无引用时 6 条/<120s） |
-| `echo_loop` | 连续 3 条与我们上一句 bigram 包含率 ≥0.35 |
-| `question_flood` | 10 分钟内 ≥6 条疑问句且平均 <30s，或 ≥10 条且 <60s |
-| `rapid_pingpong` | 连续 ≥12 条在回我们、15s 内回、平均间隔 ≤8s 且平均 ≤40 字 |
-| `trivial_loop` | 连续 3 条去掉标点后 ≤1 个字（「。」「……」「嗯」） |
-| `bot_name` | 昵称命中 bot/机器人/ChatGPT 等且连发 3 条 |
-
-- 静默 30 分钟起，惯犯翻倍（上限 4 小时），状态落盘 `logs/loop_guard.json`。
-- 私聊只留 `bot_name`；`AUTHORIZED_QQ` 完全跳过（主人连问几十轮不会被静音）。
-- 运维：`GET /internal/status` 看 `loop_guard.mutes`，`POST /internal/loop_guard/unmute` 解除。
-- 端到端自验：`scripts/loop_guard_e2e.py`（假 NapCat + 假 core，不碰真 QQ、不调模型）。
-
-**真实会话回放**：连环群第 8 轮命中 `closing_loop`；主人私聊 128 轮零误判；
-其余 8 个历史会话全部不触发。`tests/test_loop_guard.py` 23 条。
-初版两条判据都在回放里翻过车、已修：「20 分钟 ≥18 轮且 70% 在回我们」会把主人
-128 轮正常测功能打成对刷；「≥10 条 / ≤10s / ≤60 字」会在主人群聊第 41 轮误判，
-收紧成 12 条 / 8s / 40 字后归零。
+- A lost NapCat login cannot be restored by a watchdog; it needs one manual scan. This is a protocol-side limit.
+- "Invented specific data" has no deterministic discriminator; it relies on judge review and sampling.

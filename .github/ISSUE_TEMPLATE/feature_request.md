@@ -1,19 +1,19 @@
 ---
 name: Feature request
-about: 提出一个功能建议
+about: Suggest a capability
 title: "[Feature] "
 labels: enhancement
 ---
 
-## 想解决什么问题
+## Problem
 
-<!-- 描述场景与痛点，不要只写「加个功能」 -->
+<!-- Describe the situation and the gap, not just "add a feature" -->
 
-## 期望的做法
+## Proposal
 
-## 替代方案
+## Alternatives
 
-## 是否愿意提交 PR
+## Would you submit a PR?
 
-- [ ] 愿意
-- [ ] 需要指导
+- [ ] Yes
+- [ ] I need guidance

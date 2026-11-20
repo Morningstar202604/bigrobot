@@ -1,33 +1,33 @@
-# 角色能力边界（Persona Capabilities）
+# Persona capabilities
 
-> 每个预设角色可以有自己的工具、技能、MCP、扩展范围。默认继承全部；只有显式设置白名单才收缩。
+English · [中文](zh/persona-capabilities.md)
 
-## 为什么需要
+A preset persona can have its own tools, skills, MCP servers and extensions. The default is full inheritance; only an explicit allowlist narrows access.
 
-同一个 Agent 平台里，不同角色不该拥有同样的执行面：
+## Why
 
-- 「问」是教学角色，不需要读本机文件、也不需要以机器人身份发消息；
-- 「砚」做资料核查，应该只拿检索与文档工具；
-- 「零」在群里接梗，可以拿 QQ 发送、表情包，但不该碰运维脚本。
+Different personas should not share the same execution surface:
 
-能力边界解决的是「角色人设」之外的**权限可见性**：模型看不到未授权工具，
-即使通过提示注入直接点名，执行层也会拒绝。
+- A teaching persona does not need local file access or the ability to send messages as the bot.
+- A research persona should get retrieval and document tools, not shell access.
+- A chat persona can send QQ messages and stickers, but should not touch operations scripts.
 
-## 默认与边界
+Capabilities control **visibility** on top of the persona prompt. The model does not see an unauthorised tool; if a prompt injection names it directly, the execution layer still refuses.
 
-- 没有配置的角色 → 继承全局能力，行为与升级前完全一致。
-- 白名单只能选择**全局已启用**的子集，不能绕过：
-  - 工具注册表里的开关；
-  - 扩展/MCP 服务器自身的启停；
-  - `PRIVILEGED_TOOLS` 与主体权限闸门；
-  - 执行器的文件根目录策略。
-- `mode=allow` 且 `ids=[]` 表示**这个角色什么都不允许**（显式收缩，不是继承）。
-- 知识库集合绑定是独立的一套（`kb.json` 的 `collections[].persona_ids`），
-  与这里的能力边界互不替代。
+## Defaults and boundaries
 
-## 配置结构
+- No configuration → inherit global capabilities, exactly as before.
+- An allowlist can only select a subset of what is already enabled globally. It cannot bypass:
+  - tool registry switches;
+  - extension or MCP server enablement;
+  - `PRIVILEGED_TOOLS` and subject permission gates;
+  - the executor's filesystem root policy.
+- `mode=allow` with `ids=[]` means **nothing is allowed** for that persona; it is an explicit empty set, not inheritance.
+- Knowledge-base collection binding is separate (`collections[].persona_ids` in `kb.json`) and does not replace capabilities.
 
-`config.persona_caps.items`：
+## Shape
+
+`config.persona_caps.items`:
 
 ```json
 {
@@ -40,20 +40,18 @@
 }
 ```
 
-四类：
-
-| 字段 | 控制什么 | 不控制什么 |
+| Field | Controls | Does not control |
 |---|---|---|
-| `tools` | 模型可调用的工具清单 | 工具本身的全局开关、执行器权限 |
-| `skills` | 注入提示词的技能说明书 | 工具实现是否存在 |
-| `mcp` | 角色可见的 MCP 服务器 | 服务器进程是否启用 |
-| `extensions` | 角色可见的声明式扩展 | 扩展包是否安装/启用 |
+| `tools` | Tools the model can call | Global tool switches, executor permissions |
+| `skills` | Skill instructions injected into the prompt | Whether the implementation exists |
+| `mcp` | MCP servers visible to the persona | Whether the server is enabled |
+| `extensions` | Declarative extensions visible to the persona | Whether the pack is installed or enabled |
 
-旧写法兼容：某类直接写成数组时，按 `allow` 处理。
+A legacy array form is accepted and treated as `mode=allow`.
 
 ## API
 
-需要 `X-Admin-Token`。
+Requires `X-Admin-Token`.
 
 ```http
 GET    /api/persona-caps
@@ -61,7 +59,7 @@ PUT    /api/persona-caps
 DELETE /api/persona-caps/{persona_id}
 ```
 
-`PUT` 提交整张能力表：
+`PUT` replaces the whole table:
 
 ```json
 {
@@ -76,31 +74,27 @@ DELETE /api/persona-caps/{persona_id}
 }
 ```
 
-服务端会校验角色 id 与白名单项是否存在；未知项直接 400，避免保存一张永远不生效的配置。
+The server validates persona ids and allowlist entries; an unknown id is a 400, so an ineffective configuration is not saved.
 
-## 在管线里怎么生效
+## Pipeline behaviour
 
-1. `build_context` 先反查当前预设角色 `persona_id`。
-2. `tools.active_tools(cfg, persona_id)` 与 `tool_schema_block(cfg, persona_id)`
-   同时过滤内置工具和动态工具（扩展按 `extension`，MCP 按 `server`）。
-3. `skills.render(cfg, allowed_ids)` 过滤内置/自定义技能；
-   `extensions.render_skills(...)` 过滤扩展技能。
-4. 模型真正调用时，`invoke` / `invoke_with` 先过 `_persona_denied`，
-   再走原有的主体权限闸门——两层都过才执行。
-5. `future_task` 执行时会恢复任务创建时的 `persona_id`，因此同一任务隔天执行
-   不会突然换成另一个角色的能力范围。
+1. `build_context` resolves the current preset `persona_id`.
+2. `tools.active_tools(cfg, persona_id)` and `tool_schema_block(cfg, persona_id)` filter built-in and dynamic tools; extensions filter by `extension`, MCP by `server`.
+3. `skills.render(cfg, allowed_ids)` filters built-in and custom skills; `extensions.render_skills(...)` filters extension skills.
+4. At call time, `invoke` / `invoke_with` check `_persona_denied` first, then the existing subject gate. Both must pass.
+5. A future task restores the `persona_id` captured when it was created, so a task run tomorrow does not silently switch capability scope.
 
-## 控制台
+## Console
 
-「能力 → 角色能力」页：
+**Capabilities → Persona capabilities**:
 
-- 选择角色；
-- 四组能力分别选「继承全部」或「只允许选中」；
-- 保存后即时生效；
-- 「恢复继承全部」删除该角色的单独配置。
+- pick a persona;
+- set each of the four groups to inherit all or allow selected items;
+- save applies immediately;
+- "restore inheritance" removes the persona's override.
 
-## 已知限制
+## Limits
 
-- 只支持有稳定 `persona_id` 的预设角色；自定义角色卡没有预设 id 时仍走全局能力。
-- 白名单是静态配置，不做按群/按时间的动态授权；那属于策略与审批层。
-- 角色能力不替代审批：写操作仍受 `PRIVILEGED_TOOLS`、L2 审批与审计约束。
+- Only presets with a stable `persona_id` are covered. Custom cards without a preset id still use global capabilities.
+- The allowlist is static configuration, not per-group or time-based authorisation. That belongs in policy and approvals.
+- Capabilities do not replace approvals: write actions still pass `PRIVILEGED_TOOLS`, destructive-action approval and audit.

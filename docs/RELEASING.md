@@ -1,5 +1,7 @@
 # Release Process
 
+English · [中文](zh/RELEASING.md)
+
 Operational runbook for cutting a BigRobot release. Written so a maintainer who has not
 touched the project in three months can follow it end to end without guessing.
 
@@ -60,7 +62,7 @@ python scripts/check_version.py
 ```
 
 - [ ] Working tree clean, no stashes.
-- [ ] `CHANGELOG.md` has an entry under `## [Unreleased]` describing everything since the
+- [ ] `CHANGELOG.md` has an entry in its unreleased section describing everything since the
       last tag. Rewrite it for readers, not for the commit log.
 - [ ] `ROADMAP.md` reflects what actually shipped (move items out of *Now*).
 - [ ] Version bumped per the table in section 1.
@@ -69,8 +71,8 @@ python scripts/check_version.py
 ### 3.2 Backend gates
 
 ```bash
-.venv/Scripts/python.exe -m ruff check core executor gateway scripts tests
-.venv/Scripts/python.exe -m pytest tests -q -W error::pytest.PytestUnhandledThreadExceptionWarning
+python -m ruff check core executor gateway scripts tests
+python -m pytest tests -q -W error::pytest.PytestUnhandledThreadExceptionWarning
 ```
 
 - [ ] Ruff: no findings.
@@ -95,7 +97,7 @@ npm run build
 ### 3.4 Runtime smoke
 
 ```bash
-BIGROBOT_STATIC_DIR=frontend/dist .venv/Scripts/python.exe -m uvicorn core.main:app --port 8010
+BIGROBOT_STATIC_DIR=frontend/dist python -m uvicorn core.main:app --port 8010
 ```
 
 - [ ] `GET /healthz` returns `{"ok": true, "version": "<expected>"}`.
@@ -128,8 +130,8 @@ git push origin vX.Y.Z
 
 ### 3.7 Post-release
 
-- [ ] Move `## [Unreleased]` content under the released heading and open a new empty
-      `## [Unreleased]`.
+- [ ] Move the unreleased content under the released heading and open a new empty
+      unreleased section.
 - [ ] Verify `GET /healthz` on a deployed instance reports the new version.
 - [ ] If the release changed configuration keys, update `.env.example` and `docs/DEPLOY.md`.
 
@@ -142,9 +144,9 @@ independent forks.
 
 | Platform | Remote name | Notes |
 |---|---|---|
-| GitCode | `origin` | Primary; CI hooks run server-side |
-| Gitee | `gitee` | Mirror |
-| GitHub | `github` | Added on request; GitHub Actions is the only CI that runs workflows |
+| GitCode | `origin` | Mirror; no duplicate CI on the platform |
+| Gitee | `gitee` | Mirror; no duplicate CI on the platform |
+| GitHub | `github-*` | Primary CI; GitHub Actions is the only workflow runner |
 
 Mirror rules:
 

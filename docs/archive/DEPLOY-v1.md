@@ -137,7 +137,7 @@ GATEWAY_LOOP_STATE=logs/loop_guard.json
 
 运维查看/解除：`GET /internal/status` 的 `loop_guard.mutes`；
 `POST /internal/loop_guard/unmute`（body `{"chat":"qq_group:xxx","peer":"yyy"}`，需 `X-Channel-Token`）。
-细节见 [docs/QQ-LOGIN.md](docs/QQ-LOGIN.md) §5.1。
+细节见 [QQ-LOGIN-v1.md](QQ-LOGIN-v1.md) §5.1。
 
 ## 1. 准备清单
 
