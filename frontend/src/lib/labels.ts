@@ -27,7 +27,7 @@ export const ESCALATE_REASON: Record<string, string> = {
 export const SESSION_STATUS: Record<string, string> = {
   ongoing: '进行中',
   pending_agent: '待接管',
-  agent_handled: '管理员接管中',
+  agent_handled: '已接管',
   closed: '已关闭',
 };
 

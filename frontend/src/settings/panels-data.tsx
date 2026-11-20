@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { BarChart3, Brain, Activity, KeyRound, ChevronLeft, ChevronRight, ShieldAlert, MessageSquare, FileText, Users, Inbox, BookOpen } from 'lucide-react'
 import { useAdminOverview, useAdminReport, useAdminStats, useAdminSchema, useAdminPurge, useAdminMemory, useAdminInjection } from '../lib/queries'
 import { usePagination } from '../lib/pagination'
-import { StatCard, EmptyState } from '../ui'
+import { EmptyState } from '../ui'
+import OverviewStats from '../components/OverviewStats'
 import { Spinner, ErrorBanner } from '../components/Spinner'
 import type { MemoryEntry, InjectionLogEntry } from '../types/api'
 import { t as tr } from '../lib/t'
@@ -36,15 +37,7 @@ export function DataPanel() {
 
   return (
     <>
-      <div className="stat-grid">
-        <StatCard icon={<Inbox size={18} />} value={ov.sessions} label={tr('会话')} tone="brand" />
-        <StatCard icon={<MessageSquare size={18} />} value={ov.messages} label={tr('消息')} tone="ok" />
-        <StatCard icon={<FileText size={18} />} value={ov.tickets} label={tr('工单')} tone="warn" />
-        <StatCard icon={<Users size={18} />} value={ov.pending} label={tr('待接管')} tone="danger" />
-        <StatCard icon={<BookOpen size={18} />} value={ov.kb_count} label={tr('知识库')} tone="brand" />
-        <StatCard icon={<ShieldAlert size={18} />} value={ov.injection} label={tr('注入拦截')} tone="danger" />
-        <StatCard icon={<Activity size={18} />} value={ov.feedback.total} label={`反馈 · 好评率 ${(ov.feedback.help_rate * 100).toFixed(1)}%`} tone="ok" />
-      </div>
+      <OverviewStats ov={ov} t={tr} />
 
       {/* 诊断区：DB 版本 / 表容量 / 数据清理（/api/admin/schema + /api/admin/purge） */}
       <div className="grp" style={{ marginTop: 14 }}>

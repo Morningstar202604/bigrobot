@@ -13,7 +13,8 @@ import { isAuthError } from './lib/queries'
 import TokenGate from './components/TokenGate'
 import type { ChannelStatus } from './types/api'
 import { useAppStore } from './store/appStore'
-import { StatCard, EmptyState, PageHead } from './ui'
+import { EmptyState, PageHead } from './ui'
+import OverviewStats from './components/OverviewStats'
 import { CHANNEL_LABEL, ESCALATE_REASON, TOOL_LABEL, label } from './lib/labels'
 import { Spinner, ErrorBanner } from './components/Spinner'
 import './pages2.css'
@@ -254,15 +255,7 @@ export default function Dashboard() {
       ) : !ov ? (
         <EmptyState icon={<Inbox size={22} />} title={t('暂无数据')} desc={t('还没有会话记录，接入渠道后这里会出现统计。')} />
       ) : (
-        <div className="stat-grid">
-          <StatCard icon={<Inbox size={18} />} value={ov.sessions} label={t('总会话')} tone="brand" />
-          <StatCard icon={<MessageSquare size={18} />} value={ov.messages} label={t('消息量')} tone="ok" />
-          <StatCard icon={<FileText size={18} />} value={ov.tickets} label={t('工单')} tone="warn" />
-          <StatCard icon={<Users size={18} />} value={ov.pending} label={t('待接管')} tone="danger" />
-          <StatCard icon={<BookOpen size={18} />} value={ov.kb_count} label={t('知识库')} tone="brand" />
-          <StatCard icon={<ShieldAlert size={18} />} value={ov.injection} label={t('注入拦截')} tone="danger" />
-          <StatCard icon={<CheckCircle2 size={18} />} value={`${(ov.feedback.help_rate * 100).toFixed(0)}%`} label={t('好评率')} tone="ok" />
-        </div>
+        <OverviewStats ov={ov} t={t} />
       )}
 
       {stats.error && !isAuthError(stats.error) && <ErrorBanner message={(stats.error as Error).message} onRetry={() => stats.refetch()} />}

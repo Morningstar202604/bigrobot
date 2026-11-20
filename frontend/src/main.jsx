@@ -16,23 +16,13 @@ import { bootstrapAdminToken } from './lib/queries'
 
 // 路由级代码分割（React.lazy + Suspense）
 const VisitorChat = lazy(() => import('./VisitorChat'))
-const OperatorDesk = lazy(() => import('./OperatorDesk'))
 const Settings = lazy(() => import('./Settings'))
 const Instances = lazy(() => import('./pages/Instances'))
 const Sessions = lazy(() => import('./pages/Sessions'))
 const Capabilities = lazy(() => import('./pages/Capabilities'))
 const Policy = lazy(() => import('./pages/Policy'))
 const Observe = lazy(() => import('./pages/Observe'))
-const Dashboard = lazy(() => import('./Dashboard'))
-const LogsCenter = lazy(() => import('./LogsCenter'))
-const SessionsCenter = lazy(() => import('./SessionsCenter'))
-const ActionsCenter = lazy(() => import('./ActionsCenter'))
-const AgentRuns = lazy(() => import('./AgentRuns'))
-const BotPersona = lazy(() => import('./BotPersona'))
-const AnnotationCenter = lazy(() => import('./AnnotationCenter'))
 const Reminders = lazy(() => import('./Reminders'))
-const EmoteCenter = lazy(() => import('./EmoteCenter'))
-const QQScanPage = lazy(() => import('./QQScanPage'))
 
 function NotFound() {
   return (

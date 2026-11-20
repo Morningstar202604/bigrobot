@@ -13,12 +13,10 @@ import './pages.css'
 import './pages2.css'
 import { t } from './lib/t'
 
+// 状态标签只有一份来源：lib/labels 的 SESSION_STATUS。这里只补一个「全部」。
 const FILTERS = [
   { key: '', label: t('全部') },
-  { key: 'ongoing', label: t('进行中') },
-  { key: 'pending_agent', label: t('待接管') },
-  { key: 'agent_handled', label: t('已接管') },
-  { key: 'closed', label: t('已关闭') },
+  ...Object.entries(SESSION_STATUS).map(([key, label]) => ({ key, label })),
 ]
 
 const STATUS_LABELS = SESSION_STATUS
