@@ -392,11 +392,13 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
         mode="rule_react",
     )
     # 让回复保留人设腔调：把工具结果交给模型润色（失败就用原文）
-    # 本地小模型不做二次润色：实测它会把「现在是 22:09」改写成「2026-11-20 22:09」，
+    # 本地模型不做二次润色：实测它会把「现在是 22:09」改写成「2026-11-20 22:09」，
     # 把 22:19 的提醒说成 22:20，还会在润色时再喊一次工具（提醒被建两遍）。
-    # 确定性动作的正确结果比口吻重要，直接返回工具 note。
+    # 确定性动作的正确结果比口吻重要，直接返回工具 note。local_compact=false
+    # 只是放开工具清单，不代表模型变强，仍按本地端点处理。
+    local_runtime = bool((cfg.get("llm") or {}).get("local_model_id")) or local_models.small_model_mode(cfg)
     if (cfg.get("llm", {}).get("has_key") and not missed and not benign
-            and not local_models.small_model_mode(cfg)):
+            and not local_runtime):
         try:
             styled = dict(ctx)
             styled["read_block"] = (
