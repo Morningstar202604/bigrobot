@@ -1090,6 +1090,10 @@ _SYNC_IMPLS: dict[str, Callable[..., dict]] = {
     "now": tool_now,
     "calc": tool_calc,
 }
+# 合并入口会占用 now / recall_memory 这两个名字；旧实现先留一份别名，
+# 否则 wrapper 的 op 指回自己，会无限递归。
+_SYNC_IMPLS["now_clock"] = tool_now
+_SYNC_IMPLS["recall_memory_legacy"] = tool_recall_memory
 # 通用工具（core/tools_general.py）：与业务无关，任何账号都能用。
 # 用 update 而不是在字面量里展开，是因为 tools_general 反过来要从本模块导入
 # ok_result/miss_result —— 模块级互相导入会循环（已实际触发过）。
@@ -1699,6 +1703,10 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
             text = text.strip(" ，,。.；;：:")
             text = re.sub(r"^(?:请|麻烦)?(?:帮我|给我)?(?:设个?|定个?|加个?)?", "", text)
             text = text.strip(" ，,。.；;：:")
+            # 「明天九点的提醒，提醒我喝水」剥掉时间后剩「的提醒…」，
+            # 再剥掉「提醒」就会留下孤零零的「的」。这不是正文，去掉。
+            text = re.sub(r"^(?:的|地)\s*[，,。；;：:]?\s*", "", text)
+            text = text.strip(" ，,。.；;：:")
             if text:
                 return "remind", {"text": text, "when": when}
     if ("待办" in q or "提醒" in q) and ("列" in q or "有什" in q or "查看" in q) and _has("list_reminders"):
@@ -1980,7 +1988,7 @@ _MERGED_TOOLS: dict[str, dict] = {
         "desc": "读取长期记忆（op=key）或当前对话上下文（op=current）",
         "args": {"op": "string", "key": "string"},
         "default_op": "key",
-        "ops": {"key": ("recall_memory", {}), "current": ("current_context", {})},
+        "ops": {"key": ("recall_memory_legacy", {}), "current": ("current_context", {})},
     },
     "reminders": {
         "desc": ("管理提醒与未来任务：列出提醒（op=list）、取消提醒（op=cancel）；"
@@ -2009,7 +2017,7 @@ _MERGED_TOOLS: dict[str, dict] = {
         "desc": "当前日期时间（op=now），或时间戳与日期互转（op=convert）",
         "args": {"op": "string", "value": "string", "action": "string"},
         "default_op": "now",
-        "ops": {"now": ("now", {}), "convert": ("timestamp", {})},
+        "ops": {"now": ("now_clock", {}), "convert": ("timestamp", {})},
     },
     "encode": {
         "desc": "字符串变换：Base64 编解码（op=base64）或摘要计算（op=hash）",

@@ -117,8 +117,16 @@ def test_post_chat_falls_back_when_endpoint_rejects_tools(monkeypatch):
     assert len(calls) == 2 and "tools" not in calls[-1]
 
 
-def test_decision_from_streamed_tool_calls():
-    calls = {0: {"id": "c1", "name": "web_search", "arguments": '{"query": "x"}'}}
-    d = llm._decision_from_calls(calls, prose="")
-    assert d["tool"] == "web_search"
-    assert d["tool_args"] == {"query": "x"}
+def test_qwen_xml_tool_call_parsed():
+    """llama.cpp 不把 Qwen3.5 的 XML tool_call 转成 message.tool_calls。"""
+    close = "</" + "parameter>"
+    raw = (
+        "<tool_call>\n<function=remind>\n"
+        "<parameter=text>\n喝水\n" + close + "\n"
+        "<parameter=when>\n明天早上九点\n" + close + "\n"
+        "\n</tool_call>"
+    )
+    d = llm._from_text_tool_calls(raw)
+    assert d is not None
+    assert d["tool"] == "remind"
+    assert d["tool_args"] == {"text": "喝水", "when": "明天早上九点"}

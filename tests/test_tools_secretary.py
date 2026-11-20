@@ -360,6 +360,23 @@ def test_detect_tool_keeps_full_time_expression():
     assert args["text"] == "交周报"
 
 
+def test_detect_tool_strips_possessive_before_reminder_noun():
+    """「九点的提醒，提醒我喝水」不能把孤零零的「的」留成提醒正文。"""
+    name, args = tools.detect_tool("帮我设个明天早上九点的提醒，提醒我喝水。")
+    assert name == "remind"
+    assert args["when"] == "明天早上九点"
+    assert args["text"] == "喝水"
+
+
+def test_merged_now_tool_does_not_recurse():
+    """合并后的 now 入口不能把 op=now 指回自己，否则栈溢出。"""
+    ctx = ToolContext(visitor_id="v-now")
+    res = asyncio.run(tools.invoke("now", {}, ctx))
+    assert res["found"] is True
+    assert "现在是" in res["note"]
+
+
+
 def test_detect_tool_routes_group_history():
     name, args = tools.detect_tool("群里最近在聊什么")
     assert name == "qq_lookup" and args["op"] == "history"

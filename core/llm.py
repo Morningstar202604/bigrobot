@@ -246,6 +246,60 @@ def _from_native_tool_calls(message: dict) -> dict | None:
     }
 
 
+_XML_TOOL_CALL_RE = re.compile(
+    r"<tool_call>\s*<function=([^\s>]+)>(.*?)\s*</tool_call>", re.S)
+_XML_PARAM_RE = re.compile(
+    r"<parameter=([^\s>]+)>\s*(.*?)\s*</" + "parameter>", re.S)
+
+
+def _xml_value(raw: str):
+    """Qwen XML 参数值尽量还原 JSON 标量/对象，失败时按字符串保留。"""
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    try:
+        return json.loads(text)
+    except (TypeError, ValueError):
+        return text
+
+
+def _from_text_tool_calls(content: str) -> dict | None:
+    """Qwen3.5 的 XML tool_call 文本 → 内部决策结构。
+
+    llama.cpp 的 OpenAI 兼容层会把 Qwen3.5 的 <tool_call> 原样放在 content，
+    不会转成 message.tool_calls；不在这里接住，模型明明选了工具也会被当成散文。
+    """
+    if not content or "<tool_call" not in content:
+        return None
+    calls = []
+    for match in _XML_TOOL_CALL_RE.finditer(content):
+        name = (match.group(1) or "").strip()
+        body = match.group(2) or ""
+        if not name:
+            continue
+        args = {}
+        for pm in _XML_PARAM_RE.finditer(body):
+            key = (pm.group(1) or "").strip()
+            if key:
+                args[key] = _xml_value(pm.group(2))
+        calls.append({"name": name, "arguments": args})
+    if not calls:
+        return None
+    if len(calls) > 1:
+        lg.info("qwen xml returned %s tool calls, executing first: %s",
+                len(calls), calls[0]["name"])
+    return {
+        "thought": "",
+        "tool": calls[0]["name"],
+        "tool_args": calls[0]["arguments"],
+        "answer": "",
+        "citations": [],
+        "confidence": 0.6,
+        "escalate": False,
+        "escalate_reason": "",
+    }
+
+
 def _data_url(b64: str) -> str:
     """裸 base64 → data URL：按魔数识别常见图片 MIME（OpenAI 多模态内容格式的通用做法）。"""
     head = (b64 or "")[:16].lstrip()
@@ -458,6 +512,9 @@ async def _post_chat(base: str, api_key: str, payload: dict) -> str | None:
     if native is not None:
         return json.dumps(native, ensure_ascii=False)
     content = (message.get("content") or "").strip()
+    text_call = _from_text_tool_calls(content)
+    if text_call is not None:
+        return json.dumps(text_call, ensure_ascii=False)
     truncated = choice.get("finish_reason") == "length"
     if truncated and content:
         # 内容非空但被截断：这是最坑的一种情况——用户收到的是一句半截话
@@ -768,12 +825,29 @@ async def react_stream(query: str, ctx: dict, cfg: dict, image_b64: str = ""):
     finish_reason = ""
     calls: dict[int, dict] = {}
     used_fallback = False
+    xml_gate = ""
+    xml_tool = False
+    stream_started = False
     try:
         async for kind, data in _run(payload):
             if kind == "delta":
                 buf += data
                 if native:
-                    yield {"type": "delta", "text": data}
+                    # Qwen3.5 通过 llama.cpp 返回的是 XML 工具调用文本，不是
+                    # message.tool_calls。先压住开头几十个字符，确认不是
+                    # <tool_call> 再放行，避免用户看到原始 XML。
+                    if xml_tool:
+                        continue
+                    if stream_started:
+                        yield {"type": "delta", "text": data}
+                        continue
+                    xml_gate += data
+                    if "<tool_call" in xml_gate or xml_gate.lstrip().startswith("<function="):
+                        xml_tool = True
+                    elif len(xml_gate) >= 24 or "\n" in xml_gate:
+                        stream_started = True
+                        yield {"type": "delta", "text": xml_gate}
+                        xml_gate = ""
                 else:
                     for t in scanner.feed(data):
                         if t:
@@ -807,6 +881,13 @@ async def react_stream(query: str, ctx: dict, cfg: dict, image_b64: str = ""):
     if calls:
         yield {"type": "final", "data": _decision_from_calls(calls, buf)}
         return
+    text_call = _from_text_tool_calls(buf)
+    if text_call is not None:
+        yield {"type": "final", "data": text_call}
+        return
+    if xml_gate and not stream_started and not xml_tool:
+        yield {"type": "delta", "text": xml_gate}
+        stream_started = True
     if not used_fallback:
         # 原生模式：模型直接给了正文，没有 JSON 包装
         answer = (buf or "").strip()
