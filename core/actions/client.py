@@ -45,9 +45,11 @@ def status_url() -> str:
     return f"{_base_url()}/internal/status"
 
 
-async def call_action(action: str, params: dict, timeout_s: float = 10.0) -> dict:
+async def call_action(action: str, params: dict, timeout_s: float = 10.0,
+                      account_id: str = "") -> dict:
     """向网关发起一次动作调用，返回 {"data": ...}。
 
+    account_id 指定用哪个机器人账号执行；为空时网关用第一个在线 bot（兼容旧行为）。
     失败一律抛 GatewayError 子类，由上层转成结构化错误。
     """
     timeout = timeout_s or float(os.environ.get("GATEWAY_ACTION_TIMEOUT_S", "10"))
@@ -55,7 +57,7 @@ async def call_action(action: str, params: dict, timeout_s: float = 10.0) -> dic
         client = get_client(timeout=timeout)
         resp = await client.post(
             action_url(),
-            json={"action": action, "params": params or {}},
+            json={"action": action, "params": params or {}, "account_id": account_id or ""},
             headers=_headers(),
         )
     except httpx.TimeoutException as e:

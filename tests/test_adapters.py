@@ -351,3 +351,28 @@ def test_mock_adapter_verify_checks_token(monkeypatch):
     assert a.verify({"x-mock-token": "s3cret"}) is True
     assert a.verify({"x-mock-token": "s3cret2"}) is False
     assert a.verify({"X-Mock-Token": "s3cret"}) is False
+
+
+def test_send_routes_to_the_account_that_received_the_message():
+    """同群两个机器人：消息从 A 号进来，回复必须用 A 号发，不能串到 B。"""
+    import asyncio
+
+    class FakeBot:
+        def __init__(self, self_id):
+            self.self_id = self_id
+            self.calls = []
+
+        async def call_api(self, action, **params):
+            self.calls.append((action, params))
+            return {"message_id": f"{self.self_id}-1"}
+
+    a, b = FakeBot("10001"), FakeBot("10002")
+    adapter = OneBot11Adapter()
+    adapter.bind(a)
+    adapter.bind(b)
+    msg = NormalizedMessage(channel="qq_group", chat_id="1", sender_id="2",
+                            text="x", account_id="10001")
+    result = asyncio.run(adapter.send(msg, "回 A"))
+    assert result.ok
+    assert a.calls and not b.calls
+    assert a.calls[0][1]["group_id"] == 1

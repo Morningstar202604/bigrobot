@@ -36,6 +36,9 @@ class ToolContext:
     principal: str = ""
     # 当前预设角色 id；知识库检索工具据此只查公共库+该角色绑定的库。
     persona_id: str = ""
+    # 触发这条消息的机器人账号（qq:10001）。动作/提醒必须打回同一个号，
+    # 否则同群双号监听时，A 号看到的消息会用 B 号的身份发出去。
+    account_id: str = ""
 
     @property
     def chat_key(self) -> str:

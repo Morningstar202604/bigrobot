@@ -31,11 +31,27 @@ class OneBot11Adapter:
 
     def __init__(self, bot=None, max_chars: int = 4500):
         self._bot = bot
+        self._bots: dict[str, object] = {}
         self._max_chars = max_chars
 
     def bind(self, bot) -> None:
-        """绑定/更换底层 bot（网关启动或重连后调用）。"""
+        """绑定/更换底层 bot（网关启动或重连后调用）。
+
+        多账号时按 self_id 记一份，发送回复按消息来源账号取 bot；
+        只留一个 _bot 会让 A 号收到的消息被 B 号发出去。
+        """
         self._bot = bot
+        if bot is not None:
+            self._bots[str(getattr(bot, "self_id", "") or "")] = bot
+
+    def _bot_for(self, msg: NormalizedMessage):
+        account = str(getattr(msg, "account_id", "") or "")
+        if account:
+            uid = account.split(":")[-1]
+            # 指定账号找不到时宁可报错，也不回落到「最后绑定的 bot」——
+            # 那正是 A 号消息被 B 号发出去的事故来源。
+            return self._bots.get(uid) or self._bots.get(account)
+        return self._bot
 
     # ---------- 能力 ----------
 
@@ -62,6 +78,7 @@ class OneBot11Adapter:
             audio_url=getattr(ev, "record_url", "") or "",
             display_name=ev.display_name,
             message_id=ev.message_id,
+            account_id=str(raw.get("self_id") or ""),
             raw=raw,
         )
 
@@ -80,7 +97,8 @@ class OneBot11Adapter:
 
     async def send(self, msg: NormalizedMessage, content: str,
                    quote: str | None = None) -> SendResult:
-        if self._bot is None:
+        bot = self._bot_for(msg)
+        if bot is None:
             return SendResult(ok=False, error="协议端未连接")
         api, params = self._resolve_api(msg)
         last_id = None
@@ -92,7 +110,7 @@ class OneBot11Adapter:
             for seg in segments:
                 if not seg:
                     continue
-                data = await self._bot.call_api(api, message=seg, **params)
+                data = await bot.call_api(api, message=seg, **params)
                 if isinstance(data, dict) and data.get("message_id") is not None:
                     last_id = str(data["message_id"])
         except Exception as e:  # 发送失败要能上报，不能吞
@@ -100,7 +118,8 @@ class OneBot11Adapter:
         return SendResult(ok=True, message_id=last_id)
 
     async def send_image(self, msg: NormalizedMessage, image_b64: str) -> SendResult:
-        if self._bot is None:
+        bot = self._bot_for(msg)
+        if bot is None:
             return SendResult(ok=False, error="协议端未连接")
         api, params = self._resolve_api(msg)
         try:

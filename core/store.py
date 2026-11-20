@@ -113,9 +113,11 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             created_at TEXT
         );
         CREATE TABLE IF NOT EXISTS channel_sessions (
-            channel TEXT PRIMARY KEY,
+            channel TEXT NOT NULL,
+            account_id TEXT NOT NULL DEFAULT '',
             session_id TEXT,
-            updated_at TEXT
+            updated_at TEXT,
+            PRIMARY KEY (channel, account_id)
         );
         CREATE TABLE IF NOT EXISTS accounts (
             id TEXT PRIMARY KEY,
@@ -164,6 +166,7 @@ def _ensure_reminder_schema(conn: sqlite3.Connection) -> None:
             visitor_id TEXT NOT NULL,
             chat_key TEXT NOT NULL,
             channel_type TEXT NOT NULL DEFAULT 'webchat',
+            account_id TEXT,
             group_id TEXT,
             channel_user_id TEXT,
             text TEXT NOT NULL,
@@ -182,6 +185,8 @@ def _ensure_reminder_schema(conn: sqlite3.Connection) -> None:
     rcols = {r["name"] for r in conn.execute("PRAGMA table_info(reminders)").fetchall()}
     if "repeat_rule" not in rcols:
         conn.execute("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT DEFAULT ''")
+    if "account_id" not in rcols:
+        conn.execute("ALTER TABLE reminders ADD COLUMN account_id TEXT")
 
 
 def _ensure_future_task_schema(conn: sqlite3.Connection) -> None:
@@ -193,6 +198,7 @@ def _ensure_future_task_schema(conn: sqlite3.Connection) -> None:
             visitor_id TEXT NOT NULL,
             chat_key TEXT NOT NULL,
             channel_type TEXT NOT NULL DEFAULT 'webchat',
+            account_id TEXT,
             group_id TEXT,
             channel_user_id TEXT,
             session_id TEXT DEFAULT '',
@@ -211,6 +217,9 @@ def _ensure_future_task_schema(conn: sqlite3.Connection) -> None:
         """
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_future_tasks_due ON future_tasks(status, due_at)")
+    fcols = {r["name"] for r in conn.execute("PRAGMA table_info(future_tasks)").fetchall()}
+    if "account_id" not in fcols:
+        conn.execute("ALTER TABLE future_tasks ADD COLUMN account_id TEXT")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_future_tasks_visitor ON future_tasks(visitor_id, status)")
 
 
@@ -709,65 +718,80 @@ def pending_queues() -> dict:
     }
 
 
-def get_channel_session(channel: str) -> dict | None:
+def get_channel_session(channel: str, account_id: str = "") -> dict | None:
+    acct = account_id or ""
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT channel, session_id, updated_at FROM channel_sessions WHERE channel = ?",
-            (channel,),
+            "SELECT channel, account_id, session_id, updated_at FROM channel_sessions "
+            "WHERE channel = ? AND account_id = ?",
+            (channel, acct),
         ).fetchone()
     return dict(row) if row else None
 
 
-def set_channel_session(channel: str, session_id: str) -> None:
+def set_channel_session(channel: str, session_id: str, account_id: str = "") -> None:
+    acct = account_id or ""
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO channel_sessions (channel, session_id, updated_at) VALUES (?, ?, ?) "
-            "ON CONFLICT(channel) DO UPDATE SET session_id = excluded.session_id, updated_at = excluded.updated_at",
-            (channel, session_id, _now()),
+            "INSERT INTO channel_sessions (channel, account_id, session_id, updated_at) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(channel, account_id) DO UPDATE SET session_id = excluded.session_id, updated_at = excluded.updated_at",
+            (channel, acct, session_id, _now()),
         )
 
 
-def claim_channel_session(channel: str, session_id: str) -> bool:
-    """原子认领渠道映射：INSERT OR IGNORE，channel 主键冲突即认领失败。并发安全的会话创建原语。"""
+def claim_channel_session(channel: str, session_id: str, account_id: str = "") -> bool:
+    """原子认领渠道映射：INSERT OR IGNORE，(channel, account_id) 冲突即认领失败。"""
+    acct = account_id or ""
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT OR IGNORE INTO channel_sessions (channel, session_id, updated_at) VALUES (?, ?, ?)",
-            (channel, session_id, _now()),
+            "INSERT OR IGNORE INTO channel_sessions (channel, account_id, session_id, updated_at) "
+            "VALUES (?, ?, ?, ?)",
+            (channel, acct, session_id, _now()),
         )
     return cur.rowcount > 0
 
 
-def touch_channel_session(channel: str, session_id: str | None = None) -> None:
-    """刷新渠道映射的最后活动时间（TTL 语义：从最后一次活动起算空闲时长）。
-
-    传 session_id 时只在映射仍指向该会话时才刷新，避免并发下把别人的新映射写旧。
-    """
+def touch_channel_session(channel: str, session_id: str | None = None, account_id: str = "") -> None:
+    """刷新渠道映射的最后活动时间；session_id 给定时只在映射仍指向它时刷新。"""
+    acct = account_id or ""
     now = _now()
     with get_conn() as conn:
         if session_id is None:
-            conn.execute("UPDATE channel_sessions SET updated_at = ? WHERE channel = ?", (now, channel))
+            conn.execute(
+                "UPDATE channel_sessions SET updated_at = ? WHERE channel = ? AND account_id = ?",
+                (now, channel, acct))
         else:
             conn.execute(
-                "UPDATE channel_sessions SET updated_at = ? WHERE channel = ? AND session_id = ?",
-                (now, channel, session_id),
-            )
+                "UPDATE channel_sessions SET updated_at = ? WHERE channel = ? AND account_id = ? AND session_id = ?",
+                (now, channel, acct, session_id))
 
 
-def replace_channel_session(channel: str, session_id: str) -> bool:
-    """覆盖渠道映射（TTL 过期换新会话用）。与 claim 的区别：允许覆盖已存在的行。
-
-    返回 True 表示写入后该 channel 确实指向 session_id（即自己是赢家）。
-    """
+def replace_channel_session(channel: str, session_id: str, account_id: str = "") -> bool:
+    """覆盖渠道映射（TTL 过期换新会话用）。返回写入后是否确实指向 session_id。"""
+    acct = account_id or ""
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO channel_sessions (channel, session_id, updated_at) VALUES (?, ?, ?) "
-            "ON CONFLICT(channel) DO UPDATE SET session_id = excluded.session_id, updated_at = excluded.updated_at",
-            (channel, session_id, _now()),
+            "INSERT INTO channel_sessions (channel, account_id, session_id, updated_at) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(channel, account_id) DO UPDATE SET session_id = excluded.session_id, updated_at = excluded.updated_at",
+            (channel, acct, session_id, _now()),
         )
         row = conn.execute(
-            "SELECT session_id FROM channel_sessions WHERE channel = ?", (channel,)
+            "SELECT session_id FROM channel_sessions WHERE channel = ? AND account_id = ?",
+            (channel, acct),
         ).fetchone()
     return bool(row and row["session_id"] == session_id)
+
+
+def drop_channel_session(channel: str, account_id: str = "") -> bool:
+    """只删映射，不关闭会话（账号迁移/清理专用）。"""
+    acct = account_id or ""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM channel_sessions WHERE channel = ? AND account_id = ?",
+            (channel, acct))
+    return cur.rowcount > 0
 
 
 def discard_session(session_id: str) -> None:
@@ -1790,18 +1814,23 @@ def annotation_hit(question: str) -> dict | None:
     return None
 
 
-def delete_channel_session(channel: str) -> bool:
-    """删除频道会话映射（AstrBot /reset 对标）：下一条消息将开启全新会话。
+def delete_channel_session(channel: str, account_id: str = "") -> bool:
+    """删除频道会话映射：下一条消息将开启全新会话。
 
-    只删映射与关闭旧会话，长期记忆保留——重置的是「对话上下文」，不是「对客人的了解」。
+    account_id 为空时只删「未绑定账号」的旧桶；指定账号只影响该账号，
+    同群另一个机器人不会被误重置。长期记忆保留。
     """
+    acct = account_id or ""
     with get_conn() as conn:
         conn.execute(
             "UPDATE sessions SET status = 'closed', ended_at = ? "
-            "WHERE id IN (SELECT session_id FROM channel_sessions WHERE channel = ?) AND status = 'ongoing'",
-            (_now(), channel),
+            "WHERE id IN (SELECT session_id FROM channel_sessions WHERE channel = ? AND account_id = ?) "
+            "AND status = 'ongoing'",
+            (_now(), channel, acct),
         )
-        cur = conn.execute("DELETE FROM channel_sessions WHERE channel = ?", (channel,))
+        cur = conn.execute(
+            "DELETE FROM channel_sessions WHERE channel = ? AND account_id = ?",
+            (channel, acct))
     return cur.rowcount > 0
 
 

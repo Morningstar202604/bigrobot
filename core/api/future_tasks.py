@@ -21,6 +21,7 @@ class FutureTaskIn(BaseModel):
     channel_user_id: str | None = None
     session_id: str = ""
     persona_id: str = ""
+    account_id: str = ""
 
 
 @router.get("", dependencies=[Depends(require_admin)])
@@ -52,6 +53,7 @@ def future_tasks_create(body: FutureTaskIn):
         channel_user_id=body.channel_user_id,
         session_id=body.session_id,
         persona_id=body.persona_id,
+        account_id=body.account_id,
     )
     return rec
 

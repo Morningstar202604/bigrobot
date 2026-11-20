@@ -333,6 +333,42 @@ def _v18_channel_events(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_channel_events_type ON channel_events(event_type, id DESC)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_channel_events_group ON channel_events(group_id, id DESC)")
 
+
+def _v19_channel_sessions_account(conn: sqlite3.Connection) -> None:
+    """0019：渠道会话映射按 (channel, account_id) 隔离。
+
+    老库只有 channel 主键，同群两个机器人会共用一条会话。SQLite 不能直接改主键，
+    这里重建表，并把旧行归到 account_id='' 的兼容桶，由 sessions.resolve_session 首次命中时认领。
+    """
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(channel_sessions)").fetchall()}
+    if "account_id" in cols:
+        return
+    conn.execute("ALTER TABLE channel_sessions RENAME TO channel_sessions_legacy")
+    conn.execute(
+        """
+        CREATE TABLE channel_sessions (
+            channel TEXT NOT NULL,
+            account_id TEXT NOT NULL DEFAULT '',
+            session_id TEXT,
+            updated_at TEXT,
+            PRIMARY KEY (channel, account_id)
+        )
+        """
+    )
+    conn.execute(
+        "INSERT INTO channel_sessions (channel, account_id, session_id, updated_at) "
+        "SELECT channel, '', session_id, updated_at FROM channel_sessions_legacy"
+    )
+    conn.execute("DROP TABLE channel_sessions_legacy")
+
+
+def _v20_account_scoped_queues(conn: sqlite3.Connection) -> None:
+    """0020：提醒与未来任务记住触发它的机器人账号，投递不再打错号。"""
+    for table in ("reminders", "future_tasks"):
+        cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if "account_id" not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN account_id TEXT")
+
 MIGRATIONS: list[Migration] = [
     (1, "基线：标记已有结构", _v1_baseline),
     (2, "审计链 actor 索引", _v2_audit_index),
@@ -352,6 +388,8 @@ MIGRATIONS: list[Migration] = [
     (16, "周期提醒", _v16_reminder_repeat),
     (17, "未来任务", _v17_future_tasks),
     (18, "渠道事件", _v18_channel_events),
+    (19, "渠道会话按账号隔离", _v19_channel_sessions_account),
+    (20, "提醒与未来任务记录账号", _v20_account_scoped_queues),
 ]
 
 LATEST_VERSION = max(v for v, _, _ in MIGRATIONS)

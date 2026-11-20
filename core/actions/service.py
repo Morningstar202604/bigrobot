@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import json
 import os
@@ -26,6 +27,10 @@ from core.actions.registry import (
 )
 
 APPROVAL_TTL_S = int(os.environ.get("APPROVAL_TTL_S", "300"))
+
+# 执行账号用上下文变量传：_run_action 的签名被测试/审批重放依赖，不能再加位置参数。
+_ACTION_ACCOUNT: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "action_account", default="")
 
 
 class ActionError(Exception):
@@ -88,7 +93,12 @@ async def _run_action(spec: ActionSpec, params: dict, principal_label: str,
             if isinstance(e, executor_client.ExecutorError):
                 raise ActionError(str(e), 502)
             raise
-    return await client.call_action(spec.name, params, timeout_s=spec.timeout_s)
+    account_id = _ACTION_ACCOUNT.get()
+    if not account_id and session_id:
+        sess = store.get_session(session_id)
+        account_id = str((sess or {}).get("account_id") or "")
+    extra = {"account_id": account_id} if account_id else {}
+    return await client.call_action(spec.name, params, timeout_s=spec.timeout_s, **extra)
 
 
 async def execute(
@@ -98,6 +108,7 @@ async def execute(
     session_id: str | None = None,
     idempotency_key: str | None = None,
     approval_id: str | None = None,
+    account_id: str = "",
 ) -> dict:
     """执行一次动作。返回结构化结果，失败抛 ActionError。"""
     # ---- 1. 动作与参数 ----
@@ -250,6 +261,7 @@ async def execute(
     # 只有 Agent 自主执行时才把档位传下去（用于 T3 爆炸半径阈值）；
     # 管理员/坐席手动操作不受该阈值约束。
     autonomous_tier = decision.effective_tier if principal.kind == authz.PRINCIPAL_AGENT else 0
+    token = _ACTION_ACCOUNT.set(account_id or "")
     try:
         result = await _run_action(spec, cleaned, principal.label, autonomous_tier, session_id)
     except ActionError as e:
@@ -274,6 +286,8 @@ async def execute(
         store.append_audit(principal.label, "action.failed", {"action": action, "error": str(e)})
         status = 503 if isinstance(e, client.GatewayOffline) else 502
         raise ActionError(str(e), status, {"action_log_id": log_id})
+    finally:
+        _ACTION_ACCOUNT.reset(token)
 
     duration = _elapsed_ms(started)
     safe_result = redact.mask_value(result.get("data"))

@@ -36,6 +36,8 @@ class ChannelMessage:
     session_id: str = ""
     # 未来任务创建时的预设角色；执行时优先于当前聊天绑定的角色卡
     persona_id: str = ""
+    # 这条消息属于哪个机器人账号（QQ self_id 归一后的 qq:10001）
+    account_id: str = ""
 
 
 @dataclass
@@ -825,6 +827,9 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
         # 用 startswith 判断，否则 QQ 用户会被错记成 web:qq:123 两条档案。
         is_qq = str(message.channel_type or "").startswith("qq") or message.channel_type == "onebot"
         user_key = ("qq:" + str(message.channel_user_id)) if is_qq else ("web:" + str(visitor_key))
+        # 用户档案也按机器人账号分桶：同一个人面对两个号是两段关系，不能共享称呼/偏好。
+        if is_qq and message.account_id:
+            user_key += "#" + str(message.account_id)
         group_key = ("qq_group:" + str(message.group_id)) if message.group_id else ""
         # 自动建档：每轮把「谁在说、在哪个群说」增量写进档案（首见创建，之后累加计数）。
         # 只读不写的话，档案永远是空的——这正是「建档不生效」的根因。
@@ -878,6 +883,7 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
                    or message.channel_type == "onebot"
                    else f"visitor:{visitor_key or 'anonymous'}"),
         persona_id=ctx.get("persona_id", ""),
+        account_id=getattr(message, "account_id", "") or "",
     )
     # 反思修正：把"最近高频毛病"作为自我修正提醒注入上下文（带缓存，60s 内不重复查库）
     try:

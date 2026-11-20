@@ -31,18 +31,19 @@ async def _deliver_qq(rec: dict, text: str) -> tuple[bool, str]:
 
     gid = (rec.get("group_id") or "").strip()
     uid = (rec.get("channel_user_id") or "").strip()
+    acct = str(rec.get("account_id") or "")
     try:
         if gid:
             await action_client.call_action(
                 "send_group_msg",
                 {"group_id": int(gid) if gid.isdigit() else gid, "message": text},
-                timeout_s=15,
+                timeout_s=15, account_id=acct,
             )
         elif uid:
             await action_client.call_action(
                 "send_private_msg",
                 {"user_id": int(uid) if uid.isdigit() else uid, "message": text},
-                timeout_s=15,
+                timeout_s=15, account_id=acct,
             )
         else:
             return False, "没有可用的 QQ 目标"

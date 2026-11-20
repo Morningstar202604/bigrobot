@@ -45,50 +45,73 @@ def canonical_account(channel: str, account_id: str | None) -> str | None:
     if not account_id:
         return None
     if ":" in account_id:
+        prefix, _, uid = account_id.partition(":")
+        # qq_group:10001 / qq_private:10001 都归一到账号表的 qq:10001
+        if prefix in ("qq_group", "qq_private", "onebot"):
+            return f"qq:{uid}"
         return account_id
     ch = (channel or "").split("_", 1)[0]
     return f"{ch}:{account_id}" if ch else account_id
 
 
+def scoped_visitor(visitor_id: str, channel: str, account_id: str | None) -> str:
+    """访客身份按机器人账号分桶：同一用户在两个号上的记忆/档案不混。
+
+    没有账号时保持原样，网页与老网关调用不受影响。
+    """
+    acct = canonical_account(channel, account_id)
+    return f"{visitor_id}#{acct}" if acct else visitor_id
+
+
 def resolve_session(channel: str, visitor_id: str, account_id: str | None = None) -> str:
+    """按 (channel, account_id) 复用/创建会话。
+
+    同一群被两个机器人监听时，channel 相同但 account 不同，必须各有一条映射。
+    旧库的映射在 account_id='' 桶里：首次以具体账号进入时，如果旧会话本身没有
+    归属或正好属于这个账号，就把它认领过来，避免升级后突然丢上下文。
+    """
     account_id = canonical_account(channel, account_id)
-    row = store.get_channel_session(channel)
-    # _is_fresh 内部已保证 row 非空（not row → False），但 mypy 无法跨函数收窄，
-    # 这里显式判一次：既让类型检查通过，也避免将来 _is_fresh 语义变化时踩空。
+    acct = account_id or ""
+    row = store.get_channel_session(channel, acct)
+
     if row is not None and _is_fresh(row):
-        # 命中复用：必须刷新最后活动时间，否则映射永远停留在建会话那一刻
-        store.touch_channel_session(channel, row["session_id"])
+        store.touch_channel_session(channel, row["session_id"], acct)
         return row["session_id"]
+
+    # 兼容老库：把无账号的旧映射迁移到当前账号，仅当会话没有归属或归属一致。
+    if row is None and acct:
+        legacy = store.get_channel_session(channel, "")
+        if legacy is not None and _is_fresh(legacy):
+            legacy_sess = store.get_session(legacy["session_id"])
+            legacy_acct = (legacy_sess or {}).get("account_id")
+            legacy_acct = canonical_account(channel, legacy_acct) if legacy_acct else None
+            if legacy_acct in (None, "", acct):
+                store.set_channel_session(channel, legacy["session_id"], acct)
+                store.drop_channel_session(channel, "")
+                return legacy["session_id"]
 
     sid = uuid.uuid4().hex
     store.create_session(sid, visitor_id, account_id=account_id)
 
     if row is None:
-        # 无映射：原子认领，保证并发只建一个
-        if store.claim_channel_session(channel, sid):
+        if store.claim_channel_session(channel, sid, acct):
             return sid
-        winner = store.get_channel_session(channel)
+        winner = store.get_channel_session(channel, acct)
         winner_sid = winner["session_id"] if winner else ""
         if _is_fresh(winner):
             store.discard_session(sid)
             return winner_sid
-        # 赢家映射指向异常会话：覆盖，保证可用性
-        store.replace_channel_session(channel, sid)
+        store.replace_channel_session(channel, sid, acct)
         return sid
 
-    # 有映射但已过期/已关闭：先把旧会话收尾，再覆盖换新会话。
-    # 不收尾会让旧会话永久停在 ongoing：session_count 虚增、回访欢迎语误触发、
-    # 控制台堆积僵尸会话（已复现）。
     old_sid = (row or {}).get("session_id") if row else None
     if old_sid:
         store.close_session(old_sid)
-    if store.replace_channel_session(channel, sid):
+    if store.replace_channel_session(channel, sid, acct):
         return sid
-    # 并发覆盖输家：别人先写了新映射，复用它并清理自己的空会话
-    winner = store.get_channel_session(channel)
+    winner = store.get_channel_session(channel, acct)
     winner_sid = winner["session_id"] if winner else ""
     if _is_fresh(winner):
         store.discard_session(sid)
         return winner_sid
-    # 极端情况：赢家又坏了，兜底用自己（可能在下一轮被修复）
     return sid

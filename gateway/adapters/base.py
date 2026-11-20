@@ -20,6 +20,8 @@ class NormalizedMessage:
     channel: str                  # qq_group / qq_private / wecom / webchat ...
     chat_id: str                  # 群号 / 用户 id / 会话 key
     sender_id: str                # 发送者标识
+    # 收到这条消息的机器人账号（如 10001）；发送回复必须用同一个号
+    account_id: str = ""
     text: str = ""
     images: list[str] = field(default_factory=list)   # base64 或 URL
     # 语音消息的原始地址（有它时文本可能为空，由网关下载后转写）

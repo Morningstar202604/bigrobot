@@ -393,7 +393,7 @@ async def _handle_command(msg, text: str) -> bool:
         if action == "help":
             reply = HELP_TEXT
         elif action == "status":
-            bot = _pick_bot()
+            bot = _pick_bot(getattr(msg, "account_id", "") or "")
             reply = (
                 f"在线：{bot.self_id if bot else '未知'}\n"
                 f"跑了 {_uptime_text()}\n"
@@ -408,6 +408,7 @@ async def _handle_command(msg, text: str) -> bool:
                     "channel_type": msg.channel,
                     "channel_user_id": msg.sender_id,
                     "group_id": msg.chat_id if msg.is_group else None,
+                    "self_id": str(getattr(msg, "account_id", "") or ""),
                 },
                 headers=_channel_headers(),
             )
@@ -456,9 +457,16 @@ def _channel_headers() -> dict[str, str]:
     return {"X-Channel-Token": CHANNEL_TOKEN} if CHANNEL_TOKEN else {}
 
 
-def _pick_bot():
-    """取当前在线的 bot。多账号时取第一个；无 bot 返回 None。"""
+def _pick_bot(account_id: str = ""):
+    """取在线 bot。指定账号时只返回该号；未指定时取第一个（兼容旧行为）。"""
     bots = list(nonebot.get_bots().values())
+    account = str(account_id or "").strip()
+    if account:
+        uid = account.split(":")[-1]
+        for bot in bots:
+            if str(getattr(bot, "self_id", "")) == uid:
+                return bot
+        return None
     return bots[0] if bots else None
 
 
@@ -550,16 +558,17 @@ def _register_action_endpoint() -> None:
 
         action = (body or {}).get("action")
         params = (body or {}).get("params") or {}
+        account_id = str((body or {}).get("account_id") or "")
         if not isinstance(action, str) or not action:
             return JSONResponse({"ok": False, "error": "missing action"}, status_code=400)
         if not isinstance(params, dict):
             return JSONResponse({"ok": False, "error": "params must be object"}, status_code=400)
 
-        bot = _pick_bot()
+        bot = _pick_bot(account_id)
         if bot is None:
-            return JSONResponse(
-                {"ok": False, "error": "协议端未连接（机器人未登录）"}, status_code=503
-            )
+            detail = (f"账号 {account_id} 未连接" if account_id
+                      else "协议端未连接（机器人未登录）")
+            return JSONResponse({"ok": False, "error": detail}, status_code=503)
         try:
             data = await bot.call_api(action, **params)
         except Exception as e:  # 协议端拒绝/超时：转成结构化错误，不抛 traceback
@@ -578,6 +587,7 @@ def _register_action_endpoint() -> None:
             "connected": bot is not None,
             "self_id": str(bot.self_id) if bot is not None else "",
             "bots": len(nonebot.get_bots()),
+            "accounts": [str(b.self_id) for b in nonebot.get_bots().values()],
             # 静默中的对刷对象：运维可直接看到「谁被判定成机器人、还剩多久」
             "loop_guard": {"enabled": _LOOP_GUARD_ENABLED, "mutes": _LOOP_GUARD.mutes()},
         }
@@ -788,7 +798,7 @@ async def _post_ingest(payload: dict) -> dict:
 @matcher.handle()
 async def handle(event: MessageEvent):
     # 单一事实源：统一走适配器接口（内部仍是 mapping 纯函数），不在网关层维护第二套解析
-    bot = _pick_bot()
+    bot = _pick_bot(str(getattr(event, "self_id", "") or ""))
     if bot is not None:
         adapter.bind(bot)
 
@@ -832,7 +842,7 @@ async def handle(event: MessageEvent):
         "display_name": msg.display_name,
         "message_id": msg.message_id,
         # 收到这条消息的号：core 用它把会话挂到具体账号上（同群多号监听才分得清）
-        "self_id": str(_pick_bot().self_id) if _pick_bot() is not None else "",
+        "self_id": str(event.self_id or (bot.self_id if bot is not None else "")),
     }
     # 群环境感知：@ 之前群里在聊什么（氛围）+ 群名（场景）
     if msg.is_group:

@@ -460,11 +460,12 @@ def create_app() -> FastAPI:
         sess = store.get_session(sid)
         return bool(sess and sess["status"] == "agent_handled")
 
-    async def _route_to_operator(sid: str, text: str, image: str | None, visitor_key: str) -> None:
+    async def _route_to_operator(sid: str, text: str, image: str | None, visitor_key: str,
+                                account_id: str = "") -> None:
         """坐席接管期间：消息只落库并推给坐席台，不进入 AI 管线。"""
         _preflight(sid, text, visitor_key)
         content = text or "（附图）"
-        store.add_message(sid, "visitor", content)
+        store.add_message(sid, "visitor", content, account_id=account_id or None)
         await hub.broadcast_to_operators({
             "type": "visitor_message", "session_id": sid,
             "content": content, "has_image": bool(image), "visitor_id": visitor_key,
@@ -475,7 +476,8 @@ def create_app() -> FastAPI:
                               web_search: bool = False,
                               ambient: list[str] | None = None, group_name: str = "",
                               channel_type: str = "", channel_user_id: str = "",
-                              group_id: str | None = None, message_id: str = ""):
+                              group_id: str | None = None, message_id: str = "",
+                              account_id: str = ""):
         _preflight(sid, text, visitor_key)
         ev.info(f"ingest visitor={visitor_key} text={text[:60]}")
         # 管线只需要最近若干轮：全量读取会让长会话的上下文构建从 18ms 涨到 37ms。
@@ -491,7 +493,8 @@ def create_app() -> FastAPI:
             except Exception:  # 兜底失败不影响主流程
                 pass
         visitor_msg_id = store.add_message(sid, "visitor", text or "（附图）",
-                                           external_id=message_id or None)
+                                           external_id=message_id or None,
+                                           account_id=account_id or None)
         try:
             reply = await pipeline.run(
                 pipeline.ChannelMessage(text=text, image_b64=image or "", web_search=web_search,
@@ -499,14 +502,15 @@ def create_app() -> FastAPI:
                                         channel_type=channel_type or "webchat",
                                         channel_user_id=channel_user_id or visitor_key,
                                         group_id=group_id, message_id=message_id,
-                                        session_id=sid),
+                                        session_id=sid, account_id=account_id),
                 history,
                 visitor_key,
             )
         except Exception as e:  # 管线内部异常不能变成 500，也不能让访客干等
             reply = _safe_reply(e)
         msg_id = store.add_message(sid, "agent", reply.text, refs=reply.citations,
-                                   tool_used=reply.tool_used, thought=reply.thought)
+                                   tool_used=reply.tool_used, thought=reply.thought,
+                                   account_id=account_id or None)
         ev.info(
             f"reply session={sid[:8]} mode={reply.mode} tool={reply.tool_used} "
             f"escalate={reply.escalate} citations={reply.citations}"
@@ -582,11 +586,14 @@ def create_app() -> FastAPI:
                               "mode": "not_allowed", "tool_used": None,
                               "tool_result": None, "thought": ""},
                 }
-        account = f"{body.channel_type}:{body.self_id}" if body.self_id.strip() else None
-        sid = sessions.resolve_session(f"{body.channel_type}:{chat_key}", identity, account_id=account)
+        account = sessions.canonical_account(body.channel_type, body.self_id.strip())
+        channel = f"{body.channel_type}:{chat_key}"
+        # 访客身份也按机器人账号分桶：同一人在两个号上的记忆/档案不串。
+        identity = sessions.scoped_visitor(identity, channel, account)
+        sid = sessions.resolve_session(channel, identity, account_id=account)
         if _is_human_handled(sid):
             # 已由坐席接管：机器人不回话，消息落库并推给坐席台
-            await _route_to_operator(sid, text, body.image_b64, identity)
+            await _route_to_operator(sid, text, body.image_b64, identity, account_id=account or "")
             return {
                 "session_id": sid, "message_id": None, "ticket_id": None,
                 "reply": {"text": "", "citations": [], "confidence": 0.0,
@@ -598,9 +605,11 @@ def create_app() -> FastAPI:
             sid, text, body.image_b64, identity,
             ambient=body.ambient or [], group_name=body.group_name or "",
             channel_type=body.channel_type, channel_user_id=body.channel_user_id,
-            group_id=body.group_id, message_id=body.message_id)
+            group_id=body.group_id, message_id=body.message_id,
+            account_id=account or "")
         return {
             "session_id": sid,
+            "account_id": account or "",
             "message_id": msg_id,
             "ticket_id": ticket_id,
             "reply": {
@@ -629,6 +638,7 @@ def create_app() -> FastAPI:
         channel_type: str
         channel_user_id: str
         group_id: str | None = None
+        self_id: str = ""
 
     # ---- 标注回复（Dify annotations 对标）：命中标准答案直接回复 ----
     @app.get("/api/annotations", dependencies=[Depends(require_admin)])
@@ -666,9 +676,10 @@ def create_app() -> FastAPI:
     async def channel_reset(body: ChannelResetIn):
         chat_key = body.group_id or body.channel_user_id
         channel = f"{body.channel_type}:{chat_key}"
-        removed = store.delete_channel_session(channel)
-        ev.info(f"channel reset {channel} (mapping removed: {removed})")
-        return {"ok": True, "reset": True, "channel": channel}
+        acct = sessions.canonical_account(channel, body.self_id) or ""
+        removed = store.delete_channel_session(channel, acct)
+        ev.info(f"channel reset {channel} account={acct or '-'} (mapping removed: {removed})")
+        return {"ok": True, "reset": True, "channel": channel, "account_id": acct}
 
     # ---- 坐席内部备注（Chatwoot 对标）：团队可见，访客不可见 ----
     @app.get("/api/operator/notes/{sid}", dependencies=[Depends(require_admin)])
@@ -1656,6 +1667,8 @@ def create_app() -> FastAPI:
         action: str
         params: dict = {}
         session_id: str | None = None
+        # 指定用哪个机器人账号执行；不传时按 session_id 所属账号推断
+        account_id: str = ""
         idempotency_key: str | None = None
         approval_id: str | None = None
         # 由谁触发：admin / operator:xxx / qq:123 / agent@qq:123
@@ -1739,6 +1752,7 @@ def create_app() -> FastAPI:
                 session_id=body.session_id,
                 idempotency_key=body.idempotency_key,
                 approval_id=body.approval_id,
+                account_id=body.account_id,
             )
         except actions_service.ActionError as e:
             raise HTTPException(e.status, str(e), headers=None)

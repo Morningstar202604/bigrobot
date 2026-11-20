@@ -47,6 +47,7 @@ async def execute(rec: dict) -> str:
         display_name="未来任务",
         session_id=sid,
         persona_id=str(rec.get("persona_id") or ""),
+        account_id=str(rec.get("account_id") or ""),
     )
     reply = await pipeline.run(msg, _history(rec), str(rec.get("visitor_id") or ""))
     text = (reply.text or "").strip()

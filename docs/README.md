@@ -13,6 +13,7 @@
 | [knowledge-base.md](knowledge-base.md) | 多知识库集合、角色绑定与资料摄入 |
 | [future-tasks.md](future-tasks.md) | 未来任务：到点让 Agent 执行并回推结果 |
 | [channel-events.md](channel-events.md) | 渠道事件：入群/退群/撤回/请求落库，撤回软删除 |
+| [multi-account.md](multi-account.md) | 多账号隔离：会话、记忆、动作、提醒按机器人账号分开 |
 | [persona-capabilities.md](persona-capabilities.md) | 角色能力边界：工具/技能/MCP/扩展白名单 |
 
 ## 存档（保留历史，不再维护）

@@ -30,3 +30,5 @@ curl -H "X-Admin-Token: $ADMIN_TOKEN" \
 ## 撤回语义
 
 只有核心实际落过库的访客消息才带 `external_id`。撤回事件命中时走 `store.delete_message` 软删除，历史仍保留在审计里，但不会进入模型上下文。
+
+撤回也按 `self_id` 定位该机器人账号自己的会话：同群两个号各有一条映射，A 号撤回不会误删 B 号看到的同一条消息。

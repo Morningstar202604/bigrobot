@@ -20,13 +20,13 @@ __all__ = [
 def future_task_add(visitor_id: str, chat_key: str, instruction: str, due_at: str,
                     channel_type: str = "webchat", group_id: str | None = None,
                     channel_user_id: str | None = None, session_id: str = "",
-                    persona_id: str = "") -> dict:
+                    persona_id: str = "", account_id: str = "") -> dict:
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO future_tasks (visitor_id, chat_key, channel_type, group_id, "
+            "INSERT INTO future_tasks (visitor_id, chat_key, channel_type, account_id, group_id, "
             "channel_user_id, session_id, persona_id, instruction, due_at, status, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
-            (visitor_id, chat_key, channel_type, group_id, channel_user_id,
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
+            (visitor_id, chat_key, channel_type, account_id or "", group_id, channel_user_id,
              session_id, persona_id, instruction, due_at, _now()),
         )
         tid = cur.lastrowid

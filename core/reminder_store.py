@@ -41,14 +41,15 @@ __all__ = [
 
 def reminder_add(visitor_id: str, chat_key: str, text: str, due_at: str,
                  channel_type: str = "webchat", group_id: str | None = None,
-                 channel_user_id: str | None = None, repeat_rule: str = "") -> dict:
+                 channel_user_id: str | None = None, repeat_rule: str = "",
+                 account_id: str = "") -> dict:
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO reminders (visitor_id, chat_key, channel_type, group_id, "
+            "INSERT INTO reminders (visitor_id, chat_key, channel_type, account_id, group_id, "
             "channel_user_id, text, due_at, status, created_at, repeat_rule) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
-            (visitor_id, chat_key, channel_type, group_id, channel_user_id, text, due_at,
-             _now(), repeat_rule),
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
+            (visitor_id, chat_key, channel_type, account_id or "", group_id, channel_user_id,
+             text, due_at, _now(), repeat_rule),
         )
         rid = cur.lastrowid
     return reminder_get(int(rid)) or {}

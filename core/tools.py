@@ -207,7 +207,7 @@ def tool_remind(ctx: ToolContext, text: str, when: str, **_kw) -> dict:
         visitor_id=ctx.visitor_id, chat_key=ctx.chat_key, text=text,
         due_at=due.isoformat(), channel_type=ctx.channel_type,
         group_id=ctx.group_id, channel_user_id=ctx.channel_user_id,
-        repeat_rule=rule,
+        repeat_rule=rule, account_id=ctx.account_id,
     )
     local = due.astimezone().strftime("%m-%d %H:%M")
     suffix = {"daily": "，每天这个点", "weekday": "，工作日每天",
@@ -235,6 +235,7 @@ def tool_future_task(ctx: ToolContext, instruction: str, when: str, **_kw) -> di
         channel_user_id=ctx.channel_user_id,
         session_id=ctx.session_id,
         persona_id=ctx.persona_id,
+        account_id=ctx.account_id,
     )
     local = due.astimezone().strftime("%m-%d %H:%M")
     return ok_result("future_task", f"好，{local} 我会去做：{text[:80]}",
@@ -650,10 +651,19 @@ def tool_search_emote(ctx: ToolContext, keyword: str = "", **_kw) -> dict:
 # QQ 动作（走网关 /internal/action，权限由 actions 层判定）
 # ============================================================
 
+async def _call_gateway(action: str, params: dict, timeout_s: float,
+                        account_id: str = "") -> dict:
+    """只在指定账号时传 account_id，兼容老测试替身的三参签名。"""
+    from core.actions import client as action_client
+
+    if account_id:
+        return await action_client.call_action(
+            action, params, timeout_s=timeout_s, account_id=account_id)
+    return await action_client.call_action(action, params, timeout_s=timeout_s)
+
 async def tool_qq_group_history(ctx: ToolContext, group_id: str = "", count: str = "10", **_kw) -> dict:
     """读群聊记录。默认读当前群。"""
     from core import executor_client  # noqa: F401  (保持导入一致性)
-    from core.actions import client as action_client
 
     gid = (group_id or ctx.group_id or "").strip()
     if not gid:
@@ -663,8 +673,10 @@ async def tool_qq_group_history(ctx: ToolContext, group_id: str = "", count: str
     except (TypeError, ValueError):
         n = 10
     try:
-        data = await action_client.call_action(
-            "get_group_msg_history", {"group_id": int(gid) if str(gid).isdigit() else gid, "count": n})
+        data = await _call_gateway(
+            "get_group_msg_history",
+            {"group_id": int(gid) if str(gid).isdigit() else gid, "count": n},
+            15, ctx.account_id)
     except Exception as e:
         return miss_result("qq_group_history", f"读群记录失败：{type(e).__name__}")
     msgs = (data.get("data") or {}).get("messages") or []
@@ -687,7 +699,6 @@ async def tool_qq_group_history(ctx: ToolContext, group_id: str = "", count: str
 
 async def tool_qq_send(ctx: ToolContext, text: str, target: str = "", **_kw) -> dict:
     """主动发 QQ 消息。target 可为群号/QQ 号；留空=回当前会话。"""
-    from core.actions import client as action_client
 
     body = (text or "").strip()
     if not body:
@@ -707,7 +718,7 @@ async def tool_qq_send(ctx: ToolContext, text: str, target: str = "", **_kw) -> 
     else:
         return need_ctx("qq_send", "发给谁（当前会话不是 QQ）")
     try:
-        await action_client.call_action(action, params, timeout_s=15)
+        await _call_gateway(action, params, 15, ctx.account_id)
     except Exception as e:
         return miss_result("qq_send", f"发送失败：{type(e).__name__}")
     return ok_result("qq_send", f"已发送（{action}）。", action=action)
@@ -788,7 +799,6 @@ def tool_calc(expression: str, **_kw) -> dict:
 
 async def _send_cq_image(ctx: ToolContext, cq_file: str) -> dict:
     """把一段 [CQ:image,...] 发给当前会话。url/file/base64 三种来源由调用方拼好。"""
-    from core.actions import client as action_client
 
     if ctx.group_id:
         action, target = "send_group_msg", int(ctx.group_id) if str(ctx.group_id).isdigit() else ctx.group_id
@@ -799,7 +809,7 @@ async def _send_cq_image(ctx: ToolContext, cq_file: str) -> dict:
     else:
         return need_ctx("send_image", "当前会话不是 QQ，发不了图")
     try:
-        await action_client.call_action(action, params, timeout_s=20)
+        await _call_gateway(action, params, 20, ctx.account_id)
     except Exception as e:
         return miss_result("send_image", f"发图失败：{type(e).__name__}")
     return ok_result("send_image", "图发出去了。", action=action)
@@ -907,7 +917,6 @@ async def _tts_mp3(text: str) -> bytes:
 
 async def tool_send_voice(ctx: ToolContext, text: str = "", source: str = "", **_kw) -> dict:
     """发一条 QQ 语音：text 走 TTS 现合成，source 支持本机音频路径（执行器白名单内）。"""
-    from core.actions import client as action_client
 
     body = (text or "").strip()
     src = (source or "").strip()
@@ -951,7 +960,7 @@ async def tool_send_voice(ctx: ToolContext, text: str = "", source: str = "", **
         params = {"user_id": int(ctx.channel_user_id) if str(ctx.channel_user_id).isdigit()
                   else ctx.channel_user_id, "message": cq}
     try:
-        await action_client.call_action(action, params, timeout_s=60)
+        await _call_gateway(action, params, 60, ctx.account_id)
     except Exception as e:
         return miss_result("send_voice", f"语音发送失败：{type(e).__name__}")
     return ok_result("send_voice", "语音发出去了。", action=action)
@@ -1021,11 +1030,9 @@ async def tool_parse_document(ctx: ToolContext, path: str = "", url: str = "", *
 # 通用 QQ 查询：群成员 / 群列表 / 好友列表
 # ============================================================
 
-async def _qq_query(action: str, params: dict, tool: str) -> dict:
-    from core.actions import client as action_client
-
+async def _qq_query(action: str, params: dict, tool: str, account_id: str = "") -> dict:
     try:
-        data = await action_client.call_action(action, params, timeout_s=15)
+        data = await _call_gateway(action, params, 15, account_id)
     except Exception as e:
         return miss_result(tool, f"查询失败：{type(e).__name__}")
     return ok_result(tool, json.dumps(data.get("data"), ensure_ascii=False)[:3000], raw=data.get("data"))
@@ -1036,7 +1043,8 @@ async def tool_qq_group_members(ctx: ToolContext, group_id: str = "", keyword: s
     if not gid:
         return need_ctx("qq_group_members", "群号（当前不是群聊）")
     res = await _qq_query("get_group_member_list",
-                          {"group_id": int(gid) if gid.isdigit() else gid}, "qq_group_members")
+                          {"group_id": int(gid) if gid.isdigit() else gid}, "qq_group_members",
+                          ctx.account_id)
     if not res.get("found"):
         return res
     members = res.get("raw") or []
@@ -1053,11 +1061,11 @@ async def tool_qq_group_members(ctx: ToolContext, group_id: str = "", keyword: s
 
 
 async def tool_qq_groups(ctx: ToolContext, **_kw) -> dict:
-    return await _qq_query("get_group_list", {}, "qq_groups")
+    return await _qq_query("get_group_list", {}, "qq_groups", ctx.account_id)
 
 
 async def tool_qq_friends(ctx: ToolContext, **_kw) -> dict:
-    return await _qq_query("get_friend_list", {}, "qq_friends")
+    return await _qq_query("get_friend_list", {}, "qq_friends", ctx.account_id)
 
 
 # ============================================================
@@ -1895,6 +1903,8 @@ def _qq_tool(action: str, tool_name: str, desc: str, args: dict[str, str]):
             result = await actions_service.execute(
                 action=action, params=params,
                 principal_raw=ctx.principal or "admin",
+                session_id=ctx.session_id or None,
+                account_id=ctx.account_id,
             )
         except actions_service.ActionError as e:
             if e.status == 409 or "审批" in str(e):

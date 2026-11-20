@@ -22,6 +22,13 @@ def _channel_key(channel_type: str, group_id: str | None, channel_user_id: str |
     return f"{channel_type}:{chat}" if chat else ""
 
 
+def _account_key(channel_type: str, self_id: str | None) -> str:
+    """事件里的裸号 self_id 补成账号表形态，用于定位该号自己的会话。"""
+    from core.sessions import canonical_account
+
+    return canonical_account(channel_type, str(self_id or "").strip()) or ""
+
+
 def handle(rec: dict) -> dict:
     """处理一条已落库事件，返回 {action, detail}。任何失败都不抛出。"""
     event_type = str(rec.get("event_type") or "")
@@ -32,7 +39,18 @@ def handle(rec: dict) -> dict:
     mid = str(rec.get("message_id") or "").strip()
     if not channel or not mid:
         return {"action": "ignored", "detail": "缺群/消息 id"}
-    mapping = store.get_channel_session(channel)
+    acct = _account_key(str(rec.get("channel_type") or ""), rec.get("self_id"))
+    mapping = store.get_channel_session(channel, acct)
+    if not mapping and acct:
+        # 升级兼容：旧映射在无账号桶里，只要会话归属一致就仍按它处理。
+        legacy = store.get_channel_session(channel, "")
+        sess = store.get_session(legacy["session_id"]) if legacy else None
+        from core.sessions import canonical_account
+
+        legacy_acct = canonical_account(
+            str(rec.get("channel_type") or ""), str((sess or {}).get("account_id") or "")) or ""
+        if legacy and (not legacy_acct or legacy_acct == acct):
+            mapping = legacy
     if not mapping:
         return {"action": "ignored", "detail": "会话不存在"}
     sid = str(mapping.get("session_id") or "")
