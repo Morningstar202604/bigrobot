@@ -334,7 +334,34 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
     q = (query or "").strip()
     tctx = ctx.get("tool_ctx") or EMPTY
 
-    name, args = tools_mod.detect_tool(q, ctx["tools"])
+    # 本地小模型被问「你是谁」经常只吐一个名字（实测「零。」）。身份是固定事实，
+    # 直接从人设首句取，不让 0.8B 续写；云端模型仍保留自己的口吻。
+    if local_models.small_model_mode(cfg) and re.search(
+            r"你是谁|你是什么|介绍一下自己|你叫什么|你的名字", q):
+        pm = re.search(r"你是「(.+?)」[，,]?\s*(.+)", str(ctx.get("persona") or ""))
+        if pm:
+            role = re.split(r"[，,。]", pm.group(2).strip())[0].strip()
+            if role:
+                return AgentReply(
+                    text=f"我是{pm.group(1)}，{role}。", confidence=0.95,
+                    mode="rule_react", ctx_used=ctx.get("used"))
+
+    name, args = None, None
+    # 搜索交给 _llm_answer 的 ReAct 链路：那里会在工具返回后再让本地模型
+    # 用两三句归纳；_direct_tool 直接返回 note 会把标题、摘要、URL 原样倒给用户。
+    if "recall_memory" in ctx["tools"] and tctx.visitor_id:
+        # 「我的测试代号是什么」不该让 0.8B 用知识库口吻复述；先看记忆里有没有这个 key。
+        # 必须放在 detect_tool 之前：路由里「你还记得」会先命中空参数版本，
+        # 结果把全部记忆列出来，反而答不对具体问题。
+        mm = re.search(r"我(?:的)?([^，,。？?]{1,12}?)(?:是什么|是多少|是啥|吗|呢)", q)
+        if mm:
+            key = re.sub(r"^(?:的)", "", mm.group(1).strip()).strip()
+            if key and key in (store.get_memory(tctx.visitor_id) or {}):
+                name, args = "recall_memory", {"key": key}
+    if not name:
+        name, args = tools_mod.detect_tool(q, ctx["tools"])
+    if name == "web_search" and local_models.small_model_mode(cfg):
+        name, args = None, None
     if not name:
         m = _REMEMBER_RE.match(q)
         if m and "remember" in ctx["tools"]:
@@ -501,6 +528,27 @@ async def _rule_react(query: str, ctx: dict, cfg: dict) -> AgentReply:
     )
 
 
+async def _summarize_search(query: str, note: str, cfg: dict) -> str:
+    """本地小模型的搜索归纳：纯文本补全，不要求 JSON、不触发模型冷却。"""
+    llm_cfg = cfg.get("llm") or {}
+    base = str(llm_cfg.get("base_url") or "").rstrip("/")
+    key = str(llm_cfg.get("api_key") or "")
+    model = str(llm_cfg.get("model") or "")
+    if not base or not key or not model or not note:
+        return ""
+    messages = [
+        {"role": "system", "content": "你是搜索归纳助手。只根据资料写 2-3 个具体事实，不要罗列编号、链接，不要免责声明。"},
+        {"role": "user", "content": "问题：" + query + "\n资料：\n" + str(note)[:3000]},
+    ]
+    text = await llm._post_chat(base, key, {
+        "model": model, "messages": messages, "max_tokens": 220, "temperature": 0.2,
+    })
+    text = (text or "").strip()
+    if not text or llm.is_promise_only(text):
+        return ""
+    return text[:600]
+
+
 async def _llm_answer(query: str, ctx: dict, cfg: dict, image_b64: str = "",
                        first: dict | None = None, prefer: str = "") -> AgentReply | None:
     """单轮 LLM + 最多两轮工具回填（ReAct 的 OBSERVE 补齐）。
@@ -576,6 +624,8 @@ async def _llm_answer(query: str, ctx: dict, cfg: dict, image_b64: str = "",
                 result = await tools_mod.invoke_with(tools_map, tool_name, args,
                                                      ctx.get("tool_ctx") or EMPTY)
             except Exception as exc:  # aqg: tool boundary
+                _logging.getLogger("cs.events").warning(
+                    "tool %s failed", tool_name, exc_info=True)
                 result = {"tool": tool_name, "status": "error",
                           "note": f"工具执行出错（{type(exc).__name__}），换个方式回答用户。"}
             if not isinstance(result, dict):
@@ -591,6 +641,20 @@ async def _llm_answer(query: str, ctx: dict, cfg: dict, image_b64: str = "",
             working["read_block"] = (
                 "你刚才调用的工具结果如下，直接据此回答，不要再提工具/系统："
                 + chr(10) + chr(10).join(observations[-3:]))
+            if tool_name == "web_search" and local_models.small_model_mode(cfg):
+                # 0.8B 拿到搜索结果会原样复读（实测把标题、摘要、URL 全抄一遍）。
+                # 这里用一次「纯文本、不要 JSON」的补全做归纳：不能再走 llm.react——
+                # 它要求 json_object，0.8B 一旦吐不出合法 JSON 就会把模型拉进 120 秒
+                # 冷却，后面的多轮对话全部秒失败（实测）。
+                try:
+                    summary_text = await _summarize_search(query, note, cfg)
+                    if summary_text:
+                        return AgentReply(
+                            text=summary_text, confidence=0.8, mode="llm_react",
+                            tool_used="web_search", tool_result=last_result,
+                            ctx_used=(ctx or {}).get("used"))
+                except Exception:
+                    pass
             if answer and not llm.is_promise_only(answer):
                 data["tool"] = None
                 return _with_tools(await _make_llm_reply(data, working, cfg))
@@ -654,6 +718,8 @@ async def _make_llm_reply(data: dict, ctx: dict, cfg: dict) -> AgentReply:
             tool_result = await tools_mod.invoke_with(ctx.get("tools"), tool_name, args,
                                                       ctx.get("tool_ctx") or EMPTY)
         except Exception as exc:  # aqg: tool boundary
+            _logging.getLogger("cs.events").warning(
+                "tool %s failed", tool_name, exc_info=True)
             tool_result = {"tool": tool_name, "status": "error",
                            "note": f"工具执行出错（{type(exc).__name__}）。"}
         if not isinstance(tool_result, dict):

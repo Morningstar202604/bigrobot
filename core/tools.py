@@ -152,7 +152,7 @@ def tool_recall_memory(ctx: ToolContext, key: str = "", **_kw) -> dict:
         val = mem.get(key)
         if val is None:
             return empty_result("recall_memory", f"没有「{key}」这条记录。", keys=list(mem)[:20])
-        return ok_result("recall_memory", f"{key}：{val}", key=key, value=val)
+        return ok_result("recall_memory", f"我记得：{key} 是 {val}。", key=key, value=val)
     brief = "；".join(f"{k}：{str(v)[:80]}" for k, v in list(mem.items())[:12])
     return ok_result("recall_memory", brief, keys=list(mem))
 
@@ -549,9 +549,16 @@ async def tool_describe_image(ctx: ToolContext, source: str = "", question: str 
     from core import config, llm
 
     cfg = config.get_config()
-    vision_model = ((cfg.get("multimodal", {}) or {}).get("vision_model", "") or "").strip()         or str((cfg.get("llm") or {}).get("model") or "")
+    mm = cfg.get("multimodal", {}) or {}
+    vision_model = str(mm.get("vision_model") or "").strip()
+    # 本地小模型只管文字，不能拿它当视觉模型去撞同一个端点（实测只会拿到
+    # 「看图失败了（HTTPStatusError）」）。只有云端模型显式声明 supports_vision 时才复用。
+    if not vision_model and not (cfg.get("llm") or {}).get("local_model_id"):
+        llm_cfg = cfg.get("llm") or {}
+        if llm_cfg.get("supports_vision"):
+            vision_model = str(llm_cfg.get("model") or "")
     if not vision_model:
-        return off_result("describe_image", "还没配视觉模型，我看不了图。")
+        return off_result("describe_image", "当前模型不支持看图；要读图请在设置里配一个视觉模型。")
     if not (cfg.get("llm") or {}).get("has_key"):
         return off_result("describe_image", "还没有配模型 Key，看不了图。")
 
@@ -890,6 +897,10 @@ async def tool_generate_image(ctx: ToolContext, prompt: str, size: str = "1024x1
     image_key = str(mm.get("image_api_key") or os.environ.get("IMAGE_API_KEY") or "")
     llm_cfg = cfg.get("llm") or {}
     if not image_base:
+        # 本地 llama.cpp 只有 /v1/chat/completions，没有 /images/generations；
+        # 拿它当生图端点只会报 HTTPStatusError，不如直接说清楚缺配置。
+        if llm_cfg.get("local_model_id"):
+            return off_result("generate_image", "本地模型只跑文字，画图要另配图像端点（IMAGE_API_BASE_URL + IMAGE_API_KEY）。")
         llm_cfg = llm_cfg if llm_cfg.get("has_key") else {}
         image_base = str(llm_cfg.get("base_url") or "").rstrip("/")
         image_key = str(llm_cfg.get("api_key") or "")
@@ -1116,6 +1127,7 @@ _SYNC_IMPLS: dict[str, Callable[..., dict]] = {
 # 否则 wrapper 的 op 指回自己，会无限递归。
 _SYNC_IMPLS["now_clock"] = tool_now
 _SYNC_IMPLS["recall_memory_legacy"] = tool_recall_memory
+_SYNC_IMPLS["qq_send_legacy"] = tool_qq_send
 # 通用工具（core/tools_general.py）：与业务无关，任何账号都能用。
 # 用 update 而不是在字面量里展开，是因为 tools_general 反过来要从本模块导入
 # ok_result/miss_result —— 模块级互相导入会循环（已实际触发过）。
@@ -2077,7 +2089,7 @@ _MERGED_TOOLS: dict[str, dict] = {
                  "keyword": "string"},
         "default_op": "text",
         "ops": {
-            "text": ("qq_send", {}),
+            "text": ("qq_send_legacy", {}),
             "image": ("send_image", {}),
             "voice": ("send_voice", {}),
             "file": ("qq_upload_file", {}),
@@ -2146,7 +2158,8 @@ _MERGED_TOOLS: dict[str, dict] = {
 
 # 合并后不再出现在模型清单、但实现仍然保留（调度别名）的旧工具名
 MERGED_FROM: dict[str, list[str]] = {
-    name: [child for child, _ in meta["ops"].values() if child != name]
+    name: [child for child, _ in meta["ops"].values()
+           if child != name and not child.endswith("_legacy")]
     for name, meta in _MERGED_TOOLS.items()
 }
 MERGED_FROM["recall_memory"] = ["current_context"]
