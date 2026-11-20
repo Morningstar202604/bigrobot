@@ -5,8 +5,9 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 
 
-from core import future_task_store, future_tasks
+from core import future_task_store, future_tasks, store
 from core.tool_context import ToolContext
+from tests.conftest import create_web_session
 from core import tools
 
 
@@ -37,6 +38,49 @@ def test_api_create_list_cancel(client):
     assert any(x["id"] == tid for x in rows)
     assert client.delete(f"/api/future-tasks/{tid}").status_code == 200
     assert client.delete(f"/api/future-tasks/{tid}").status_code == 404
+
+
+def test_stale_running_task_is_recovered(monkeypatch):
+    rec = future_task_store.future_task_add(
+        visitor_id="u1", chat_key="webchat:u1", instruction="崩了",
+        due_at=_past(), channel_type="webchat", channel_user_id="u1",
+    )
+    assert future_task_store.future_task_claim(rec["id"]) is True
+    with store.get_conn() as conn:
+        conn.execute("UPDATE future_tasks SET started_at = ? WHERE id = ?",
+                     ("2000-01-01T00:00:00+00:00", rec["id"]))
+    assert future_task_store.future_task_recover_stale(60, 3) == 1
+    got = future_task_store.future_task_get(rec["id"])
+    assert got["status"] == "pending"
+    assert got["attempts"] == 1
+    assert "中断" in got["last_error"]
+
+
+def test_stale_running_task_fails_after_max_attempts(monkeypatch):
+    rec = future_task_store.future_task_add(
+        visitor_id="u1", chat_key="webchat:u1", instruction="必崩",
+        due_at=_past(), channel_type="webchat", channel_user_id="u1",
+    )
+    assert future_task_store.future_task_claim(rec["id"]) is True
+    with store.get_conn() as conn:
+        conn.execute("UPDATE future_tasks SET started_at = ?, attempts = 2 WHERE id = ?",
+                     ("2000-01-01T00:00:00+00:00", rec["id"]))
+    assert future_task_store.future_task_recover_stale(60, 3) == 1
+    got = future_task_store.future_task_get(rec["id"])
+    assert got["status"] == "failed"
+    assert got["attempts"] == 3
+
+
+def test_api_open_includes_failed_and_can_cancel(client):
+    due = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    r = client.post("/api/future-tasks", json={"instruction": "失败任务", "due_at": due})
+    tid = r.json()["id"]
+    with store.get_conn() as conn:
+        conn.execute("UPDATE future_tasks SET status = 'failed', last_error = 'boom' WHERE id = ?",
+                     (tid,))
+    rows = client.get("/api/future-tasks?status=open").json()["tasks"]
+    assert any(x["id"] == tid and x["status"] == "failed" for x in rows)
+    assert client.delete(f"/api/future-tasks/{tid}").status_code == 200
 
 
 def test_api_rejects_unparsable_when(client):
@@ -115,6 +159,26 @@ def test_tick_releases_on_execute_exception(monkeypatch):
     assert got["status"] == "pending"
     assert got["attempts"] == 1
     assert "RuntimeError" in got["last_error"]
+
+
+def test_tick_delivers_to_original_web_session(client, monkeypatch):
+    sid, _secret = create_web_session(client)
+    r = client.post("/api/future-tasks", json={
+        "instruction": "汇总消息", "due_at": _past(), "visitor_id": "admin",
+        "chat_key": "webchat:admin", "session_id": sid,
+    })
+    assert r.status_code == 200, r.text
+    tid = r.json()["id"]
+
+    async def fake_execute(row):
+        return "这是未来任务的结果"
+
+    monkeypatch.setattr(future_tasks, "execute", fake_execute)
+    assert asyncio.run(future_tasks.tick()) == 1
+    msgs = store.get_messages(sid, limit=20)
+    assert any("⏳ 未来任务" in (m["content"] or "") and "这是未来任务的结果" in (m["content"] or "")
+               for m in msgs)
+    assert future_task_store.future_task_get(tid)["status"] == "done"
 
 
 def test_tool_future_task_and_cancel():

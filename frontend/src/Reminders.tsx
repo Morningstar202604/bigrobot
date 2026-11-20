@@ -92,7 +92,7 @@ export default function Reminders() {
     try {
       const [r, ft] = await Promise.all([
         http.get<{ reminders: Reminder[] }>('/api/reminders?status=pending'),
-        http.get<{ tasks: FutureTask[] }>('/api/future-tasks?status=pending'),
+        http.get<{ tasks: FutureTask[] }>('/api/future-tasks?status=open'),
       ])
       setRows(r.reminders || [])
       setTasks(ft.tasks || [])
@@ -323,7 +323,7 @@ export default function Reminders() {
                   <div className="ac-meta">
                     <em>{fmt(r.due_at)}</em>
                     <em>{r.channel_type.startsWith('qq') ? 'QQ' : t('网页')}</em>
-                    <em>{r.status === 'pending' ? t('待执行') : r.status}</em>
+                    <em>{r.status === 'pending' ? t('待执行') : r.status === 'failed' ? t('失败') : r.status}</em>
                     {r.last_error && <em title={r.last_error}>{t('上次执行失败')}</em>}
                   </div>
                 </div>

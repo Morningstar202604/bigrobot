@@ -64,13 +64,16 @@ POST   /api/future-tasks/tick
 3. 构造 `ChannelMessage`，复用 `pipeline.run()`，与原聊天同一条 Agent 链路（角色、知识库、工具权限都生效）。
 4. 结果先落库，再投递；投递失败只重投，不重复执行可能有副作用的任务。
 5. 执行或投递失败累计 3 次后标记 `failed`（`FUTURE_TASK_MAX_ATTEMPTS`）。
+6. 服务启动时回收超过 1 小时的 `running` 僵尸任务（`FUTURE_TASK_STALE_SECONDS`），
+   连续中断 3 次直接判 `failed`，避免必然崩溃的任务无限重跑。
 
-状态：`pending → running → done / failed / cancelled`。
+状态：`pending → running → done / failed / cancelled`。控制台用 `status=open`
+同时展示待执行与失败任务，失败任务可以直接取消。
 
 ## 边界与已知限制
 
 - 未来任务不是定时 cron：只执行一次，不做周期调度；周期需求用提醒的 `repeat_rule`。
-- 执行时沿用当前角色的知识与工具范围；任务记录里只保存角色 id，角色定义以后续配置为准。
+- 执行时优先恢复任务创建时的预设角色与知识库范围；预设已被删除时才回落到当前聊天角色。
 - 网页会话若已过期，任务仍会执行，但历史为空；结果会尝试投回原会话，失败则落 `last_error`。
 - QQ 侧投递依赖机器人仍在目标群/好友关系内；退群后任务会失败并重试。
 - 未来任务允许调用写工具，因此创建者必须是可信主体；控制台 API 需要管理员 token，聊天侧走现有工具权限闸门。

@@ -20,6 +20,7 @@ logger = logging.getLogger("core.future_tasks")
 
 TICK_S = float(os.environ.get("FUTURE_TASK_TICK_SECONDS", "30"))
 MAX_ATTEMPTS = int(os.environ.get("FUTURE_TASK_MAX_ATTEMPTS", "3"))
+STALE_S = int(os.environ.get("FUTURE_TASK_STALE_SECONDS", "3600"))
 
 
 def _history(rec: dict) -> list[dict]:
@@ -45,6 +46,7 @@ async def execute(rec: dict) -> str:
         group_id=rec.get("group_id"),
         display_name="未来任务",
         session_id=sid,
+        persona_id=str(rec.get("persona_id") or ""),
     )
     reply = await pipeline.run(msg, _history(rec), str(rec.get("visitor_id") or ""))
     text = (reply.text or "").strip()
@@ -100,6 +102,10 @@ async def tick() -> int:
 
 async def run_forever(stop: asyncio.Event | None = None) -> None:
     stop = stop or asyncio.Event()
+    # 上次进程崩溃会留下 running 僵尸；启动时只回收超时的那批，避免多 worker 互相踩。
+    recovered = future_task_store.future_task_recover_stale(STALE_S, MAX_ATTEMPTS)
+    if recovered:
+        logger.warning("future task recovered %s stale running task(s)", recovered)
     logger.info("future task scheduler started (tick=%ss)", TICK_S)
     while not stop.is_set():
         try:

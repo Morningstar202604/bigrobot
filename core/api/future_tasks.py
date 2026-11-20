@@ -24,7 +24,7 @@ class FutureTaskIn(BaseModel):
 
 
 @router.get("", dependencies=[Depends(require_admin)])
-def future_tasks_list(status: str = "pending", visitor_id: str = "", limit: int = 50):
+def future_tasks_list(status: str = "open", visitor_id: str = "", limit: int = 50):
     return {"tasks": future_task_store.future_task_list(
         visitor_id=visitor_id, status=status, limit=min(max(limit, 1), 200))}
 

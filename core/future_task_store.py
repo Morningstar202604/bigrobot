@@ -6,13 +6,14 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timedelta, timezone
 
 from core.store import _now, get_conn
 
 __all__ = [
     "future_task_add", "future_task_get", "future_task_list", "future_task_due",
     "future_task_claim", "future_task_release", "future_task_set_result",
-    "future_task_mark", "future_task_cancel",
+    "future_task_mark", "future_task_cancel", "future_task_recover_stale",
 ]
 
 
@@ -45,9 +46,11 @@ def future_task_list(visitor_id: str = "", status: str = "pending", limit: int =
     if visitor_id:
         sql += " AND visitor_id = ?"
         args.append(visitor_id)
-    if status:
-        sql += " AND status = ?"
-        args.append(status)
+    # status=open 是控制台口径：待执行 + 失败待处理，别让失败任务从列表里消失。
+    statuses = ["pending", "failed"] if status == "open" else ([status] if status else [])
+    if statuses:
+        sql += " AND status IN (" + ",".join("?" for _ in statuses) + ")"
+        args.extend(statuses)
     sql += " ORDER BY due_at LIMIT ?"
     args.append(limit)
     with get_conn() as conn:
@@ -99,5 +102,34 @@ def future_task_mark(tid: int, status: str, error: str = "") -> None:
 def future_task_cancel(tid: int) -> bool:
     with get_conn() as conn:
         cur = conn.execute(
-            "UPDATE future_tasks SET status = 'cancelled' WHERE id = ? AND status = 'pending'", (tid,))
+            "UPDATE future_tasks SET status = 'cancelled' "
+            "WHERE id = ? AND status IN ('pending', 'failed')", (tid,))
     return cur.rowcount > 0
+
+
+def future_task_recover_stale(max_age_seconds: int = 3600, max_attempts: int = 3) -> int:
+    """进程上次在执行中崩溃：把陈旧 running 任务重新排队。
+
+    多 worker 下不能一启动就把所有 running 重置——只处理 started_at 超过
+    max_age_seconds 的记录；连续中断达到 max_attempts 的直接判 failed，
+    避免一个必然崩溃的任务无限重跑。
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds)).isoformat()
+    recovered = 0
+    with get_conn() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT id, attempts FROM future_tasks WHERE status = 'running' "
+            "AND started_at IS NOT NULL AND julianday(started_at) <= julianday(?)",
+            (cutoff,),
+        ).fetchall()
+        for row in rows:
+            attempts = int(row["attempts"] or 0) + 1
+            status = "failed" if attempts >= max_attempts else "pending"
+            conn.execute(
+                "UPDATE future_tasks SET status = ?, attempts = ?, last_error = ? WHERE id = ?",
+                (status, attempts, "执行进程中断，已重新排队" if status == "pending"
+                 else "执行进程多次中断，已停止重试", row["id"]),
+            )
+            recovered += 1
+    return recovered

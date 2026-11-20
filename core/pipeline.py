@@ -34,6 +34,8 @@ class ChannelMessage:
     message_id: str = ""
     # 当前会话 id；未来任务执行时用于加载原会话历史
     session_id: str = ""
+    # 未来任务创建时的预设角色；执行时优先于当前聊天绑定的角色卡
+    persona_id: str = ""
 
 
 @dataclass
@@ -731,6 +733,18 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
         cfg["context"] = {**cfg.get("context", {}), "persona": str(card["persona"])}
         if card.get("temperature") is not None:
             cfg["llm"] = {**cfg.get("llm", {}), "temperature": float(card["temperature"])}
+    # 未来任务记录的是「当时谁安排的」：任务创建者选的角色优先于执行时的聊天绑定，
+    # 否则同一任务隔天执行会突然换成另一个角色/另一套知识库。
+    if message.persona_id:
+        try:
+            from core import personas as personas_mod
+
+            preset = personas_mod.get(message.persona_id)
+            if preset:
+                cfg["context"] = {**cfg.get("context", {}), "persona": preset.persona}
+                cfg["llm"] = {**cfg.get("llm", {}), "temperature": preset.temperature}
+        except Exception:
+            pass
     query = (message.text or "").strip()
     max_len = cfg.get("escalation", {}).get("max_message_len", 1000)
     if len(query) > max_len:
