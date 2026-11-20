@@ -1,0 +1,218 @@
+[
+  {
+    "name": "健康检查",
+    "method": "GET",
+    "path": "/healthz",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "就绪检查",
+    "method": "GET",
+    "path": "/readyz",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "适配器列表",
+    "method": "GET",
+    "path": "/api/channels/adapters",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "账号列表",
+    "method": "GET",
+    "path": "/api/accounts",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "运营概览",
+    "method": "GET",
+    "path": "/api/observe/overview",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "配置读取",
+    "method": "GET",
+    "path": "/api/config",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "建会话",
+    "method": "POST",
+    "path": "/api/sessions",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "访客发消息",
+    "method": "POST",
+    "path": "/api/sessions/fd9cb5956d9a46cba87957feb2144be3/messages",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "消息已落库",
+    "method": "GET",
+    "path": "/api/sessions/fd9cb5956d9a46cba87957feb2144be3/messages",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "会话列表含新会话",
+    "method": "GET",
+    "path": "/api/admin/sessions?limit=20",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "导出会话",
+    "method": "GET",
+    "path": "/api/sessions/fd9cb5956d9a46cba87957feb2144be3/export",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "转人工",
+    "method": "POST",
+    "path": "/api/sessions/fd9cb5956d9a46cba87957feb2144be3/op",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "接管",
+    "method": "POST",
+    "path": "/api/sessions/fd9cb5956d9a46cba87957feb2144be3/op",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "人工回复",
+    "method": "POST",
+    "path": "/api/sessions/fd9cb5956d9a46cba87957feb2144be3/op",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "关闭会话",
+    "method": "POST",
+    "path": "/api/sessions/fd9cb5956d9a46cba87957feb2144be3/op",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "知识库条目",
+    "method": "GET",
+    "path": "/api/kb",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "知识库检索",
+    "method": "POST",
+    "path": "/api/kb/test",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "实例状态",
+    "method": "GET",
+    "path": "/api/channel/qq/deploy-status",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "动作目录",
+    "method": "GET",
+    "path": "/api/actions/catalog",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "运行列表",
+    "method": "GET",
+    "path": "/api/agent/runs",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "提醒列表",
+    "method": "GET",
+    "path": "/api/reminders",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "日志",
+    "method": "GET",
+    "path": "/api/observe/logs?limit=20",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "标注列表",
+    "method": "GET",
+    "path": "/api/annotations",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "审计校验",
+    "method": "GET",
+    "path": "/api/admin/audit/verify",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "人格列表",
+    "method": "GET",
+    "path": "/api/personas",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "表情列表",
+    "method": "GET",
+    "path": "/api/emotes",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "模型连通性",
+    "method": "POST",
+    "path": "/api/admin/llm-test",
+    "status": 200,
+    "ok": true,
+    "detail": ""
+  }
+]

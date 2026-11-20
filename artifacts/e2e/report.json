@@ -1,0 +1,124 @@
+[
+  {
+    "page": "能力-卡片",
+    "path": "/capabilities/cards",
+    "ok": true,
+    "errors": [],
+    "http_bad": [],
+    "clicked": [
+      "实例",
+      "会话",
+      "提醒",
+      "能力",
+      "策略",
+      "观测",
+      "设置",
+      "K",
+      "重试",
+      "能力参数",
+      "数据概览",
+      "访问令牌",
+      "DWjFTxu4pXOUp2RL9mLZIg-ygmAg"
+    ],
+    "skipped": []
+  },
+  {
+    "page": "能力-日志",
+    "path": "/logs",
+    "ok": true,
+    "errors": [],
+    "http_bad": [],
+    "clicked": [
+      "实例",
+      "会话",
+      "提醒",
+      "能力",
+      "策略",
+      "观测",
+      "设置",
+      "K",
+      "重试"
+    ],
+    "skipped": []
+  },
+  {
+    "page": "观测-运行",
+    "path": "/runs",
+    "ok": true,
+    "errors": [],
+    "http_bad": [],
+    "clicked": [
+      "实例",
+      "会话",
+      "提醒",
+      "能力",
+      "策略",
+      "观测",
+      "设置",
+      "K",
+      "重试"
+    ],
+    "skipped": []
+  },
+  {
+    "page": "观测-动作",
+    "path": "/actions",
+    "ok": true,
+    "errors": [],
+    "http_bad": [],
+    "clicked": [
+      "实例",
+      "会话",
+      "提醒",
+      "能力",
+      "策略",
+      "观测",
+      "设置",
+      "K",
+      "重试"
+    ],
+    "skipped": []
+  },
+  {
+    "page": "观测-标注",
+    "path": "/annotations",
+    "ok": true,
+    "errors": [],
+    "http_bad": [],
+    "clicked": [
+      "实例",
+      "会话",
+      "提醒",
+      "能力",
+      "策略",
+      "观测",
+      "设置",
+      "K",
+      "重试"
+    ],
+    "skipped": []
+  },
+  {
+    "page": "设置-参数",
+    "path": "/settings/params",
+    "ok": true,
+    "errors": [],
+    "http_bad": [],
+    "clicked": [
+      "实例",
+      "会话",
+      "提醒",
+      "能力",
+      "策略",
+      "观测",
+      "设置",
+      "K",
+      "重试",
+      "能力参数",
+      "数据概览",
+      "访问令牌",
+      "DWjFTxu4pXOUp2RL9mLZIg-ygmAg"
+    ],
+    "skipped": []
+  }
+]

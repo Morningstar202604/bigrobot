@@ -223,7 +223,7 @@ export default function SessionsCenter() {
                 </button>
               )}
             </div>
-            <button className="btn ghost sm" onClick={() => sessions.refetch()} title={t('立即刷新')}>
+            <button className="btn ghost sm whitespace-nowrap" onClick={() => sessions.refetch()} title={t('立即刷新')}>
               <RefreshCw size={13} />
             </button>
           </>
@@ -278,7 +278,7 @@ export default function SessionsCenter() {
                   <td className="muted">{label(ESCALATE_REASON, s.escalate_reason, '-')}</td>
                   <td>
                     <button
-                      className="btn ghost sm"
+                      className="btn ghost sm whitespace-nowrap"
                       onClick={(e) => { e.stopPropagation(); open(s) }}
                     >
                       {t('查看')}
@@ -291,8 +291,8 @@ export default function SessionsCenter() {
         </div>
         <div className="pager">
           <span>{t('分页状态', { total, page: page + 1, pages: maxPage + 1 })}</span>
-          <button className="btn ghost sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>{t('上一页')}</button>
-          <button className="btn ghost sm" disabled={page >= maxPage} onClick={() => setPage((p) => Math.min(maxPage, p + 1))}>{t('下一页')}</button>
+          <button className="btn ghost sm whitespace-nowrap" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>{t('上一页')}</button>
+          <button className="btn ghost sm whitespace-nowrap" disabled={page >= maxPage} onClick={() => setPage((p) => Math.min(maxPage, p + 1))}>{t('下一页')}</button>
         </div>
         </>
       )}
@@ -303,39 +303,41 @@ export default function SessionsCenter() {
             <div className="drawer-head">
               <h3 title={active.id}>会话 #{active.id.slice(0, 8)} · {label(CHANNEL_LABEL, active.channel)}</h3>
               <div className="flex gap-2">
-                <button className="btn ghost sm" onClick={exportSession} title={t('导出为 Markdown')}>
+                <button className="btn ghost sm whitespace-nowrap" onClick={exportSession} title={t('导出为 Markdown')}>
                   <Download size={13} /> 导出
                 </button>
-                <Link to="/operator" className="btn ghost sm"><Headset size={13} /> {t('协作台')}</Link>
+                <Link to="/operator" className="btn ghost sm whitespace-nowrap"><Headset size={13} /> {t('协作台')}</Link>
                 {active.status !== 'closed' && (
                   <button className="btn secondary sm" onClick={doClose} disabled={close.isPending}>
                     <X size={13} /> {close.isPending ? '关闭中…' : '关闭会话'}
                   </button>
                 )}
-                <button className="btn ghost sm" aria-label={t('关闭')} title={t('关闭')} onClick={() => setActive(null)}><X size={14} /></button>
+                <button className="btn ghost sm whitespace-nowrap" aria-label={t('关闭')} title={t('关闭')} onClick={() => setActive(null)}><X size={14} /></button>
               </div>
             </div>
             <div className="drawer-body space-y-3 max-h-[60vh] overflow-auto">
-              <div className="flex gap-2 items-center">
+              <div className="flex flex-col gap-2">
                 <input
-                  className="tb-search-input"
+                  className="tb-search-input w-full"
                   placeholder={t('群号，拉取 QQ 历史')}
                   value={pullGroup}
                   onChange={(e) => setPullGroup(e.target.value)}
                   aria-label={t('群号')}
                 />
-                <button className="btn ghost sm" onClick={() => void pullHistory()} disabled={loading !== '' || !pullGroup.trim()}>
+                <div className="flex flex-wrap gap-2">
+                <button className="btn ghost sm whitespace-nowrap" onClick={() => void pullHistory()} disabled={loading !== '' || !pullGroup.trim()}>
                   {pulling ? t('拉取中…') : t('拉取历史')}
                 </button>
-                <button className="btn ghost sm" onClick={() => void loadMembers()} disabled={loading !== '' || !pullGroup.trim()}>
+                <button className="btn ghost sm whitespace-nowrap" onClick={() => void loadMembers()} disabled={loading !== '' || !pullGroup.trim()}>
                   {loading === 'members' ? t('加载中…') : t('成员')}
                 </button>
-                <button className="btn ghost sm" onClick={() => void loadNotices()} disabled={loading !== '' || !pullGroup.trim()}>
+                <button className="btn ghost sm whitespace-nowrap" onClick={() => void loadNotices()} disabled={loading !== '' || !pullGroup.trim()}>
                   {loading === 'notices' ? t('加载中…') : t('公告')}
                 </button>
-                <button className="btn ghost sm" onClick={() => void loadFiles()} disabled={loading !== '' || !pullGroup.trim()}>
+                <button className="btn ghost sm whitespace-nowrap" onClick={() => void loadFiles()} disabled={loading !== '' || !pullGroup.trim()}>
                   {loading === 'files' ? t('加载中…') : t('文件')}
                 </button>
+                </div>
               </div>
               {notices && (
                 <div className="rounded border border-[var(--line,#e5e7eb)] p-2 max-h-40 overflow-auto text-[12px] whitespace-pre-wrap">

@@ -1,0 +1,68 @@
+[
+  {
+    "page": "实例",
+    "path": "/instances",
+    "ok": true,
+    "errors": [],
+    "http_bad": [],
+    "clicked": [
+      "实例",
+      "会话",
+      "提醒",
+      "能力",
+      "策略",
+      "观测",
+      "设置",
+      "K",
+      "重试",
+      "能力参数"
+    ],
+    "skipped": []
+  },
+  {
+    "page": "会话",
+    "path": "/sessions",
+    "ok": true,
+    "errors": [],
+    "http_bad": [],
+    "clicked": [
+      "实例",
+      "会话",
+      "提醒",
+      "能力",
+      "策略",
+      "观测",
+      "设置",
+      "K",
+      "重试",
+      "能力参数",
+      "数据概览",
+      "访问令牌",
+      "DWjFTxu4pXOUp2RL9mLZIg-ygmAg"
+    ],
+    "skipped": []
+  },
+  {
+    "page": "提醒",
+    "path": "/reminders",
+    "ok": true,
+    "errors": [],
+    "http_bad": [],
+    "clicked": [
+      "实例",
+      "会话",
+      "提醒",
+      "能力",
+      "策略",
+      "观测",
+      "设置",
+      "K",
+      "重试",
+      "能力参数",
+      "数据概览",
+      "访问令牌",
+      "DWjFTxu4pXOUp2RL9mLZIg-ygmAg"
+    ],
+    "skipped": []
+  }
+]

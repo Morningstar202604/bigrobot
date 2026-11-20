@@ -25,3 +25,41 @@
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* ============================================================
+   可读性放大层（2026-11）
+   背景：既有样式大量写死 11–13px，13" 屏上像蚂蚁。这里不改业务 CSS，
+   统一做整体缩放 + 关键控件尺寸补偿，保证任何页面都变大。
+   ============================================================ */
+html { font-size: 18px; }
+
+#root {
+  zoom: 1.12;             /* 整体等比放大，避免逐条改 px */
+}
+
+/* 字号下限：正文最小 14px，说明性文字最小 12.5px */
+body { font-size: 15px; line-height: 1.6; }
+.text-\[11px\], .text-\[11\.5px\] { font-size: 12.5px !important; }
+.text-\[12px\], .text-\[12\.5px\] { font-size: 13.5px !important; }
+.text-\[13px\], .text-\[13\.5px\] { font-size: 14.5px !important; }
+.text-xs { font-size: 13px !important; }
+.text-sm { font-size: 14.5px !important; }
+
+/* 控件手感：按钮与输入框加高，点击目标不小于 36px */
+.btn { min-height: 36px; padding-left: 14px; padding-right: 14px; border-radius: 9px; }
+.btn.sm { min-height: 32px; font-size: 13.5px; }
+.input, .tb-search-input { min-height: 38px; font-size: 14px; border-radius: 9px; }
+
+/* 表格：行高与字号，扫一眼能读 */
+tbody tr, .row { min-height: 46px; }
+th { font-size: 13px; letter-spacing: .02em; }
+
+/* 卡片：更大内边距 + 柔和投影，层级更清楚 */
+.card, .panel, .section { border-radius: 12px; }
+.card { box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px -16px rgba(16,24,40,.18); }
+
+/* 抽屉与弹窗：内容区更宽，避免按钮挤成一坨 */
+.drawer { width: min(520px, 92vw) !important; }
+
+/* 深色模式下的对比度补强 */
+[data-theme="dark"] { --muted: #a6adba; }
