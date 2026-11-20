@@ -21,6 +21,9 @@ export interface LocalModel {
   tool_calling: boolean
   chinese: boolean
   recommended: boolean
+  test_only: boolean
+  min_ram_gb: number
+  fit: { state: 'ok' | 'no' | 'test' | string; label: string }
   released?: string
   badge: string
   tagline: string
@@ -54,6 +57,8 @@ export interface LocalJob {
 
 interface LocalOverview {
   models: LocalModel[]
+  system: { os: string; arch: string; cpu: string; cpu_cores: number; ram_gb: number; gpu: string; vram_gb: number; unified_memory: boolean }
+  recommendation: { model_id: string; name: string; reason: string }
   server: { running?: boolean; model_id?: string; base_url?: string; n_ctx?: number; pid?: number }
   active_model_id: string
   jobs: LocalJob[]
@@ -134,18 +139,98 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
   if (error) return <div className="p-4 text-sm" style={{ color: 'var(--danger)' }}>{(error as Error).message}</div>
   if (!data) return null
 
-  const rec = data.models.find((m) => m.recommended)
+  const rec = data.recommendation.model_id
+    ? data.models.find((m) => m.id === data.recommendation.model_id)
+    : undefined
   const recJob = rec ? data.jobs.find((j) => j.model_id === rec.id) : undefined
   const recBusy = Boolean(recJob && ['queued', 'downloading', 'verifying', 'cancelling'].includes(recJob.status))
+  const production = data.models.filter((m) => !m.test_only)
+  const tests = data.models.filter((m) => m.test_only)
+
+  const renderCard = (m: LocalModel) => {
+    const job = data.jobs.find((j) => j.model_id === m.id)
+    const running = m.active
+    const fitState = m.fit?.state || 'ok'
+    const fitLabel = m.fit?.label || ''
+    const isDownloading = Boolean(job && ['queued', 'downloading', 'verifying', 'cancelling'].includes(job.status))
+    const tooBig = fitState === 'no'
+    return (
+      <article key={m.id} className={`lm-card ${m.recommended ? 'best' : ''} ${tooBig ? 'disabled' : ''}`}>
+        <div className="lm-card-top">
+          <div>
+            <div className="lm-title">
+              {m.name}
+              {m.recommended
+                ? <span className="badge ok">本机推荐</span>
+                : <span className={`badge ${m.test_only ? 'muted' : 'info'}`}>{m.badge}</span>}
+            </div>
+            <div className="lm-sub">{m.params_b}B · {m.quant} · {fmtContext(m.context)} ctx · {m.license}{m.released ? ` · ${m.released} 发布` : ''} · 建议 ≥{m.ram_gb}GB 内存</div>
+          </div>
+          {running
+            ? <span className="badge ok">使用中</span>
+            : m.installed
+              ? <span className="badge muted">已安装</span>
+              : <span className="badge muted">{m.size_label}</span>}
+        </div>
+
+        <p className="lm-tagline">{m.tagline}</p>
+        <p className="lm-why">{m.why}</p>
+
+        <div className="lm-tags">
+          {m.best_for.map((x) => <span key={x} className="badge muted">{x}</span>)}
+          {m.tool_calling && <span className="badge ok">工具调用</span>}
+          {m.chinese && <span className="badge muted">中文</span>}
+          {fitLabel && <span className={`badge ${tooBig ? 'warn' : m.test_only ? 'muted' : 'ok'}`}>{fitLabel}</span>}
+        </div>
+
+        <div className="lm-foot">
+          {isDownloading && job ? (
+            <div className="lm-progress">
+              <div className="lm-progress-line">
+                <span>{job.status === 'verifying' ? '校验文件…' : `${job.percent}% · ${fmtSpeed(job.speed_bps)}${job.eta_s ? ` · 剩 ${fmtEta(job.eta_s)}` : ''}`}</span>
+                <button className="btn ghost sm" onClick={() => cancel.mutate(job.job_id)}>取消</button>
+              </div>
+              <div className="lm-progress-track"><div style={{ width: `${job.percent}%` }} /></div>
+            </div>
+          ) : !m.installed ? (
+            <button className="btn sm" onClick={() => download.mutate(m.id)} disabled={busy || tooBig} title={tooBig ? fitLabel : ''}>
+              <Download size={13} /> {tooBig ? '内存不足' : `下载 ${m.size_label}`}
+            </button>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              {!running && (
+                <button className="btn sm" onClick={() => activate.mutate(m)} disabled={busy || !data.llama_available || tooBig} title={tooBig ? fitLabel : ''}>
+                  {activate.isPending ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} 启用
+                </button>
+              )}
+              {running && (
+                <button className="btn secondary sm" onClick={() => stop.mutate()} disabled={busy}>
+                  <Square size={13} /> 停止
+                </button>
+              )}
+              <button className="btn ghost sm" onClick={() => remove.mutate(m.id)} disabled={busy || running} title="删除模型文件">
+                <Trash2 size={13} />
+              </button>
+            </div>
+          )}
+          <span className="text-xs text-muted">{m.installed ? m.bytes_label : ''}</span>
+        </div>
+      </article>
+    )
+  }
 
   return (
     <section className="bp-sec lm-panel">
       <div className="bp-sec-head">
         <h2><Cpu size={15} /> {t('本地模型')}</h2>
-        <span>{t('下载到本机、离线运行；内置短提示词适配，不把长人设塞给小模型')}</span>
+        <span>{t('按本机配置推荐；1B 以下只作为测试和低配体验，不再冒充默认推荐')}</span>
       </div>
 
       <div className="lm-bar">
+        <span className="badge muted">
+          <Cpu size={12} /> {data.system.cpu_cores} 核 · {data.system.ram_gb}GB 内存
+          {data.system.gpu ? ` · ${data.system.gpu}` : ' · 无独显'}
+        </span>
         <span className="badge muted"><HardDrive size={12} /> 剩余 {data.disk.free_label}</span>
         <code className="text-xs text-muted">{data.root}</code>
         <button className="btn ghost sm" onClick={() => void refetch()} disabled={isFetching}>
@@ -153,22 +238,29 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
         </button>
       </div>
 
-      {rec && !rec.installed && !recBusy && (
+      {rec ? (
         <div className="lm-note ok">
-          <Download size={14} />
-          <span>推荐先装 <b>{rec.name}</b>：{rec.params_b}B / {fmtContext(rec.context)} ctx，下载后点卡片里的「启用」即可。</span>
-          <button className="btn sm" onClick={() => download.mutate(rec.id)} disabled={busy}>
-            <Download size={12} /> 下载推荐
-          </button>
+          {rec.installed ? <Play size={14} /> : <Download size={14} />}
+          <span>
+            本机推荐 <b>{rec.name}</b>：{rec.params_b}B / {fmtContext(rec.context)} ctx。
+            {data.recommendation.reason}
+            {rec.installed && !rec.active ? ' 已装好，点右边启用。' : ''}
+          </span>
+          {!rec.installed && !recBusy && (
+            <button className="btn sm" onClick={() => download.mutate(rec.id)} disabled={busy || rec.fit?.state === 'no'}>
+              <Download size={12} /> 下载推荐
+            </button>
+          )}
+          {rec.installed && !rec.active && (
+            <button className="btn sm" onClick={() => activate.mutate(rec)} disabled={busy || !data.llama_available || rec.fit?.state === 'no'}>
+              <Play size={12} /> 启用推荐
+            </button>
+          )}
         </div>
-      )}
-      {rec && rec.installed && !rec.active && (
-        <div className="lm-note ok">
-          <Play size={14} />
-          <span><b>{rec.name}</b> 已装好，启用后会切到本地端点。</span>
-          <button className="btn sm" onClick={() => activate.mutate(rec)} disabled={busy || !data.llama_available}>
-            <Play size={12} /> 启用推荐
-          </button>
+      ) : (
+        <div className="lm-note warn">
+          <AlertTriangle size={14} />
+          <span>{data.recommendation.reason}</span>
         </div>
       )}
       {!data.llama_available && (
@@ -194,77 +286,24 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
       )}
 
       <div className="lm-grid">
-        {data.models.map((m) => {
-          const job = data.jobs.find((j) => j.model_id === m.id)
-          const running = m.active
-          const isDownloading = Boolean(job && ['queued', 'downloading', 'verifying', 'cancelling'].includes(job.status))
-          return (
-            <article key={m.id} className={`lm-card ${m.recommended ? 'best' : ''}`}>
-              <div className="lm-card-top">
-                <div>
-                  <div className="lm-title">
-                    {m.name}
-                    {m.recommended && <span className="badge ok">{m.badge}</span>}
-                    {!m.recommended && <span className="badge muted">{m.badge}</span>}
-                  </div>
-                  <div className="lm-sub">{m.params_b}B · {m.quant} · {fmtContext(m.context)} ctx · {m.license}{m.released ? ` · ${m.released} 发布` : ''}</div>
-                </div>
-                {running
-                  ? <span className="badge ok">使用中</span>
-                  : m.installed
-                    ? <span className="badge muted">已安装</span>
-                    : <span className="badge muted">{m.size_label}</span>}
-              </div>
-
-              <p className="lm-tagline">{m.tagline}</p>
-              <p className="lm-why">{m.why}</p>
-
-              <div className="lm-tags">
-                {m.best_for.map((x) => <span key={x} className="badge muted">{x}</span>)}
-                {m.tool_calling && <span className="badge ok">工具调用</span>}
-                {m.chinese && <span className="badge muted">中文</span>}
-              </div>
-
-              <div className="lm-foot">
-                {isDownloading && job ? (
-                  <div className="lm-progress">
-                    <div className="lm-progress-line">
-                      <span>{job.status === 'verifying' ? '校验文件…' : `${job.percent}% · ${fmtSpeed(job.speed_bps)}${job.eta_s ? ` · 剩 ${fmtEta(job.eta_s)}` : ''}`}</span>
-                      <button className="btn ghost sm" onClick={() => cancel.mutate(job.job_id)}>取消</button>
-                    </div>
-                    <div className="lm-progress-track"><div style={{ width: `${job.percent}%` }} /></div>
-                  </div>
-                ) : !m.installed ? (
-                  <button className="btn sm" onClick={() => download.mutate(m.id)} disabled={busy}>
-                    <Download size={13} /> 下载 {m.size_label}
-                  </button>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {!running && (
-                      <button className="btn sm" onClick={() => activate.mutate(m)} disabled={busy || !data.llama_available}>
-                        {activate.isPending ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} 启用
-                      </button>
-                    )}
-                    {running && (
-                      <button className="btn secondary sm" onClick={() => stop.mutate()} disabled={busy}>
-                        <Square size={13} /> 停止
-                      </button>
-                    )}
-                    <button className="btn ghost sm" onClick={() => remove.mutate(m.id)} disabled={busy || running} title="删除模型文件">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                )}
-                <span className="text-xs text-muted">{m.installed ? m.bytes_label : ''}</span>
-              </div>
-            </article>
-          )
-        })}
+        {production.map(renderCard)}
       </div>
 
+      {tests.length > 0 && (
+        <>
+          <div className="lm-subhead">
+            <h3>测试 / 低配模型</h3>
+            <span className="text-xs text-muted">只用于工具链路、低配体验和回归测试，不参与“本机推荐”。</span>
+          </div>
+          <div className="lm-grid">
+            {tests.map(renderCard)}
+          </div>
+        </>
+      )}
+
       <div className="lm-hint">
-        先点推荐卡的「下载」，装好后点「启用」，程序会自动写入本地端点并切到小模型提示词。
-        建议 2GB 内存以上；当前默认 8K 运行上下文，模型本身支持更长上下文，可在「能力参数」里调整。
+        推荐只看本机内存：8GB 起步用 4B，16GB 起步用 9B；低于 8GB 不会硬推生产模型，只保留 1B 测试档。
+        当前默认 8K 运行上下文，模型本身支持更长上下文，可在「能力参数」里调整。
         下载走 HuggingFace 镜像，失败会自动回退官方源；半截文件保留，下次续传。
       </div>
     </section>

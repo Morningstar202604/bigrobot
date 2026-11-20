@@ -6,15 +6,17 @@ BigRobot can download a small GGUF model, run it with `llama.cpp`, and switch to
 
 ## What is in the catalog
 
-| Model | Size | Context | Why it is here |
+The catalog has two tiers, and 1B test models are no longer labelled "default":
+
+| Model | Size | Context | Role |
 |---|---|---|---|
-| **MiniCPM5-1B (default)** | 1.08B / Q4_K_M | 128K | Released 2026-05; 1B-class open SOTA for agentic tool use, coding and hard reasoning, with stronger general ability than 0.8B models. |
-| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | Tool-specialized, smallest and fastest; pick it for tight RAM or reminder/weather-only use. |
-| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | The base model under BotPsy; a general baseline, weaker on complex agent tasks than MiniCPM5. |
+| Qwen3.5-9B | 9B / Q4_K_M | 256K | Quality tier for 16GB RAM and up; daily driver, code, long documents and complex tools. |
+| Qwen3.5-4B | 4B / Q4_K_M | 256K | General tier for 8GB RAM; best pick below 16GB. |
+| MiniCPM5-1B | 1.08B / Q4_K_M | 128K | 4GB low-spec and tool-chain testing; never "recommended for this machine". |
+| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | Tool-call regression fixture; never recommended. |
+| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | Original baseline fixture; never recommended. |
 
-All three are Apache-2.0 and strictly below 2B. The console shows exact file size and license before download.
-
-MiniCPM5-2B is marketed as "2B-class", but its official total parameter count is 2,516,756,480 — over the 2B hard limit, so it is not in the catalog.
+The console reads local RAM and computes the recommendation: below 8GB it recommends no production model, 8GB gets 4B, and 16GB+ gets 9B. Exact file size and license are shown before download.
 
 ## Download and run
 
@@ -32,7 +34,7 @@ The downloader tries `BIGROBOT_HF_ENDPOINT`, then `hf-mirror.com`, then `hugging
 
 ## Small-model mode
 
-A 0.5B–1B model does not have room for a 2,000-character persona and thirty tool schemas. When the active endpoint is local, BigRobot automatically:
+4B/9B models use the full persona and all tools. Only sub-2B models enter compact mode. A 0.5B–1B model does not have room for a 2,000-character persona and thirty tool schemas, so BigRobot automatically:
 
 - keeps the first identity sentence of the persona and drops the life story;
 - exposes eight core tools (`now`, `remind`, `reminders`, `weather`, `remember`, `recall_memory`, `calc`, `web_search`);
@@ -60,7 +62,8 @@ These tools need extra infrastructure and stay explicitly "not configured" rathe
 ## Limits
 
 - CPU only on a 2-core / 4GB box: 8–20 seconds per short turn. GPU is not required, but it changes the experience.
-- The model may support 256K context; BigRobot starts at 8K because KV cache has to fit in RAM. Raise `n_ctx` in `POST /api/local-models/activate` if the machine can take it.
+- 4B/9B support 256K context; BigRobot starts at 8K because KV cache has to fit in RAM. Raise `n_ctx` in `POST /api/local-models/activate` if the machine can take it.
+- Q4 files are about 2.7GB for 4B and 5.7GB for 9B; check free disk before downloading.
 - `llama_cpp.server` reads `PORT` and `HOST` from the environment. BigRobot strips both for the child process so the model never takes the console's port.
 - `logits_all` is forced off. Leaving it on allocates `n_ctx × vocab` floats (7.6GB at 8K for this vocabulary) and kills 4GB machines.
 
@@ -75,7 +78,7 @@ export ADMIN_TOKEN="$(openssl rand -hex 32)"
 
 | Route | Purpose |
 |---|---|
-| `GET /api/local-models` | Catalog, installed files, running server, free disk |
+| `GET /api/local-models` | Catalog, detected CPU/RAM/GPU, per-machine recommendation, installed files, running server, free disk |
 | `POST /api/local-models/download` | Start or resume a download |
 | `GET /api/local-models/jobs/{id}` | Progress, speed, ETA, error |
 | `POST /api/local-models/jobs/{id}/cancel` | Stop a download, keep the `.part` file |

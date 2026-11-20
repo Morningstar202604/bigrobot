@@ -653,6 +653,9 @@ table.dt .raw { max-width: 300px; overflow: hidden; text-overflow: ellipsis; whi
 .lm-note.warn { background:var(--warn-soft, #fffbeb); border-color:var(--warn, #f59e0b); }
 .lm-note.danger { background:var(--danger-soft, #fef2f2); border-color:var(--danger, #ef4444); }
 .lm-note code { padding:1px 5px; border-radius:4px; background:var(--system-soft); }
+.lm-subhead { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; margin:16px 0 8px; }
+.lm-subhead h3 { margin:0; font-size:13px; }
+.lm-card.disabled { opacity:.72; }
 .lm-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px; }
 .lm-card { border:1px solid var(--line); border-radius:12px; padding:14px; background:var(--panel); display:flex; flex-direction:column; gap:8px; min-width:0; }
 .lm-card.best { border-color:var(--brand, #6366f1); box-shadow:0 0 0 1px var(--brand-soft, #eef2ff) inset; }

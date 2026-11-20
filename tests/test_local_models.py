@@ -22,13 +22,16 @@ def _tiny_server(payload: bytes):
     return srv
 
 
-def test_catalog_stays_under_2b_and_has_large_context():
-    assert len(local_models.CATALOG) >= 3
+def test_catalog_has_production_and_test_tiers():
+    production = [m for m in local_models.CATALOG if not m.get("test_only")]
+    tests = [m for m in local_models.CATALOG if m.get("test_only")]
+    assert [m["id"] for m in production] == ["qwen3.5-9b", "qwen3.5-4b"]
+    assert tests and all(m["params_b"] < 2.0 for m in tests)
     for item in local_models.CATALOG:
-        assert item["params_b"] < 2.0
         assert item["context"] >= 131_072
         assert item["file"].endswith(".gguf")
         assert item["size"] > 0
+        assert item["min_ram_gb"] > 0
 
 
 def test_small_model_mode_only_for_local(monkeypatch):
@@ -106,3 +109,34 @@ def test_reminder_uses_user_original_text_not_model_args():
     assert "明天下午五点" not in result["note"]
     entries = store.reminder_list("v-local-test")
     assert entries and entries[-1]["text"] == "喝水"
+
+
+def test_recommendation_follows_machine_ram_not_a_hardcoded_model():
+    assert local_models.recommend_model({"ram_gb": 3.9}) is None
+    assert local_models.recommend_model({"ram_gb": 7.8})["id"] == "qwen3.5-4b"
+    assert local_models.recommend_model({"ram_gb": 15.6})["id"] == "qwen3.5-9b"
+    assert local_models.recommend_model({"ram_gb": 64})["id"] == "qwen3.5-9b"
+    assert all(
+        not m.get("test_only") for m in [local_models.recommend_model({"ram_gb": 64})]
+    )
+
+
+def test_large_local_models_do_not_run_in_compact_mode():
+    assert local_models.small_model_mode({
+        "llm": {"base_url": "http://127.0.0.1:18080/v1", "local_model_id": "qwen3.5-4b"}
+    }) is False
+    assert local_models.small_model_mode({
+        "llm": {"base_url": "http://127.0.0.1:18080/v1", "local_model_id": "minicpm5-1b"}
+    }) is True
+
+
+def test_overview_recommendation_uses_detected_ram(monkeypatch, tmp_path):
+    monkeypatch.setenv("BIGROBOT_MODELS_DIR", str(tmp_path / "models"))
+    monkeypatch.setattr(local_models, "system_profile", lambda: {
+        "os": "Linux", "arch": "x86_64", "cpu": "test", "cpu_cores": 4,
+        "ram_gb": 8.0, "gpu": "", "vram_gb": 0.0, "unified_memory": False,
+    })
+    d = local_models.overview()
+    assert d["recommendation"]["model_id"] == "qwen3.5-4b"
+    assert [m["id"] for m in d["models"] if m["recommended"]] == ["qwen3.5-4b"]
+    assert all(not m["recommended"] for m in d["models"] if m["test_only"])

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import re
 import shutil
 import socket
@@ -22,9 +23,57 @@ import httpx
 
 from core import config, paths
 
-# 只推荐明确低于 2B、可商用、GGUF 可直接落地的模型。
-# 评测数字只写模型卡公开可查的结论，不在这里编「最强」。
+# 模型目录分两类：
+# - 生产档：按本机 CPU / 内存 / 显卡自动推荐，至少 2B，能当日常主力；
+# - 测试档：1B 以下，只用于工具链路、低配兼容和回归测试，不参与推荐。
+# 评测只写模型卡公开可查的结论；文件大小用 Q4_K_M 的实际字节数。
 CATALOG: list[dict] = [
+    {
+        "id": "qwen3.5-9b",
+        "name": "Qwen3.5-9B",
+        "params_b": 9.0,
+        "repo": "unsloth/Qwen3.5-9B-GGUF",
+        "file": "Qwen3.5-9B-Q4_K_M.gguf",
+        "size": 5_680_522_464,
+        "quant": "Q4_K_M",
+        "context": 262_144,
+        "license": "Apache-2.0",
+        "tool_calling": True,
+        "chinese": True,
+        "released": "2026-03",
+        "badge": "16G 质量档",
+        "tagline": "9B 主力档：262K 上下文，中文、代码和长文明显比 1B 稳；16GB 内存起步。",
+        "why": "Qwen3.5 原生 262K 上下文，Q4_K_M 约 5.7GB；16GB 机器留出系统余量后可长期跑，适合日常问答、代码和复杂工具链。",
+        "best_for": ["日常主力", "代码", "长文", "复杂 Agent"],
+        "ram_gb": 16,
+        "min_ram_gb": 15.0,
+        "test_only": False,
+        "default_ctx": 8192,
+        "chat_template_kwargs": {"enable_thinking": False},
+    },
+    {
+        "id": "qwen3.5-4b",
+        "name": "Qwen3.5-4B",
+        "params_b": 4.0,
+        "repo": "unsloth/Qwen3.5-4B-GGUF",
+        "file": "Qwen3.5-4B-Q4_K_M.gguf",
+        "size": 2_740_937_888,
+        "quant": "Q4_K_M",
+        "context": 262_144,
+        "license": "Apache-2.0",
+        "tool_calling": True,
+        "chinese": True,
+        "released": "2026-03",
+        "badge": "8G 主力",
+        "tagline": "4B 通用主力：262K 上下文，8GB 内存可跑，中文/代码/Agent 比 1B 稳一档。",
+        "why": "Qwen3.5 原生 262K 上下文，Q4_K_M 约 2.7GB；8GB 机器留出系统余量后可当日常主力，是低于 16GB 的首选。",
+        "best_for": ["通用问答", "代码", "长文", "Agent"],
+        "ram_gb": 8,
+        "min_ram_gb": 7.5,
+        "test_only": False,
+        "default_ctx": 8192,
+        "chat_template_kwargs": {"enable_thinking": False},
+    },
     {
         "id": "minicpm5-1b",
         "name": "MiniCPM5-1B",
@@ -37,15 +86,15 @@ CATALOG: list[dict] = [
         "license": "Apache-2.0",
         "tool_calling": True,
         "chinese": True,
-        "recommended": True,
         "released": "2026-05-19",
-        "badge": "1B 推荐",
-        "tagline": "2026 年 1B 级开源 SOTA：128K 上下文，Agent 工具调用、代码与困难推理领先同尺寸。",
-        "why": "官方模型卡：1,080,632,832 参数、131,072 上下文、Apache-2.0；对比 Qwen3-0.6B/0.8B、LFM2.5-1.2B 在 MMLU、Coding、Agentic、BFCLv4 等评测领先。llama.cpp 下由 BigRobot 做 XML 工具适配，默认关闭 thinking 以适配 CPU。",
-        "best_for": ["Agent 工具调用", "长上下文", "中英双语", "通用问答"],
-        "ram_gb": 3,
+        "badge": "测试 / 低配",
+        "tagline": "1B 级开源 SOTA，128K 上下文；用于低配体验、工具链路和回归测试，不作为主力推荐。",
+        "why": "官方定位 1B 级开源 SOTA，Agent 工具调用、代码和困难推理领先同尺寸；但 1B 的知识密度和长文稳定性有限，只适合 4GB 级机器或测试。",
+        "best_for": ["4GB 低配", "工具链路测试", "长上下文验证"],
+        "ram_gb": 2,
+        "min_ram_gb": 2,
+        "test_only": True,
         "default_ctx": 8192,
-        # 默认模板会先吐一长段 <think>，把 max_tokens 吃光；本地 CPU 关掉思考。
         "chat_template_kwargs": {"enable_thinking": False},
     },
     {
@@ -60,13 +109,14 @@ CATALOG: list[dict] = [
         "license": "Apache-2.0",
         "tool_calling": True,
         "chinese": True,
-        "recommended": False,
         "released": "2026-11-11",
-        "badge": "工具专精",
-        "tagline": "0.8B 工具调用特化，体积最小、响应最快；通用知识与长文弱于 MiniCPM5。",
-        "why": "在 BFCL v4、ACEBench、τ-bench、ToolSandbox 等六项工具/Agent 评测中领先 1.2B 以下同级模型；适合把提醒、天气、文件这类多步任务压到最低内存。",
-        "best_for": ["极低内存", "工具调用", "日程提醒"],
-        "ram_gb": 2,
+        "badge": "测试 / 工具",
+        "tagline": "0.8B 工具调用特化，体积最小、响应最快；只用于工具回归，不作为日常主力。",
+        "why": "在 BFCL v4、ACEBench、τ-bench、ToolSandbox 等工具/Agent 评测中很强；但通用知识和长文弱，保留为小模型工具链测试件。",
+        "best_for": ["工具回归", "极低内存", "提醒/天气验证"],
+        "ram_gb": 1.5,
+        "min_ram_gb": 1.5,
+        "test_only": True,
         "default_ctx": 8192,
     },
     {
@@ -81,16 +131,16 @@ CATALOG: list[dict] = [
         "license": "Apache-2.0",
         "tool_calling": True,
         "chinese": True,
-        "recommended": False,
-        "badge": "通用基线",
-        "tagline": "原生 256K 上下文，中文稳，工具调用是通用水平。",
-        "why": "BotPsy 的基座模型，长上下文与中文对话扎实；需要原厂通用能力时选它，但复杂 Agent 任务不如 MiniCPM5。",
-        "best_for": ["中文对话", "长上下文", "通用问答"],
-        "ram_gb": 2,
+        "badge": "测试 / 基线",
+        "tagline": "原厂 0.8B 基线，原生 256K 上下文；用于对照测试，不作为日常主力。",
+        "why": "BotPsy 的基座模型，长上下文和中文对话扎实；能力上限受 0.8B 限制，保留为最低配对照。",
+        "best_for": ["对照测试", "最低内存", "长上下文验证"],
+        "ram_gb": 1.5,
+        "min_ram_gb": 1.5,
+        "test_only": True,
         "default_ctx": 8192,
     },
 ]
-
 CORE_TOOLS = (
     "now", "remind", "reminders", "weather", "remember", "recall_memory",
     "calc", "web_search",
@@ -163,6 +213,17 @@ def is_installed(item: dict) -> bool:
     return final.is_file() and final.stat().st_size >= int(item.get("size") or 0) * 0.98
 
 
+def local_model_params(cfg: dict) -> float:
+    """当前本地模型的参数量；手工接 Ollama 时从模型名里读。"""
+    llm = (cfg or {}).get("llm") or {}
+    mid = str(llm.get("local_model_id") or "")
+    for item in CATALOG:
+        if item["id"] == mid:
+            return float(item["params_b"])
+    m = re.search(r"(\d+(?:\.\d+)?)b", str(llm.get("model") or ""), re.I)
+    return float(m.group(1)) if m else 0.0
+
+
 def small_model_mode(cfg: dict) -> bool:
     """本地端点或显式 local_model_id → 自动收紧提示词。
 
@@ -170,6 +231,9 @@ def small_model_mode(cfg: dict) -> bool:
     """
     llm = (cfg or {}).get("llm") or {}
     if llm.get("local_compact") is False:
+        return False
+    # 4B/9B 本地模型有足够参数吃完整人设和工具清单，不该再按 1B 收紧。
+    if local_model_params(cfg) >= 2.0:
         return False
     if llm.get("local_model_id"):
         return True
@@ -518,11 +582,12 @@ def activate(model_id: str, n_ctx: int | None = None) -> dict:
             "api_key": "local",
             "protocol": "openai-compatible",
             "context_window": int(server.get("n_ctx") or 8192),
-            "max_output": 512,
+            "max_output": 1024 if item["params_b"] >= 2 else 512,
             "tool_calling": True,
             "supports_vision": False,
             "local_model_id": item["id"],
-            "local_compact": True,
+            # 4B/9B 用完整人设和全量工具；1B 才进精简模式。
+            "local_compact": item["params_b"] < 2.0,
         },
     })
     return {"ok": True, "model_id": item["id"], "server": server}
@@ -544,11 +609,124 @@ def remove_model(model_id: str) -> dict:
 # 汇总
 # ---------------------------------------------------------------------------
 
+def _total_ram_gb() -> float:
+    """跨平台读物理内存；读不到就按 0 处理，绝不猜。"""
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("MemTotal:"):
+                    return round(int(line.split()[1]) / 1024 / 1024, 1)
+    except OSError:
+        pass
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            class _Memory(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+
+            mem = _Memory()
+            mem.dwLength = ctypes.sizeof(_Memory)
+            windll = getattr(ctypes, "windll", None)
+            if windll and windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(mem)):
+                return round(mem.ullTotalPhys / 1024**3, 1)
+        except (AttributeError, OSError, ValueError):
+            pass
+    try:
+        pages = os.sysconf("SC_PHYS_PAGES")
+        size = os.sysconf("SC_PAGE_SIZE")
+        return round(pages * size / 1024**3, 1)
+    except (AttributeError, OSError, ValueError):
+        return 0.0
+
+
+def _cpu_name() -> str:
+    try:
+        with open("/proc/cpuinfo", encoding="utf-8") as fh:
+            for line in fh:
+                if line.lower().startswith(("model name", "hardware")):
+                    return line.split(":", 1)[-1].strip()
+    except OSError:
+        pass
+    return platform.processor() or platform.machine() or "unknown"
+
+
+def _gpu_profile() -> dict:
+    """NVIDIA 优先；Apple Silicon 按统一内存处理；其他核显不虚报显存。"""
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5)
+        if out.returncode == 0 and out.stdout.strip():
+            rows = [line.split(",") for line in out.stdout.strip().splitlines() if line.strip()]
+            names = [r[0].strip() for r in rows]
+            vram = 0.0
+            for r in rows:
+                try:
+                    vram += float(r[1].strip()) / 1024
+                except (IndexError, ValueError):
+                    pass
+            return {"name": " / ".join(names), "vram_gb": round(vram, 1), "unified": False}
+    except (OSError, subprocess.SubprocessError):
+        pass
+    if platform.system() == "Darwin" and platform.machine().lower() in ("arm64", "aarch64"):
+        return {"name": "Apple Silicon", "vram_gb": 0.0, "unified": True}
+    return {"name": "", "vram_gb": 0.0, "unified": False}
+
+
+def system_profile() -> dict:
+    gpu = _gpu_profile()
+    return {
+        "os": platform.system(),
+        "arch": platform.machine(),
+        "cpu": _cpu_name(),
+        "cpu_cores": os.cpu_count() or 1,
+        "ram_gb": _total_ram_gb(),
+        "gpu": gpu["name"],
+        "vram_gb": gpu["vram_gb"],
+        "unified_memory": gpu["unified"],
+    }
+
+
+def _min_ram(item: dict) -> float:
+    return float(item.get("min_ram_gb") or item.get("ram_gb") or 0)
+
+
+def recommend_model(system: dict | None = None) -> dict | None:
+    """只在生产档里挑：本机跑得动、参数最大的那个。测试档永不参与推荐。"""
+    sysinfo = system or system_profile()
+    fits = [m for m in CATALOG if not m.get("test_only") and sysinfo["ram_gb"] >= _min_ram(m)]
+    if not fits:
+        return None
+    return max(fits, key=lambda m: (m["params_b"], m["context"]))
+
+
+def _fit_label(item: dict, system: dict) -> dict:
+    if item.get("test_only"):
+        return {"state": "test", "label": "测试模型，不参与推荐"}
+    if system["ram_gb"] < _min_ram(item):
+        return {"state": "no", "label": f"内存不足：建议 {item['ram_gb']:g}GB"}
+    return {"state": "ok", "label": "本机可跑"}
+
+
 def overview() -> dict:
     cfg = config.get_config()
     active_id = ((cfg.get("llm") or {}).get("local_model_id") or "")
     server = server_status()
     disk = shutil.disk_usage(models_root())
+    sysinfo = system_profile()
+    picked = recommend_model(sysinfo)
+    rec_id = picked["id"] if picked else ""
     items = []
     for item in CATALOG:
         got = installed_bytes(item)
@@ -556,9 +734,13 @@ def overview() -> dict:
         items.append({
             **{k: item[k] for k in (
                 "id", "name", "params_b", "quant", "context", "license", "tool_calling",
-                "chinese", "recommended", "badge", "tagline", "why", "best_for", "ram_gb",
+                "chinese", "badge", "tagline", "why", "best_for", "ram_gb",
                 "repo", "file", "size", "default_ctx")},
             **({"released": item["released"]} if item.get("released") else {}),
+            "min_ram_gb": _min_ram(item),
+            "test_only": bool(item.get("test_only")),
+            "recommended": bool(rec_id and item["id"] == rec_id),
+            "fit": _fit_label(item, sysinfo),
             "installed": installed, "bytes": got,
             "size_label": _human(item["size"]), "bytes_label": _human(got),
             "active": bool(installed and active_id == item["id"] and server.get("running")),
@@ -567,8 +749,19 @@ def overview() -> dict:
     jobs = list_jobs()
     # 已结束的旧任务不占 UI：只回传正在跑的和最近一次失败。
     jobs = [j for j in jobs if j["status"] in ("queued", "downloading", "verifying", "cancelling")]
+    if picked:
+        rec_note = f"按本机 {sysinfo['ram_gb']:g}GB 内存，推荐 {picked['name']}（需 ≥{_min_ram(picked):g}GB）。"
+    else:
+        rec_note = (f"本机 {sysinfo['ram_gb']:g}GB 内存，低于 8GB 生产档；"
+                    "下面的 1B 模型仅用于低配体验和兼容性测试，不作为推荐。")
     return {
         "models": items,
+        "system": sysinfo,
+        "recommendation": {
+            "model_id": rec_id,
+            "name": picked["name"] if picked else "",
+            "reason": rec_note,
+        },
         "server": server,
         "active_model_id": active_id,
         "jobs": jobs,

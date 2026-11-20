@@ -6,15 +6,17 @@ BigRobot 可以直接下载小体积 GGUF 模型，用 `llama.cpp` 在本机跑�
 
 ## 推荐目录
 
-| 模型 | 体积 | 上下文 | 为什么选它 |
+目录分两档，不再把 1B 测试模型写成“默认推荐”：
+
+| 模型 | 体积 | 上下文 | 定位 |
 |---|---|---|---|
-| **MiniCPM5-1B（默认推荐）** | 1.08B / Q4_K_M | 128K | 2026-05 发布的 1B 级开源 SOTA；Agent 工具调用、代码和困难推理领先同尺寸，通用能力比 0.8B 更稳。 |
-| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | 工具调用特化，体积最小、响应最快；内存特别紧或只做提醒/天气时选它。 |
-| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | BotPsy 的基座，原厂通用基线；复杂 Agent 任务不如 MiniCPM5。 |
+| Qwen3.5-9B | 9B / Q4_K_M | 256K | 16GB 内存起步的质量档；日常主力、代码、长文和复杂工具链。 |
+| Qwen3.5-4B | 4B / Q4_K_M | 256K | 8GB 内存起步的通用主力；低于 16GB 的首选。 |
+| MiniCPM5-1B | 1.08B / Q4_K_M | 128K | 4GB 级低配和工具链路测试，不参与“本机推荐”。 |
+| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | 小模型工具回归，不参与“本机推荐”。 |
+| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | 原厂基线对照，不参与“本机推荐”。 |
 
-三个都是 Apache-2.0，参数都严格低于 2B。下载前控制台会给出准确的文件大小和许可。
-
-MiniCPM5-2B 虽然宣传叫“2B-class”，官方总参数 2,516,756,480，已经超过 2B 硬上限，所以没有放进推荐目录。
+推荐由程序读取本机内存后计算：8GB 以下不推生产模型，只显示低配测试档；8GB 推荐 4B，16GB 及以上推荐 9B。下载前控制台会给出准确的文件大小和许可。
 
 ## 下载与运行
 
@@ -32,7 +34,7 @@ pip install -r requirements-local.txt
 
 ## 小模型模式
 
-0.5B—1B 装不下两千字人设和三十个工具 schema。当前端点在本机时，BigRobot 会自动：
+4B/9B 使用完整人设和全量工具；只有 1B 以下才进精简模式。1B 装不下两千字人设和三十个工具 schema，BigRobot 会自动：
 
 - 只保留人设第一句身份，丢掉成长故事；
 - 只暴露八个核心工具（`now`、`remind`、`reminders`、`weather`、`remember`、`recall_memory`、`calc`、`web_search`）；
@@ -60,7 +62,8 @@ pip install -r requirements-local.txt
 ## 限制
 
 - 2 核 / 4GB 纯 CPU：一轮短对话大约 8—20 秒。不是必须 GPU，但有无 GPU 体验差别很大。
-- 模型本身支持 256K，但 BigRobot 默认只开 8K，因为 KV cache 要占内存。机器扛得住时可在 `POST /api/local-models/activate` 里调大 `n_ctx`。
+- 4B/9B 模型本身支持 256K，但 BigRobot 默认只开 8K，因为 KV cache 要占内存。机器扛得住时可在 `POST /api/local-models/activate` 里调大 `n_ctx`。
+- 4B Q4 文件约 2.7GB，9B 约 5.7GB；下载前先看页面显示的剩余磁盘。
 - `llama_cpp.server` 会读环境变量 `PORT`、`HOST`。BigRobot 给子进程剥掉这两个变量，避免本地模型抢占控制台端口。
 - `logits_all` 强制关闭。开着会按 `n_ctx × 词表` 分配浮点数组（8K 上下文约 7.6GB），4GB 机器会直接 OOM。
 
@@ -75,7 +78,7 @@ export ADMIN_TOKEN="$(openssl rand -hex 32)"
 
 | 路由 | 用途 |
 |---|---|
-| `GET /api/local-models` | 目录、已装文件、运行状态、剩余磁盘 |
+| `GET /api/local-models` | 目录、本机 CPU/内存/显卡、按机器计算的推荐、已装文件、运行状态、剩余磁盘 |
 | `POST /api/local-models/download` | 开始或续传下载 |
 | `GET /api/local-models/jobs/{id}` | 进度、速度、剩余时间、错误 |
 | `POST /api/local-models/jobs/{id}/cancel` | 取消下载，保留 `.part` |
