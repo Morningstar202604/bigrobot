@@ -180,7 +180,7 @@ export default function SetupWizard() {
           {step === 'welcome' && (
             <div className="space-y-3 text-sm">
               <p className="text-ink-2">
-                {t('BigRobot是一个跑在你自己机器上的私人秘书：QQ 群里回话、网页里聊天、真的去执行工具——设提醒、算数、查资料、读写文件。')}
+                {t('BigRobot 接管你已有的聊天账号：看群、看成员、看文件和历史，再在上面放一个能执行工具的 AI 助手。')}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                 {[
@@ -194,11 +194,6 @@ export default function SetupWizard() {
                   </div>
                 ))}
               </div>
-              {status.checks.kb && (
-                <p className="text-xs text-muted pt-2">
-                  {t('知识库已内置 14 条示例，可以直接问「物流发货要多久」试试。')}
-                </p>
-              )}
             </div>
           )}
 

@@ -30,10 +30,10 @@ import './pages.css'
 import { t } from './lib/t'
 import { K, readJson, writeJson } from './lib/storage'
 const SCENES = [
-  { icon: <Package size={16} />, bg: 'var(--brand-soft)', color: 'var(--brand)', title: t('查订单物流'), text: t('我的订单 ORD12345678 什么时候发货？') },
-  { icon: <Undo2 size={16} />, bg: 'var(--ok-soft)', color: '#1a8f52', title: t('申请退款'), text: t('我想申请退款，怎么操作？') },
-  { icon: <Bell size={16} />, bg: 'var(--warn-soft)', color: '#b5731b', title: t('设个提醒'), text: t('10分钟后提醒我关火') },
-  { icon: <Brain size={16} />, bg: 'var(--operator-soft)', color: '#c2358f', title: t('帮我记住'), text: t('记住我喜欢喝美式') },
+  { icon: <Package size={16} />, bg: 'var(--brand-soft)', color: 'var(--brand)', title: t('总结群消息'), text: t('把今天的群消息按主题总结一下') },
+  { icon: <Undo2 size={16} />, bg: 'var(--ok-soft)', color: '#1a8f52', title: t('查群文件'), text: t('这个群最近上传了哪些文件？') },
+  { icon: <Bell size={16} />, bg: 'var(--warn-soft)', color: '#b5731b', title: t('设个提醒'), text: t('明早九点提醒我看群消息') },
+  { icon: <Brain size={16} />, bg: 'var(--operator-soft)', color: '#c2358f', title: t('记住群规'), text: t('记住本群不接受广告') },
 ]
 
 function loadSessions() {
@@ -636,7 +636,7 @@ export default function VisitorChat() {
           <div className="sh-left">
             <Avatar kind="agent" size={36} />
             <div>
-              <div className="sh-title">{t('BigRobot · 私人秘书')}</div>
+              <div className="sh-title">{t('BigRobot · 账号助手')}</div>
               <div className="sh-sub">
                 {sessionId ? `会话 #${sessionId.slice(0, 8)}` : '未开始对话'}
               </div>
@@ -664,12 +664,12 @@ export default function VisitorChat() {
           {!hasMessages && !loading && (
             <div className="welcome">
               <div className="welcome-logo">
-                <img src="/character.png" alt={t('BigRobot')} width={96} height={96}
+                <img src="/logo.svg" alt={t('BigRobot')} width={96} height={96}
                      style={{ borderRadius: 22, display: 'block' }} />
               </div>
-              <h2>{t('你好，我是BigRobot，你的私人秘书')}</h2>
+              <h2>{t('你好，我是 BigRobot，这个账号的 AI 助手')}</h2>
               <p>
-                日程、资料、待办、查东西，都可以交给我；答不上来我会直说，不糊弄你。
+                群消息、成员、群文件都能查；答不上来我会直说，不编。
                 也可以上传截图，或从下面选一个场景开始。
               </p>
               <div className="welcome-cards">

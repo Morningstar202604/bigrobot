@@ -88,7 +88,7 @@ function Brand({ onToggleTheme, theme }) {
   return (
     <div className="shell-brand">
       <div className="shell-brand-main">
-        <Logo size={30} onDark withText name={t('BigRobot')} subtitle={t('私人秘书')} />
+        <Logo size={30} onDark withText name={t('BigRobot')} subtitle={t('账号控制台')} />
       </div>
       <div className="shell-brand-actions">
         <select
@@ -199,7 +199,7 @@ export default function ResponsiveShell({ children }) {
             <Command size={12} /> <span>K</span>
           </button>
           <div className="shell-foot">
-            {t('BigRobot')}<br />{t('你的私人秘书 · MIT')}
+            {t('BigRobot')}<br />{t('聊天账号控制台 · MIT')}
           </div>
         </aside>
         <main className={mainClass}>{children}</main>

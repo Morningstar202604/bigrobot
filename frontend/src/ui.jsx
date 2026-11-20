@@ -21,14 +21,14 @@ import { t } from './lib/t'
 export function Avatar({ kind = 'agent', size = 34 }) {
   const map = {
     agent: {
-      // 二次元角色像（本地矢量图，不依赖外部图床）：比一个「知」字更像"人"
+      // 品牌标：不再用早期二次元角色像，避免和现在的定位对不上
       icon: (
         <img
-          src="/character.png"
+          src="/logo.svg"
           alt=""
           width={size}
           height={size}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+          style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%', background: 'var(--panel-2)' }}
         />
       ),
       bg: 'transparent',
