@@ -25,7 +25,7 @@ def _tiny_server(payload: bytes):
 def test_catalog_has_production_and_test_tiers():
     production = [m for m in local_models.CATALOG if not m.get("test_only")]
     tests = [m for m in local_models.CATALOG if m.get("test_only")]
-    assert [m["id"] for m in production] == ["qwen3.5-9b", "qwen3.5-4b"]
+    assert [m["id"] for m in production] == ["qwen3.5-9b", "qwen3.5-4b", "qwen3.5-2b"]
     assert tests and all(m["params_b"] < 2.0 for m in tests)
     for item in local_models.CATALOG:
         assert item["context"] >= 131_072
@@ -111,14 +111,13 @@ def test_reminder_uses_user_original_text_not_model_args():
     assert entries and entries[-1]["text"] == "喝水"
 
 
-def test_recommendation_follows_machine_ram_not_a_hardcoded_model():
-    assert local_models.recommend_model({"ram_gb": 3.9}) is None
-    assert local_models.recommend_model({"ram_gb": 7.8})["id"] == "qwen3.5-4b"
-    assert local_models.recommend_model({"ram_gb": 15.6})["id"] == "qwen3.5-9b"
-    assert local_models.recommend_model({"ram_gb": 64})["id"] == "qwen3.5-9b"
-    assert all(
-        not m.get("test_only") for m in [local_models.recommend_model({"ram_gb": 64})]
-    )
+def test_fit_labels_follow_detected_ram():
+    sysinfo = {"os": "Linux", "arch": "x86_64", "cpu": "test", "cpu_cores": 2,
+               "ram_gb": 3.9, "gpu": "", "vram_gb": 0.0, "unified_memory": False}
+    item_2b = next(m for m in local_models.CATALOG if m["id"] == "qwen3.5-2b")
+    item_4b = next(m for m in local_models.CATALOG if m["id"] == "qwen3.5-4b")
+    assert local_models._fit_label(item_2b, sysinfo)["state"] == "ok"
+    assert local_models._fit_label(item_4b, sysinfo)["state"] == "no"
 
 
 def test_large_local_models_do_not_run_in_compact_mode():
@@ -126,17 +125,20 @@ def test_large_local_models_do_not_run_in_compact_mode():
         "llm": {"base_url": "http://127.0.0.1:18080/v1", "local_model_id": "qwen3.5-4b"}
     }) is False
     assert local_models.small_model_mode({
+        "llm": {"base_url": "http://127.0.0.1:18080/v1", "local_model_id": "qwen3.5-2b"}
+    }) is True
+    assert local_models.small_model_mode({
         "llm": {"base_url": "http://127.0.0.1:18080/v1", "local_model_id": "minicpm5-1b"}
     }) is True
 
 
-def test_overview_recommendation_uses_detected_ram(monkeypatch, tmp_path):
+def test_overview_does_not_force_a_recommendation(monkeypatch, tmp_path):
     monkeypatch.setenv("BIGROBOT_MODELS_DIR", str(tmp_path / "models"))
     monkeypatch.setattr(local_models, "system_profile", lambda: {
         "os": "Linux", "arch": "x86_64", "cpu": "test", "cpu_cores": 4,
         "ram_gb": 8.0, "gpu": "", "vram_gb": 0.0, "unified_memory": False,
     })
     d = local_models.overview()
-    assert d["recommendation"]["model_id"] == "qwen3.5-4b"
-    assert [m["id"] for m in d["models"] if m["recommended"]] == ["qwen3.5-4b"]
-    assert all(not m["recommended"] for m in d["models"] if m["test_only"])
+    assert "recommendation" not in d
+    assert not any(m.get("recommended") for m in d["models"])
+    assert any(m["id"] == "qwen3.5-2b" and m["test_only"] is False for m in d["models"])

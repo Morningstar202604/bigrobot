@@ -89,13 +89,13 @@ def test_migration_retires_rows_and_inherits_enabled():
     assert "qq_group_card" in rows and rows["qq_group_card"]["builtin"] == 0, "自建工具不能删"
 
 
-def test_test_models_are_never_the_default_recommendation():
+def test_test_models_are_separate_from_user_choices():
     from core import local_models
 
     production = [m for m in local_models.CATALOG if not m.get("test_only")]
-    assert [m["id"] for m in production] == ["qwen3.5-9b", "qwen3.5-4b"]
-    assert not any(m.get("test_only") for m in [local_models.recommend_model({"ram_gb": 64})])
+    assert [m["id"] for m in production] == ["qwen3.5-9b", "qwen3.5-4b", "qwen3.5-2b"]
     assert "minicpm5-1b" in [m["id"] for m in local_models.CATALOG if m.get("test_only")]
+    assert local_models.CATALOG[2]["params_b"] == 2.0
 
 
 async def test_ocr_reads_an_uploaded_image():

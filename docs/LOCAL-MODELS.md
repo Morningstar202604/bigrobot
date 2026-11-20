@@ -6,17 +6,18 @@ BigRobot can download a small GGUF model, run it with `llama.cpp`, and switch to
 
 ## What is in the catalog
 
-The catalog has two tiers, and 1B test models are no longer labelled "default":
+The catalog separates user-selectable models from test fixtures. The console does not choose for the user; it only checks what fits this machine:
 
 | Model | Size | Context | Role |
 |---|---|---|---|
-| Qwen3.5-9B | 9B / Q4_K_M | 256K | Quality tier for 16GB RAM and up; daily driver, code, long documents and complex tools. |
-| Qwen3.5-4B | 4B / Q4_K_M | 256K | General tier for 8GB RAM; best pick below 16GB. |
-| MiniCPM5-1B | 1.08B / Q4_K_M | 128K | 4GB low-spec and tool-chain testing; never "recommended for this machine". |
-| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | Tool-call regression fixture; never recommended. |
-| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | Original baseline fixture; never recommended. |
+| Qwen3.5-9B | 9B / Q4_K_M | 256K | 16GB RAM tier; daily driver, code, long documents and complex tools. |
+| Qwen3.5-4B | 4B / Q4_K_M | 256K | 8GB RAM tier; general-purpose pick. |
+| Qwen3.5-2B | 2B / Q4_K_M | 256K | True 2B option for 4GB RAM; Q4 file about 1.28GB. |
+| MiniCPM5-1B | 1.08B / Q4_K_M | 128K | Capability testing and low-spec validation only; not a built-in recommendation. |
+| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | Tool-call regression fixture. |
+| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | Original baseline fixture. |
 
-The console reads local RAM and computes the recommendation: below 8GB it recommends no production model, 8GB gets 4B, and 16GB+ gets 9B. Exact file size and license are shown before download.
+Each card only says "runnable / not enough memory"; the user chooses what to download and enable. 4GB can pick 2B, 8GB can pick 4B, 16GB can pick 9B. Exact file size and license are shown before download.
 
 ## Download and run
 

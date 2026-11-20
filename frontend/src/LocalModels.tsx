@@ -8,7 +8,7 @@ import { http } from './lib/queries'
 import { qk } from './lib/queryClient'
 import { t } from './lib/t'
 
-/* 本地小模型：推荐、下载、安装、启用。全部走本地磁盘与 llama.cpp，
+/* 本地小模型：目录、下载、安装、启用。全部走本地磁盘与 llama.cpp，
    不把模型权重经云端转发，也不要求用户先去 HuggingFace 手动找文件。 */
 
 export interface LocalModel {
@@ -20,7 +20,6 @@ export interface LocalModel {
   license: string
   tool_calling: boolean
   chinese: boolean
-  recommended: boolean
   test_only: boolean
   min_ram_gb: number
   fit: { state: 'ok' | 'no' | 'test' | string; label: string }
@@ -58,7 +57,6 @@ export interface LocalJob {
 interface LocalOverview {
   models: LocalModel[]
   system: { os: string; arch: string; cpu: string; cpu_cores: number; ram_gb: number; gpu: string; vram_gb: number; unified_memory: boolean }
-  recommendation: { model_id: string; name: string; reason: string }
   server: { running?: boolean; model_id?: string; base_url?: string; n_ctx?: number; pid?: number }
   active_model_id: string
   jobs: LocalJob[]
@@ -139,11 +137,6 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
   if (error) return <div className="p-4 text-sm" style={{ color: 'var(--danger)' }}>{(error as Error).message}</div>
   if (!data) return null
 
-  const rec = data.recommendation.model_id
-    ? data.models.find((m) => m.id === data.recommendation.model_id)
-    : undefined
-  const recJob = rec ? data.jobs.find((j) => j.model_id === rec.id) : undefined
-  const recBusy = Boolean(recJob && ['queued', 'downloading', 'verifying', 'cancelling'].includes(recJob.status))
   const production = data.models.filter((m) => !m.test_only)
   const tests = data.models.filter((m) => m.test_only)
 
@@ -155,14 +148,12 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
     const isDownloading = Boolean(job && ['queued', 'downloading', 'verifying', 'cancelling'].includes(job.status))
     const tooBig = fitState === 'no'
     return (
-      <article key={m.id} className={`lm-card ${m.recommended ? 'best' : ''} ${tooBig ? 'disabled' : ''}`}>
+      <article key={m.id} className={`lm-card ${tooBig ? 'disabled' : ''}`}>
         <div className="lm-card-top">
           <div>
             <div className="lm-title">
               {m.name}
-              {m.recommended
-                ? <span className="badge ok">本机推荐</span>
-                : <span className={`badge ${m.test_only ? 'muted' : 'info'}`}>{m.badge}</span>}
+              <span className={`badge ${m.test_only ? 'muted' : 'info'}`}>{m.badge}</span>
             </div>
             <div className="lm-sub">{m.params_b}B · {m.quant} · {fmtContext(m.context)} ctx · {m.license}{m.released ? ` · ${m.released} 发布` : ''} · 建议 ≥{m.ram_gb}GB 内存</div>
           </div>
@@ -223,7 +214,7 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
     <section className="bp-sec lm-panel">
       <div className="bp-sec-head">
         <h2><Cpu size={15} /> {t('本地模型')}</h2>
-        <span>{t('按本机配置推荐；1B 以下只作为测试和低配体验，不再冒充默认推荐')}</span>
+        <span>{t('模型由你自己选；程序只检测本机是否能跑，1B 以下归入测试区')}</span>
       </div>
 
       <div className="lm-bar">
@@ -238,31 +229,13 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
         </button>
       </div>
 
-      {rec ? (
-        <div className="lm-note ok">
-          {rec.installed ? <Play size={14} /> : <Download size={14} />}
-          <span>
-            本机推荐 <b>{rec.name}</b>：{rec.params_b}B / {fmtContext(rec.context)} ctx。
-            {data.recommendation.reason}
-            {rec.installed && !rec.active ? ' 已装好，点右边启用。' : ''}
-          </span>
-          {!rec.installed && !recBusy && (
-            <button className="btn sm" onClick={() => download.mutate(rec.id)} disabled={busy || rec.fit?.state === 'no'}>
-              <Download size={12} /> 下载推荐
-            </button>
-          )}
-          {rec.installed && !rec.active && (
-            <button className="btn sm" onClick={() => activate.mutate(rec)} disabled={busy || !data.llama_available || rec.fit?.state === 'no'}>
-              <Play size={12} /> 启用推荐
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="lm-note warn">
-          <AlertTriangle size={14} />
-          <span>{data.recommendation.reason}</span>
-        </div>
-      )}
+      <div className="lm-note">
+        <Cpu size={14} />
+        <span>
+          本机 {data.system.cpu_cores} 核 / {data.system.ram_gb}GB 内存 / {data.system.gpu || '无独显'}。
+          下面只标「可运行 / 内存不足」，不替你选模型；想用哪个就下载哪个。
+        </span>
+      </div>
       {!data.llama_available && (
         <div className="lm-note warn">
           <AlertTriangle size={14} />
@@ -293,7 +266,7 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
         <>
           <div className="lm-subhead">
             <h3>测试 / 低配模型</h3>
-            <span className="text-xs text-muted">只用于工具链路、低配体验和回归测试，不参与“本机推荐”。</span>
+            <span className="text-xs text-muted">只用于工具链路、低配体验和回归测试，不进入可选目录。</span>
           </div>
           <div className="lm-grid">
             {tests.map(renderCard)}
@@ -302,7 +275,7 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
       )}
 
       <div className="lm-hint">
-        推荐只看本机内存：8GB 起步用 4B，16GB 起步用 9B；低于 8GB 不会硬推生产模型，只保留 1B 测试档。
+        程序只按本机内存标出「可运行 / 内存不足」，不自动替你选：4GB 可选 2B，8GB 可选 4B，16GB 可选 9B。
         当前默认 8K 运行上下文，模型本身支持更长上下文，可在「能力参数」里调整。
         下载走 HuggingFace 镜像，失败会自动回退官方源；半截文件保留，下次续传。
       </div>
