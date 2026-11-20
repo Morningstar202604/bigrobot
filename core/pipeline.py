@@ -346,6 +346,32 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
                     text=f"我是{pm.group(1)}，{role}。", confidence=0.95,
                     mode="rule_react", ctx_used=ctx.get("used"))
 
+    if local_models.small_model_mode(cfg) and re.search(
+            r"who are you|what are you|introduce yourself|your name", q, re.I):
+        pm = re.search(r"你是「(.+?)」[，,]?\s*(.+)", str(ctx.get("persona") or ""))
+        if pm:
+            role = re.split(r"[，,。]", pm.group(2).strip())[0].strip()
+            if role:
+                zh = f"我是{pm.group(1)}，{role}。"
+                if "三花猫娘" in role:
+                    # 固定人设不交给 0.8B 翻译：实测会译成 "cat mother"。
+                    name_en = "Zero" if pm.group(1) == "零" else pm.group(1)
+                    return AgentReply(
+                        text=f"I am {name_en}, a calico cat girl.",
+                        confidence=0.95, mode="rule_react", ctx_used=ctx.get("used"))
+                text, tr = zh, None
+                try:
+                    tr = await tools_mod.invoke(
+                        "translate", {"text": zh, "target": "en", "source": "zh"}, tctx)
+                    if tr.get("found") and tr.get("note"):
+                        text = str(tr.get("note")).strip()
+                except Exception:
+                    pass
+                return AgentReply(
+                    text=text, confidence=0.95, mode="rule_react",
+                    tool_used="translate", tool_result=tr,
+                    ctx_used=ctx.get("used"))
+
     name, args = None, None
     # 搜索交给 _llm_answer 的 ReAct 链路：那里会在工具返回后再让本地模型
     # 用两三句归纳；_direct_tool 直接返回 note 会把标题、摘要、URL 原样倒给用户。
@@ -1277,7 +1303,9 @@ _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 
 def _looks_english(query: str) -> bool:
     q = (query or "").strip()
-    if len(q) < 8:
+    # 「把 good morning 翻译成中文」里 ASCII 占多数，但不是英文提问；
+    # 含中文时一律不触发英文兜底，否则会把中文译文再翻回英文。
+    if _CJK_RE.search(q) or len(q) < 8:
         return False
     letters = sum(1 for c in q if c.isascii() and (c.isalpha() or c.isspace()))
     return letters / max(1, len(q)) > 0.55
