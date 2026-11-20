@@ -365,7 +365,11 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
         mode="rule_react",
     )
     # 让回复保留人设腔调：把工具结果交给模型润色（失败就用原文）
-    if cfg.get("llm", {}).get("has_key") and not missed and not benign:
+    # 本地小模型不做二次润色：实测它会把「现在是 22:09」改写成「2026-11-20 22:09」，
+    # 把 22:19 的提醒说成 22:20，还会在润色时再喊一次工具（提醒被建两遍）。
+    # 确定性动作的正确结果比口吻重要，直接返回工具 note。
+    if (cfg.get("llm", {}).get("has_key") and not missed and not benign
+            and not local_models.small_model_mode(cfg)):
         try:
             styled = dict(ctx)
             styled["read_block"] = (
@@ -520,6 +524,7 @@ async def _llm_answer(query: str, ctx: dict, cfg: dict, image_b64: str = "",
     # 之前无论调了多少工具都写 tool_used=None，看起来像整套工具全失效。
     used_tools: list[str] = []
     last_result: dict | None = None
+    seen_calls: set[tuple[str, str]] = set()
 
     def _with_tools(reply: AgentReply) -> AgentReply:
         if used_tools:
@@ -528,6 +533,26 @@ async def _llm_answer(query: str, ctx: dict, cfg: dict, image_b64: str = "",
             if len(used_tools) > 1:
                 reply.tool_result = {**(last_result or {}), "tool_chain": used_tools}
         return reply
+
+    # 本地小模型的确定性动作优先：提醒/时间/天气/算术/记忆这类有唯一正确参数的
+    # 请求，不让 0.8B 自己选工具和拼参数。实测它会重复建提醒、把日期填进 now 的
+    # op、把“我的测试代号”切成 key=的；规则路由做这些比模型可靠得多。
+    if local_models.small_model_mode(cfg):
+        try:
+            rule_name, rule_args = tools_mod.detect_tool(query, tools_map)
+            if (rule_name in ("now", "remind", "reminders", "weather", "remember", "recall_memory", "calc")
+                    and rule_name in visible and rule_name in tools_map):
+                rule_result = await tools_mod.invoke_with(
+                    tools_map, rule_name, rule_args or {}, ctx.get("tool_ctx") or EMPTY)
+                note = str((rule_result or {}).get("note") or "").strip()
+                if note:
+                    return AgentReply(
+                        text=note, confidence=0.9, mode="rule_react",
+                        tool_used=rule_name, tool_result=rule_result,
+                        ctx_used=(ctx or {}).get("used"),
+                    )
+        except Exception:
+            pass
 
     # 最多 2 轮：推理模型每轮 30-90s，3 轮会顶到网关超时（实测 95.7s 后整体失败）
     for round_no in range(2):
@@ -539,6 +564,12 @@ async def _llm_answer(query: str, ctx: dict, cfg: dict, image_b64: str = "",
         tool_name = str(data.get("tool") or "").strip()
         if tool_name and tool_name in visible and tool_name in tools_map:
             args = data.get("tool_args") or {}
+            call_key = (tool_name, json.dumps(args, ensure_ascii=False, sort_keys=True))
+            if call_key in seen_calls:
+                # 小模型会把同一工具再喊一遍（实测提醒被建两次、提醒列表被列两次）。
+                # 写操作重放是实打实的副作用，读操作也只会浪费一轮延迟。
+                break
+            seen_calls.add(call_key)
             # 单个工具的异常绝不能打断整轮对话：历史上 search_emote 按 dict 解析
             # 数组索引抛 AttributeError，整轮直接掉回「这个我暂时答不上来」。
             try:
@@ -633,6 +664,9 @@ async def _make_llm_reply(data: dict, ctx: dict, cfg: dict) -> AgentReply:
         # 模型本来可以基于已有资料回答，拿 note 顶替等于对用户说「我做不了」。
         unavailable = (tool_result or {}).get("connected") is False
         note = (tool_result or {}).get("note") or ""
+        # 小模型会把 observation 前缀原样抄进正文（[weather] ...），去掉标签只留内容。
+        if tool_name and (parsed.answer or "").startswith(f"[{tool_name}]"):
+            parsed.answer = (parsed.answer or "")[len(tool_name) + 2:].strip()
         if unavailable and (parsed.answer or "").strip():
             pass  # 保留模型自己给出的答案
         else:
@@ -798,7 +832,11 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
     # 先看知识库能否回答：命中本地 KB 就不搜网——"退货政策是什么"这类含疑问词
     # 的业务问题曾被启发式误判，每次白跑 4 次搜索、还拖慢 3~5 秒。
     web = message.web_search
-    if not web:
+    # 本地小模型不自动联网：搜索结果会塞满 8K 上下文，反而把工具调用挤掉。
+    # 需要查时它自己调 web_search/read_source，由模型决定而不是每轮先灌 4 条。
+    if not web and local_models.small_model_mode(cfg):
+        web = False
+    elif not web:
         from core import websearch
         if websearch.available() and _wants_facts(query):
             # 先探一次知识库：命中就不搜网（检索结果随后 build_context 会复用同一份缓存）

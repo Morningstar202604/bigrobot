@@ -398,7 +398,7 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
         parts.append("可用工具：\n" + json.dumps(ctx["tools_schema"], ensure_ascii=False))
     if modules_on.get("memory", True):
         parts.append("访客相关记忆：\n" + ctx["memory_block"])
-    if ctx.get("skills_block"):
+    if ctx.get("skills_block") and not small_local:
         # 技能说明书放在工具清单之后：先知道有哪些工具，再知道按什么流程用
         parts.append(str(ctx["skills_block"]))
     if ctx.get("profile_block"):
@@ -448,6 +448,9 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
     # 提示词末尾的重复约束比开头更有效，这里只强化执行、不改人设内容。
     tail += (chr(10) + "【自述纪律】回答里不要自称 AI、人工智能、机器人、助手程序或语言模型；"
              "被问身份就用性格挡回去。")
+    if small_local:
+        tail += (chr(10) + "【回答纪律】用一两句完整的中文回答，至少 8 个字，不要只吐一个词或一个名字；"
+                 "「访客相关记忆」里的内容就是你记得的事，回答时说「我记得」，不要把它说成知识库。")
     # 能力事实必须写进 prompt：模型不知道自己「这一轮有没有联网」。
     # 不说清楚，它会反复说「我这就去查」却调不到工具（实测 u2-flash 稳定复现）。
     tool_names = {t.get("name") for t in (ctx.get("tools_schema") or []) if isinstance(t, dict)}

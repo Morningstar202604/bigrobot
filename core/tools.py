@@ -161,6 +161,16 @@ def tool_remember(ctx: ToolContext, key: str, value: str, **_kw) -> dict:
     """写长期记忆（秘书要记住「我下周三出差」这类事）。"""
     if not ctx.visitor_id:
         return need_ctx("remember", "访客身份")
+    if ctx.message_text:
+        # 模型会把「记住：我的测试代号是…」切成 key=的；记忆是确定性写操作，
+        # 以用户原话的规则解析为准，模型参数只在缺原话时兜底。
+        try:
+            _name, _args = _detect_tool_raw(ctx.message_text, None)
+            if _name == "remember" and _args:
+                key = str(_args.get("key") or key)
+                value = str(_args.get("value") or value)
+        except Exception:
+            pass
     key = (key or "").strip()[:40]
     value = (value or "").strip()[:500]
     if not key or not value:
@@ -1602,12 +1612,15 @@ def _split_memory_pair(pair: str) -> tuple[str, str]:
     text = (pair or "").strip("，,。. ")
     if not text:
         return "", ""
+    # 先按「X 是 Y」切：否则「我的测试代号是蓝鲸七号」会被 _MEMORY_KEY_RE
+    # 的「的」抢先命中，存成 key=的、value=测试代号…（实测）。
+    m = _MEMORY_KEY_RE2.match(text)
+    if m:
+        key = re.sub(r"^(?:我的?|本人)", "", m.group(1).strip())
+        return key, m.group(2).strip()
     m = _MEMORY_KEY_RE.match(text)
     if m:
         return m.group(1), m.group(2).strip()
-    m = _MEMORY_KEY_RE2.match(text)
-    if m:
-        return m.group(1).strip(), m.group(2).strip()
     return "备注", text
 
 
@@ -1721,7 +1734,7 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
             text = text.strip(" ，,。.；;：:")
             if text:
                 return "remind", {"text": text, "when": when}
-    if ("待办" in q or "提醒" in q) and ("列" in q or "有什" in q or "查看" in q) and _has("list_reminders"):
+    if ("待办" in q or "提醒" in q) and ("列" in q or "有什" in q or "哪些" in q or "查看" in q) and _has("list_reminders"):
         return "list_reminders", {}
 
     order_match = re.search(r"(?:订单|order|单号)\s*[:：]?\s*([A-Za-z0-9]{6,12})", q)
@@ -1743,6 +1756,13 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
             r"(现在|今天|当前).{0,4}(几点|什么时间|日期|几号|星期几|周几)"
             r"|(几点|现在时间|当前时间)", q):
         return "now", {}
+
+    # 查天气：城市名 + 今天/明天 + 天气。只给「天气怎么样」没有城市时不硬猜，
+    # 交给模型追问；有城市时直接调 weather，避免小模型被「联网搜」吸走。
+    if "weather" in enabled and re.search(r"天气|气温|下雨|下雪", q):
+        wm = re.search(r"([\u4e00-\u9fa5]{2,10}?)(?:今天|明天|后天|现在)?(?:的)?(?:天气|气温|下雨|下雪)", q)
+        if wm:
+            return "weather", {"city": wm.group(1)}
 
     # 纯算式：只认「算一下/等于几」或整句就是算式，避免把正文里的数字当计算
     if "calc" in enabled:
