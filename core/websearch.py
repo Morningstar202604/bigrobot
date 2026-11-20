@@ -448,9 +448,25 @@ async def search(query: str, top_k: int = 5) -> dict:
                 "error": ("；".join(errors) or "所有搜索后端均不可用")[:300]}
 
     name, results = winner
+    results = _drop_product_noise(results, q)
     # 结果打码：搜索结果里可能带密钥片段（如用户搜索自己的 token）
     return {"ok": True, "provider": name,
             "results": redact.mask_value(results), "error": None}
+
+
+_AI_TOPIC = re.compile(r"人工智能|大模型|机器学习|算力|AI\b", re.I)
+_PRODUCT_NOISE = re.compile(
+    r"发售|开售|预售|售价|优惠|折扣|京东|天猫|淘宝|拼多多|投影仪|投影机|耳机|手机|扫地机|显卡", re.I)
+
+
+def _drop_product_noise(results: list[dict], query: str) -> list[dict]:
+    """AI 新闻查询里混进“某产品发售”时降噪；宁愿少一条，也别把导购当新闻。"""
+    if not (_NEWS_HINT.search(query or "") and _AI_TOPIC.search(query or "")):
+        return results
+    kept = [r for r in results
+            if not _PRODUCT_NOISE.search(str(r.get("title") or ""))
+            and "baike.baidu.com" not in str(r.get("url") or "")]
+    return kept or results
 
 
 def format_for_context(result: dict, max_chars: int = 1200) -> str:
