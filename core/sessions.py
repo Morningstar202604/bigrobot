@@ -36,7 +36,22 @@ def _is_fresh(row: dict | None) -> bool:
     return age <= idle_ttl()
 
 
+def canonical_account(channel: str, account_id: str | None) -> str | None:
+    """把网关给的裸账号号补成账号表的主键形态：10001 -> qq:10001。
+
+    网关 payload 里的 self_id 是纯数字，而 accounts 表主键是「渠道:号」。
+    两边不统一时，按账号筛选永远查不到会话（已复现）。
+    """
+    if not account_id:
+        return None
+    if ":" in account_id:
+        return account_id
+    ch = (channel or "").split("_", 1)[0]
+    return f"{ch}:{account_id}" if ch else account_id
+
+
 def resolve_session(channel: str, visitor_id: str, account_id: str | None = None) -> str:
+    account_id = canonical_account(channel, account_id)
     row = store.get_channel_session(channel)
     # _is_fresh 内部已保证 row 非空（not row → False），但 mypy 无法跨函数收窄，
     # 这里显式判一次：既让类型检查通过，也避免将来 _is_fresh 语义变化时踩空。

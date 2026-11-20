@@ -172,3 +172,17 @@ def test_prev_session_messages_keeps_context_across_ttl(monkeypatch, tmp_path):
     assert [m["content"] for m in msgs] == ["我明天要去杭州出差", "记下了，要我帮你订票吗"]
     # 排除当前会话本身
     assert all(m["content"] != "new" for m in msgs)
+
+
+def test_admin_sessions_filter_by_account(tmp_path, monkeypatch):
+    """按账号筛选：不同账号的会话不能串，且结果里带出 account_id。"""
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "acc.db"))
+    store._SCHEMA_READY.clear()
+    store.init_db()
+    store.create_session("s-qq", "qq:88123", account_id="qq:10001")
+    store.create_session("s-web", "web:xyz")
+    assert store.admin_sessions(account_id="qq:10001")["total"] == 1
+    row = store.admin_sessions(account_id="qq:10001")["items"][0]
+    assert row["id"] == "s-qq" and row["account_id"] == "qq:10001"
+    assert store.admin_sessions(account_id="qq:99999")["total"] == 0
+    assert store.admin_sessions()["total"] == 2

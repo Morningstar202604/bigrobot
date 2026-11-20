@@ -216,19 +216,29 @@ export function useAdminChannels() {
     refetchInterval: 15_000,
   })
 }
-export function useAdminSessions(status?: string, q?: string, page = 0, pageSize = 30) {
+export function useAdminSessions(status?: string, q?: string, page = 0, pageSize = 30,
+                                accountId?: string) {
   const params = new URLSearchParams()
   if (status) params.set('status', status)
   if (q) params.set('q', q)
+  if (accountId) params.set('account_id', accountId)
   params.set('limit', String(pageSize))
   params.set('offset', String(page * pageSize))
   const qs = `?${params.toString()}`
   return useQuery({
-    queryKey: ['admin', 'sessions', status || 'all', q || '', page],
+    queryKey: ['admin', 'sessions', status || 'all', q || '', page, accountId || ''],
     queryFn: () => http.get<{ total: number; items: SessionRow[] }>(`/api/admin/sessions${qs}`),
     refetchInterval: 10_000,
   })
 }
+export function useAccounts() {
+  return useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => http.get<{ accounts: { id?: string; channel: string; account_id?: string; platform_uid?: string; display_name?: string }[] }>('/api/accounts'),
+    refetchInterval: 30_000,
+  })
+}
+
 export function useCloseSession() {
   const qc = useQueryClient()
   return useMutation({

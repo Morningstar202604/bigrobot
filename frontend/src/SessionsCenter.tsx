@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MessagesSquare, X, RefreshCw, Headset, Inbox, Search, Download } from 'lucide-react'
-import { http, useAdminSessions, useCloseSession, isAuthError } from './lib/queries'
+import { http, useAdminSessions, useCloseSession, useAccounts, isAuthError } from './lib/queries'
 import TokenGate from './components/TokenGate'
 import type { AgentMsg, SessionRow } from './types/api'
 import { Spinner, ErrorBanner } from './components/Spinner'
@@ -54,7 +54,9 @@ export default function SessionsCenter() {
   const [query, setQuery] = useState('')
   const [appliedQuery, setAppliedQuery] = useState('')
   const [page, setPage] = useState(0)
-  const sessions = useAdminSessions(status || undefined, appliedQuery || undefined, page)
+  const [account, setAccount] = useState('')
+  const accounts = useAccounts()
+  const sessions = useAdminSessions(status || undefined, appliedQuery || undefined, page, 30, account || undefined)
   const close = useCloseSession()
 
   const total = sessions.data?.total ?? 0
@@ -205,6 +207,24 @@ export default function SessionsCenter() {
                 {t(f.label)}
               </button>
             ))}
+            {(accounts.data?.accounts?.length ?? 0) > 0 && (
+              <select
+                className="input sm"
+                aria-label={t('按账号筛选')}
+                value={account}
+                onChange={(e) => { setAccount(e.target.value); setPage(0) }}
+              >
+                <option value="">{t('全部账号')}</option>
+                {accounts.data!.accounts.map((a) => {
+                  const uid = a.id || a.account_id || a.platform_uid || ''
+                  return (
+                  <option key={`${a.channel}:${uid}`} value={uid}>
+                    {a.display_name ? `${a.display_name}（${uid}）` : `${a.channel} · ${uid}`}
+                  </option>
+                  )
+                })}
+              </select>
+            )}
             <div className="tb-search">
               <Search size={13} />
               <input

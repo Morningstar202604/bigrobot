@@ -826,13 +826,16 @@ def _channel_of(visitor_id: str) -> str:
 
 
 def admin_sessions(limit: int = 50, offset: int = 0, status: str | None = None,
-                   q: str | None = None) -> dict:
+                   q: str | None = None, account_id: str | None = None) -> dict:
     """会话列表：按状态过滤 + 关键字搜索（访客 ID / 会话 ID / 任意消息内容）。"""
     clauses: list[str] = []
     params: list[object] = []
     if status:
         clauses.append("s.status = ?")
         params.append(status)
+    if account_id:
+        clauses.append("s.account_id = ?")
+        params.append(account_id)
     q = (q or "").strip()
     if q:
         # LIKE 通配符必须转义：否则用户输入 "%" 会命中整表（已复现）
@@ -850,7 +853,7 @@ def admin_sessions(limit: int = 50, offset: int = 0, status: str | None = None,
         total = conn.execute(f"SELECT COUNT(*) c FROM sessions s {where}", params).fetchone()["c"]
         rows = conn.execute(
             f"SELECT s.id, s.visitor_id, s.status, s.escalated, s.escalate_reason, s.assignee, "
-            f"s.started_at, s.ended_at, s.first_response_seconds, "
+            f"s.started_at, s.ended_at, s.first_response_seconds, s.account_id, "
             f"(SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) message_count "
             f"FROM sessions s {where} ORDER BY s.started_at DESC LIMIT ? OFFSET ?",
             params + [limit, offset],

@@ -39,3 +39,16 @@ def test_ingest_without_self_id_keeps_null(client, monkeypatch):
                     json={"channel_type": "qq", "channel_user_id": "u2", "text": "hi"})
     assert r.status_code == 200
     assert _row(r.json()["session_id"])["account_id"] is None
+
+
+def test_resolve_session_canonicalizes_bare_account(tmp_path, monkeypatch):
+    from core import sessions, store
+    """网关给裸号 10001，落库必须变成 qq:10001，否则按账号筛不到。"""
+    monkeypatch.setenv("BIGROBOT_DB", str(tmp_path / "canon.db"))
+    store._SCHEMA_READY.clear()
+    store.init_db()
+    sid = sessions.resolve_session("qq_group:88123", "qq_group:88123", account_id="10001")
+    assert store.get_session(sid)["account_id"] == "qq:10001"
+    assert sessions.canonical_account("qq_private", "20002") == "qq:20002"
+    assert sessions.canonical_account("wechat", "wx-1") == "wechat:wx-1"
+    assert sessions.canonical_account("qq_group", "qq:30003") == "qq:30003"
