@@ -1272,6 +1272,35 @@ def _fallback_for(issues: list[dict], persona: str = "") -> str:
     return "这话我说不利索，换个问法" + miao
 
 
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _looks_english(query: str) -> bool:
+    q = (query or "").strip()
+    if len(q) < 8:
+        return False
+    letters = sum(1 for c in q if c.isascii() and (c.isalpha() or c.isspace()))
+    return letters / max(1, len(q)) > 0.55
+
+
+async def _ensure_english(reply: AgentReply, query: str, cfg: dict) -> AgentReply:
+    """0.8B 仍会在英文回答里混入「cat娘」。兜底：整段译成英文再返回。"""
+    if not local_models.small_model_mode(cfg) or not _looks_english(query):
+        return reply
+    text = str(reply.text or "")
+    if not text or not _CJK_RE.search(text):
+        return reply
+    try:
+        res = await tools_mod.invoke(
+            "translate", {"text": text, "target": "en", "source": "auto"}, EMPTY)
+        translated = str((res or {}).get("note") or "").strip()
+        if translated and not _CJK_RE.search(translated):
+            reply.text = translated
+    except Exception:
+        pass
+    return reply
+
+
 async def run(message: ChannelMessage, history: list[dict], visitor_key: str) -> AgentReply:
     with tracing.span("bigrobot.pipeline.run", {"channel": message.channel_type, "visitor": visitor_key}):
         prepared = await _prepare(message, history, visitor_key)
@@ -1284,6 +1313,7 @@ async def run(message: ChannelMessage, history: list[dict], visitor_key: str) ->
         if str(reply.mode or "").startswith("llm"):
             cfg = {**cfg, "_channel": message.channel_type}
             await _gate_output(reply, query, cfg)
+        reply = await _ensure_english(reply, query, cfg)
         # 输出钩子统一在出口应用：所有分支（标注/直连工具/README/LLM/规则）一视同仁，
         # 分支内部各自加一遍必然会漏。
         return _apply_post_hooks(reply, cfg)
@@ -1480,6 +1510,7 @@ async def run_stream(message: ChannelMessage, history: list[dict], visitor_key: 
             final.mode = "rule_fallback"
     if str(final.mode or "").startswith("llm"):
         await _gate_output(final, query, {**cfg, "_channel": message.channel_type})
+    final = await _ensure_english(final, query, cfg)
     # 输出钩子：与非流式入口同一套规则（final.text 是权威内容，前端会以它覆盖打字机片段）
     final = _apply_post_hooks(final, cfg)
     # 已向客户端发过 delta 时不再补发 delta：
