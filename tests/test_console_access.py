@@ -97,7 +97,7 @@ def test_export_session_markdown(client):
     assert "导出测试内容" in d["markdown"]
     assert d["filename"].endswith(".md")
     # 说话人标签用产品语汇，不是内部角色名
-    assert "用户" in d["markdown"] and "秘书" in d["markdown"]
+    assert "用户" in d["markdown"] and "助手" in d["markdown"]
 
 
 def test_export_session_json(client):

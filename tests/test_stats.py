@@ -24,7 +24,9 @@ def test_admin_stats_shape_and_counts(client):
     assert len(stats["sessions_by_day"]) == 7
     assert sum(s["count"] for s in stats["sessions_by_day"]) == 2
 
-    assert any(t["tool"] == "query_order" for t in stats["tool_usage"])
+    # 出厂库不再播种电商演示工具：这里只校验结构，且确认演示工具没有回流。
+    assert isinstance(stats["tool_usage"], list)
+    assert not any(t["tool"] in {"query_order", "initiate_refund", "lookup_policy"} for t in stats["tool_usage"])
     assert any(e["reason"] == "knowledge_miss" for e in stats["escalate_reasons"])
     assert any(c["channel"] == "qq_group" and c["count"] == 2 for c in stats["channels"])
     assert stats["feedback"]["helpful"] == 1

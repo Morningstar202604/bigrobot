@@ -8,7 +8,7 @@ ADMIN = "test-admin-token"
 CHANNEL = "test-channel-token"
 
 # 仓库内置的只读知识库种子：测试一律复制到临时目录，绝不写入原文件
-_REPO_KB = pathlib.Path(__file__).resolve().parent.parent / "core" / "data" / "kb.json"
+_REPO_KB = pathlib.Path(__file__).resolve().parent / "fixtures" / "kb.json"
 
 
 @pytest.fixture(autouse=True)
