@@ -26,6 +26,9 @@ def _defaults() -> dict:
             # 主模型是否支持图片输入：多数纯文本模型（u2-flash 等）不支持，
             # 只有显式声明或配了 vision_model 才把图送进模型。
             "supports_vision": os.environ.get("USER_LLM_SUPPORTS_VISION", "").lower() in ("1", "true", "yes", "on"),
+            # 内置本地模型：id 为空表示当前不是内置下载的模型；local_compact 强制短提示词
+            "local_model_id": "",
+            "local_compact": True,
             # 已保存的提供商档案（AstrBot 多提供商对标）：不含 Key，Key 只跟随当前激活配置
             "providers": [],
         },
@@ -204,7 +207,7 @@ _SCHEMA: dict[str, dict[str, type | tuple]] = {
             "temperature": (int, float), "top_p": (int, float), "max_tokens": int,
             "has_key": bool, "key_source": str, "providers": list,
             "context_window": int, "max_output": int, "protocol": str, "tool_calling": bool,
-            "supports_vision": bool},
+            "supports_vision": bool, "local_model_id": str, "local_compact": bool},
     "retrieval": {"kb_top_k": int, "min_overlap": (int, float), "embedding": str},
     "context": {"history_turns": int, "char_budget": int, "compress_threshold": int,
                 "summarize": bool, "relevant_only": bool, "modules": dict, "persona": str},

@@ -644,3 +644,27 @@ table.dt .raw { max-width: 300px; overflow: hidden; text-overflow: ellipsis; whi
 }
 .console-tab.on { background: var(--accent-weak, #eef2ff); border-color: var(--accent, #6366f1); }
 .console-tabs-body { padding: 0 4px; }
+
+/* 本地小模型页：卡片优先信息密度，不堆宣传图 */
+.lm-panel .lm-bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:12px; }
+.lm-panel .lm-bar code { flex:1 1 260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lm-note { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; margin-bottom:10px; font-size:12px; border:1px solid var(--line); }
+.lm-note.ok { background:var(--ok-soft, #ecfdf5); border-color:var(--ok, #10b981); }
+.lm-note.warn { background:var(--warn-soft, #fffbeb); border-color:var(--warn, #f59e0b); }
+.lm-note.danger { background:var(--danger-soft, #fef2f2); border-color:var(--danger, #ef4444); }
+.lm-note code { padding:1px 5px; border-radius:4px; background:var(--system-soft); }
+.lm-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px; }
+.lm-card { border:1px solid var(--line); border-radius:12px; padding:14px; background:var(--panel); display:flex; flex-direction:column; gap:8px; min-width:0; }
+.lm-card.best { border-color:var(--brand, #6366f1); box-shadow:0 0 0 1px var(--brand-soft, #eef2ff) inset; }
+.lm-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.lm-title { display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-weight:700; font-size:15px; }
+.lm-sub { color:var(--muted); font-size:11px; margin-top:3px; }
+.lm-tagline { margin:2px 0 0; font-size:13px; font-weight:600; }
+.lm-why { margin:0; font-size:12px; color:var(--muted); line-height:1.55; }
+.lm-tags { display:flex; flex-wrap:wrap; gap:4px; }
+.lm-foot { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:auto; padding-top:6px; border-top:1px dashed var(--line); }
+.lm-progress { flex:1 1 100%; }
+.lm-progress-line { display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--muted); }
+.lm-progress-track { height:6px; border-radius:999px; background:var(--system-soft); overflow:hidden; margin-top:5px; }
+.lm-progress-track > div { height:100%; background:var(--brand, #6366f1); transition:width .25s linear; }
+.lm-hint { margin-top:12px; color:var(--muted); font-size:12px; line-height:1.6; }

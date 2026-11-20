@@ -21,6 +21,7 @@ import httpx
 from core.http_pool import get_client
 
 from core import config as config_mod
+from core import local_models
 
 lg = logging.getLogger("cs.events")
 
@@ -250,6 +251,10 @@ _XML_TOOL_CALL_RE = re.compile(
     r"<tool_call>\s*<function=([^\s>]+)>(.*?)\s*</tool_call>", re.S)
 _XML_PARAM_RE = re.compile(
     r"<parameter=([^\s>]+)>\s*(.*?)\s*</" + "parameter>", re.S)
+_MINI_TOOL_RE = re.compile(r'<function\s+name=["\']?([^"\'>\s]+)["\']?>(.*?)(?:</function>|(?=<function\s+name=)|\Z)', re.S)
+_MINI_PARAM_RE = re.compile(r'<param\s+name=["\']?([^"\'>\s]+)["\']?>\s*(.*?)\s*</param>', re.S)
+_MINI_BARE_RE = re.compile(r'name=["\']([^"\']+)["\']?>\s*(.*)$', re.S)
+_MINI_BARE_PARAM_RE = re.compile(r'name=["\']([^"\']+)["\']?>\s*([^<]*?)(?=\s+name=["\']|\Z)')
 
 
 def _xml_value(raw: str):
@@ -263,14 +268,61 @@ def _xml_value(raw: str):
         return text
 
 
+def _from_minicpm_tool_calls(content: str) -> dict | None:
+    """MiniCPM5 的 <function name=.<param name=...> → 内部决策结构。
+
+    两种形态都要接：
+    1. 完整 XML（SGLang/其他后端）
+    2. llama.cpp 把 <function / name="city">潮州 name="date">明天`
+    """
+    if not content:
+        return None
+    calls = []
+    for match in _MINI_TOOL_RE.finditer(content):
+        name = (match.group(1) or "").strip()
+        body = match.group(2) or ""
+        args = {}
+        for pm in _MINI_PARAM_RE.finditer(body):
+            key = (pm.group(1) or "").strip()
+            if key:
+                val = (pm.group(2) or "").strip()
+                if val.startswith("<![CDATA[") and val.endswith("]]>"):
+                    val = val[9:-3]
+                args[key] = val
+        if name:
+            calls.append({"name": name, "arguments": args})
+    if not calls:
+        bare = _MINI_BARE_RE.search(content)
+        if bare:
+            name = (bare.group(1) or "").strip()
+            args = {k: v.strip() for k, v in _MINI_BARE_PARAM_RE.findall(bare.group(2) or "") if k.strip()}
+            if name:
+                calls.append({"name": name, "arguments": args})
+    if not calls:
+        return None
+    return {
+        "thought": "",
+        "tool": calls[0]["name"],
+        "tool_args": calls[0]["arguments"],
+        "answer": "",
+        "citations": [],
+        "confidence": 0.6,
+        "escalate": False,
+        "escalate_reason": "",
+    }
+
+
 def _from_text_tool_calls(content: str) -> dict | None:
-    """Qwen3.5 的 XML tool_call 文本 → 内部决策结构。
+    """Qwen3.5 / MiniCPM5 的 XML tool_call 文本 → 内部决策结构。
 
     llama.cpp 的 OpenAI 兼容层会把 Qwen3.5 的 <tool_call> 原样放在 content，
     不会转成 message.tool_calls；不在这里接住，模型明明选了工具也会被当成散文。
     """
-    if not content or "<tool_call" not in content:
+    if not content:
         return None
+    if "<tool_call" not in content:
+        return _from_minicpm_tool_calls(content)
+
     calls = []
     for match in _XML_TOOL_CALL_RE.finditer(content):
         name = (match.group(1) or "").strip()
@@ -325,6 +377,10 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
     llm_cfg = cfg.get("llm", {})
     react_steps = cfg.get("escalation", {}).get("react_steps", 3)
     budget = cfg.get("context", {}).get("char_budget", 2400)
+    small_local = local_models.small_model_mode(cfg)
+    if small_local:
+        # 本地小模型按「短提示词 + 核心工具」运行，不让长人设把上下文吃光。
+        budget = min(budget, 800)
     modules_on = ctx["modules_on"]
     # 模型没有时钟：不注入真实时间它会编日期（实测 u2-flash 把 2026-10-26 说成 5 月 12 日）
     from datetime import datetime as _dt
@@ -414,8 +470,10 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
     # 模型上下文越长，允许的字符预算越大（按 1 token ≈ 2 汉字保守折算，只用 1/4 窗口）
     ctx_window = int((cfg.get("llm") or {}).get("context_window") or 0)
     window_budget = min(ctx_window // 4 * 2, 24_000) if ctx_window else 0
+    if small_local:
+        window_budget = min(window_budget, 900)
     budget = max(budget, window_budget)
-    content_budget = max(800, budget - persona_len - len(tail) - 4)
+    content_budget = max(300 if small_local else 800, budget - persona_len - len(tail) - 4)
 
     body = ""
     n = max(len(parts), 1)

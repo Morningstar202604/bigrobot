@@ -20,6 +20,7 @@ Update these when the code changes.
 | [channel-events.md](channel-events.md) | Notices, requests and recall soft-delete |
 | [multi-account.md](multi-account.md) | Session, memory and action isolation per bot account |
 | [persona-capabilities.md](persona-capabilities.md) | Per-persona tool, skill, MCP and extension scope |
+| [LOCAL-MODELS.md](LOCAL-MODELS.md) | Download, run and switch to a sub-2B local model |
 
 ## Archive
 

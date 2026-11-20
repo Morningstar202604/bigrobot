@@ -1,0 +1,60 @@
+# 本地模型
+
+[English](../LOCAL-MODELS.md) · 中文
+
+BigRobot 可以直接下载小体积 GGUF 模型，用 `llama.cpp` 在本机跑起来并切换过去，不经过云端 API。提示词和回复都留在自己的机器上。
+
+## 推荐目录
+
+| 模型 | 体积 | 上下文 | 为什么选它 |
+|---|---|---|---|
+| BotPsy-0.8B | 0.8B / Q4_K_M | 256K | 工具调用与 Agent 评测领先 1.2B 以下同级；提醒、天气、文件和多步任务默认选它。 |
+| MiniCPM5-1B | 1.08B / Q4_K_M | 128K | 通用能力和长上下文更强，适合聊天与长文。 |
+| Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | BotPsy 的基座；想要原厂通用模型时选它。 |
+
+三个都是 Apache-2.0，参数都低于 2B。下载前控制台会给出准确的文件大小和许可。
+
+## 下载与运行
+
+1. 打开 **设置 → 本地模型**。
+2. 点 **下载**。文件落在 `data/models/<id>/`，半截文件保留为 `.part`，下次续传。
+3. 下载完成后点 **启用**。BigRobot 会在空闲本地端口启动 `llama_cpp.server`，探测 `/v1/models`，然后把 `llm.base_url`、`llm.model` 和真实 `n_ctx` 写入当前配置。
+
+先装一次可选运行时：
+
+```bash
+pip install -r requirements-local.txt
+```
+
+下载源依次尝试 `BIGROBOT_HF_ENDPOINT`、`hf-mirror.com`、`huggingface.co`。用 `BIGROBOT_MODELS_DIR` 可以把权重放到别的盘。
+
+## 小模型模式
+
+0.5B—1B 装不下两千字人设和三十个工具 schema。当前端点在本机时，BigRobot 会自动：
+
+- 只保留人设第一句身份，丢掉成长故事；
+- 只暴露八个核心工具（`now`、`remind`、`reminders`、`weather`、`remember`、`recall_memory`、`calc`、`web_search`）；
+- 历史压到四轮，提示词预算约 1300 字。
+
+这是配置项而不是暗改：`llm.local_compact` 可以关掉，`ctx_used` 里能看到实际生效的精简工具清单。
+
+## 限制
+
+- 2 核 / 4GB 纯 CPU：一轮短对话大约 8—20 秒。不是必须 GPU，但有无 GPU 体验差别很大。
+- 模型本身支持 256K，但 BigRobot 默认只开 8K，因为 KV cache 要占内存。机器扛得住时可在 `POST /api/local-models/activate` 里调大 `n_ctx`。
+- `llama_cpp.server` 会读环境变量 `PORT`、`HOST`。BigRobot 给子进程剥掉这两个变量，避免本地模型抢占控制台端口。
+- `logits_all` 强制关闭。开着会按 `n_ctx × 词表` 分配浮点数组（8K 上下文约 7.6GB），4GB 机器会直接 OOM。
+
+## API
+
+所有路由都需要 `X-Admin-Token`。
+
+| 路由 | 用途 |
+|---|---|
+| `GET /api/local-models` | 目录、已装文件、运行状态、剩余磁盘 |
+| `POST /api/local-models/download` | 开始或续传下载 |
+| `GET /api/local-models/jobs/{id}` | 进度、速度、剩余时间、错误 |
+| `POST /api/local-models/jobs/{id}/cancel` | 取消下载，保留 `.part` |
+| `POST /api/local-models/activate` | 启动并切换为当前模型 |
+| `POST /api/local-models/stop` | 停止本地服务 |
+| `DELETE /api/local-models/{id}` | 删除模型文件 |

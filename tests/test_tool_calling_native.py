@@ -130,3 +130,25 @@ def test_qwen_xml_tool_call_parsed():
     assert d is not None
     assert d["tool"] == "remind"
     assert d["tool_args"] == {"text": "喝水", "when": "明天早上九点"}
+
+
+def test_minicpm_xml_tool_call_parsed():
+    """MiniCPM5 用 <function name=. 而不是 Qwen 的 <function=...>。"""
+    opener = "<" + "function name='get_weather'>"
+    closer = "</" + "function>"
+    p_open = "<" + "param name='city'>"
+    p_close = "</" + "param>"
+    raw = opener + p_open + "潮州" + p_close + closer
+    d = llm._from_text_tool_calls(raw)
+    assert d is not None
+    assert d["tool"] == "get_weather"
+    assert d["tool_args"] == {"city": "潮州"}
+
+
+def test_minicpm_llamacpp_stripped_tags_parsed():
+    """llama.cpp 会把 <function 和 value。"""
+    raw = ' name="weather"> name="city">潮州'
+    d = llm._from_text_tool_calls(raw)
+    assert d is not None
+    assert d["tool"] == "weather"
+    assert d["tool_args"] == {"city": "潮州"}

@@ -5,8 +5,9 @@ import {
   Save, Plus, Pencil, Trash2, X, Activity, Inbox, MessageSquare,
   FileText, Users, Search, Wrench, Zap, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Upload, Download, KeyRound, Check,
-  Plug, Wand2, Lock, MessagesSquare, UserCog } from 'lucide-react'
+  Plug, Wand2, Lock, MessagesSquare, UserCog, Cpu } from 'lucide-react'
 import { ProviderPanel, SkillsPanel, HooksPanel, PermissionsPanel } from './ProviderCenter'
+import { LocalModelsPanel } from './LocalModels'
 import {
   useConfig, useUpdateConfig, useKb, useKbMutations, useKbImport, useKbTest, useKbDocImport, exportKb, useTools, useToolMutations,
   useInjectionRules, useInjectionRuleMutations, useLlmTest, useLlmModels,
@@ -40,6 +41,7 @@ const TAB_GROUPS: { group: string; items: { key: string; icon: React.ReactNode; 
     group: '模型与推理',
     items: [
       { key: 'providers', icon: <Plug size={15} />, label: '模型厂商', sub: '地址 + Key 自动检测模型与能力 · 三协议' },
+      { key: 'local', icon: <Cpu size={15} />, label: '本地模型', sub: '推荐 / 下载 / 一键启用 · 2B 以下' },
       { key: 'params', icon: <SlidersHorizontal size={15} />, label: '能力参数', sub: '模型 / 检索 / 上下文 / 记忆 / 引擎' },
     ],
   },
@@ -92,7 +94,7 @@ const SCOPE_TABS: Record<string, { groups: string[]; keys: string[]; base: strin
   },
   settings: {
     groups: ['模型与推理', '数据与运维'],
-    keys: ['providers', 'params', 'data', 'token'],
+    keys: ['providers', 'local', 'params', 'data', 'token'],
     base: '/settings',
     fallback: 'params',
   },
@@ -175,6 +177,7 @@ export default function Settings({ scope }: { scope?: keyof typeof SCOPE_TABS } 
         {tab === 'providers' && shown && (
           <ProviderPanel cfg={shown} setCfg={(next) => setDraft(next)} persist={(next) => upd.mutate(next)} />
         )}
+        {tab === 'local' && <LocalModelsPanel onActivated={() => void refetch()} />}
         {tab === 'persona-caps' && <PersonaCapsPanel />}
         {tab === 'skills' && <SkillsPanel />}
         {tab === 'hooks' && <HooksPanel />}

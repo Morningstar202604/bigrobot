@@ -9,6 +9,7 @@ import random
 import re
 from dataclasses import dataclass, field
 
+from core import local_models
 from core import persona as persona_mod
 from core import config, guardrail, llm, memory as memory_mod, persona_caps, retrieval, store, tools as tools_mod
 from core.schemas import LlmReply
@@ -131,6 +132,10 @@ def build_context(query: str, history: list[dict], cfg: dict, visitor_id: str) -
     emb_flag = cfg.get("retrieval", {}).get("embedding", "auto")
     use_emb = None if emb_flag == "auto" else (emb_flag == "on")
     persona_text = ctx_cfg.get("persona") or persona_mod.default_persona()
+    small_local = local_models.small_model_mode(cfg)
+    if small_local:
+        # 0.5B—1B 的注意力经不起 2000 字人设：保留第一句身份，工具也只留核心十件。
+        persona_text = local_models.compact_persona(persona_text)
     persona_id = ""
     try:
         from core import personas as personas_mod
@@ -188,7 +193,12 @@ def build_context(query: str, history: list[dict], cfg: dict, visitor_id: str) -
     tools = tools_mod.active_tools(cfg, persona_id) if modules_on.get("tools", True) else {}
     tools_schema = (tools_mod.tool_schema_block(cfg, persona_id)
                     if modules_on.get("tools", True) else [])
-    used["tools"] = {"enabled": bool(modules_on.get("tools", True)), "active": list(tools.keys())}
+    if small_local:
+        by_name = {t.get("name"): t for t in tools_schema}
+        tools_schema = [by_name[n] for n in local_models.CORE_TOOLS if n in by_name]
+    used["tools"] = {"enabled": bool(modules_on.get("tools", True)),
+                     "active": [t["name"] for t in tools_schema],
+                     "compact": small_local}
 
     mem: dict = {}
     if modules_on.get("memory", True) and mem_cfg.get("enable", True) and visitor_id:
@@ -202,6 +212,8 @@ def build_context(query: str, history: list[dict], cfg: dict, visitor_id: str) -
         mem_block = "（记忆模块关闭）"
 
     turns = ctx_cfg.get("history_turns", 10)
+    if small_local:
+        turns = min(turns, 4)
     rel_hist = _relevant_history(history, query, turns, ctx_cfg.get("relevant_only", True))
     summary = ""
     if ctx_cfg.get("summarize", True) and len(history) > ctx_cfg.get("compress_threshold", 6) and modules_on.get("summary", True):

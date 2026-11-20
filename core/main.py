@@ -14,7 +14,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from core import config, events_log, executor_client, guardrail, llm, memory as memory_mod, net, pipeline, ratelimit, retrieval, security, sessions, store, tools as tools_mod
+from core import config, events_log, executor_client, guardrail, llm, local_models, memory as memory_mod, net, pipeline, ratelimit, retrieval, security, sessions, store, tools as tools_mod
 from core import version as version_mod
 from core.api import deps
 from core.actions import authz as actions_authz
@@ -1632,6 +1632,57 @@ def create_app() -> FastAPI:
             base_url=body.base_url, api_key=api_key, protocol=body.protocol,
             model=body.model, max_output=body.max_output, private_ok=body.private_ok,
         )
+
+    # ============================================================
+    # 本地小模型：推荐目录 / 断点下载 / 一键启用
+    # ============================================================
+
+    class LocalModelIn(BaseModel):
+        model_id: str
+        n_ctx: int | None = None
+
+    @app.get("/api/local-models", dependencies=[Depends(require_admin)])
+    def local_models_overview():
+        return local_models.overview()
+
+    @app.post("/api/local-models/download", dependencies=[Depends(require_admin)])
+    def local_models_download(body: LocalModelIn):
+        try:
+            return local_models.start_download(body.model_id)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
+
+    @app.get("/api/local-models/jobs/{job_id}", dependencies=[Depends(require_admin)])
+    def local_models_job(job_id: str):
+        for job in local_models.list_jobs():
+            if job["job_id"] == job_id:
+                return job
+        raise HTTPException(404, "下载任务不存在或已结束")
+
+    @app.post("/api/local-models/jobs/{job_id}/cancel", dependencies=[Depends(require_admin)])
+    def local_models_cancel(job_id: str):
+        try:
+            return local_models.cancel_job(job_id)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
+
+    @app.post("/api/local-models/activate", dependencies=[Depends(require_admin)])
+    def local_models_activate(body: LocalModelIn):
+        try:
+            return local_models.activate(body.model_id, n_ctx=body.n_ctx)
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.post("/api/local-models/stop", dependencies=[Depends(require_admin)])
+    def local_models_stop():
+        return local_models.stop_server()
+
+    @app.delete("/api/local-models/{model_id}", dependencies=[Depends(require_admin)])
+    def local_models_remove(model_id: str):
+        try:
+            return local_models.remove_model(model_id)
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(400, str(exc))
 
     @app.post("/api/providers/discover", dependencies=[Depends(require_admin)])
     async def providers_discover(body: ProviderProbeIn):

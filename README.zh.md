@@ -16,6 +16,7 @@ BigRobot 把你自己已有的聊天账号接管成一个自托管 AI 工作台�
 - **语音**：音频随消息保留，转码、转写，再回填到聊天记录。
 - **Agent**：工具调用带风险分级、审批和审计留痕；提醒与未来任务。
 - **知识库**：多集合检索、文档摄入、按角色绑定资料包。
+- **本地模型**：下载推荐的 2B 以下小模型，离线运行，一键切换；提示词不出本机。
 - **扩展**：声明式 HTTP 扩展包与 MCP stdio 客户端，安装后的工具进入同一套 Agent 工具注册表。
 - **控制台**：一个账号弹窗、一个会话抽屉；界面按渠道能力渲染，不按平台名写死。
 
@@ -57,7 +58,7 @@ docs/      现行文档，中文翻译在 docs/zh
 
 ## 文档
 
-[部署](docs/zh/DEPLOY.md) · [架构](docs/zh/ARCHITECTURE.md) · [发布](docs/zh/RELEASING.md) · [路由审计](docs/zh/route-audit.md) · [角色评测](docs/zh/PERSONA-EVAL.md) · [扩展与 MCP](docs/zh/extensions.md) · [知识库](docs/zh/knowledge-base.md) · [未来任务](docs/zh/future-tasks.md) · [渠道事件](docs/zh/channel-events.md) · [多账号](docs/zh/multi-account.md) · [角色能力](docs/zh/persona-capabilities.md) · [全部文档](docs/zh/README.md)
+[部署](docs/zh/DEPLOY.md) · [架构](docs/zh/ARCHITECTURE.md) · [发布](docs/zh/RELEASING.md) · [路由审计](docs/zh/route-audit.md) · [角色评测](docs/zh/PERSONA-EVAL.md) · [扩展与 MCP](docs/zh/extensions.md) · [知识库](docs/zh/knowledge-base.md) · [未来任务](docs/zh/future-tasks.md) · [渠道事件](docs/zh/channel-events.md) · [多账号](docs/zh/multi-account.md) · [角色能力](docs/zh/persona-capabilities.md) · [本地模型](docs/zh/LOCAL-MODELS.md) · [全部文档](docs/zh/README.md)
 
 ## 现状
 

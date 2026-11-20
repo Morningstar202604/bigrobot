@@ -34,6 +34,7 @@ tracing = ["opentelemetry-sdk~=1.27", "opentelemetry-exporter-otlp~=1.27"]
 dev = ["pytest~=9.0", "pytest-cov~=7.0", "pytest-asyncio~=1.0", "ruff~=0.17",
        "pip-audit~=2.10", "mypy~=1.14", "types-pyyaml"]
 build = ["pyinstaller~=6.22"]
+local = ["llama-cpp-python[server]>=0.3.16,<0.4"]
 
 [project.scripts]
 bigrobot = "core.cli:main"

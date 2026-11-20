@@ -182,10 +182,22 @@ _parse_repeat = reminder_parser.parse_repeat
 
 
 def tool_remind(ctx: ToolContext, text: str, when: str, **_kw) -> dict:
-    """加一条提醒。when 支持「10 分钟后 / 明天 9 点 / ISO」。"""
+    """加一条提醒。when 支持「10 分钟后 / 明天 9 点 / ISO」。
+
+    小模型经常把整句请求塞进 text、再自己编一个 when（实测把九点说成十七点）。
+    提醒是确定性动作，以用户原话的规则解析为准，模型参数只在缺原话时兜底。
+    """
     if not ctx.visitor_id:
         return need_ctx("remind", "访客身份")
     raw_text = (text or "").strip()
+    if ctx.message_text:
+        try:
+            _name, _args = _detect_tool_raw(ctx.message_text, None)
+            if _name == "remind" and _args:
+                raw_text = str(_args.get("text") or raw_text).strip()
+                when = str(_args.get("when") or when).strip()
+        except Exception:
+            pass
     if not raw_text:
         return need_ctx("remind", "要提醒的内容")
     # 周期提醒：「每天 8 点提醒我喝水」——规则从 text/when 两处都可能出现

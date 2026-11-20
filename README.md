@@ -16,6 +16,7 @@ Most bots wait for messages. BigRobot starts by taking over an existing account 
 - **Voice** — audio is kept with the message, transcoded, transcribed, and written back into the transcript.
 - **Agent** — tool calling with risk levels, approvals and an audit trail; reminders and future tasks.
 - **Knowledge** — multi-collection retrieval, document ingestion and persona-scoped packs.
+- **Local models** — download a recommended sub-2B model, run it offline, and switch with one click; prompts stay on the machine.
 - **Extensions** — declarative HTTP packs and an MCP stdio client; installed tools join the same agent registry.
 - **Console** — one account dialog, one session drawer; the UI renders from channel capabilities, not platform names.
 
@@ -57,7 +58,7 @@ docs/      current docs, with Chinese translations in docs/zh
 
 ## Docs
 
-[Deployment](docs/DEPLOY.md) · [Architecture](docs/ARCHITECTURE.md) · [Releasing](docs/RELEASING.md) · [Route audit](docs/route-audit.md) · [Persona eval](docs/PERSONA-EVAL.md) · [Extensions & MCP](docs/extensions.md) · [Knowledge base](docs/knowledge-base.md) · [Future tasks](docs/future-tasks.md) · [Channel events](docs/channel-events.md) · [Multi-account](docs/multi-account.md) · [Persona capabilities](docs/persona-capabilities.md) · [All docs](docs/README.md)
+[Deployment](docs/DEPLOY.md) · [Architecture](docs/ARCHITECTURE.md) · [Releasing](docs/RELEASING.md) · [Route audit](docs/route-audit.md) · [Persona eval](docs/PERSONA-EVAL.md) · [Extensions & MCP](docs/extensions.md) · [Knowledge base](docs/knowledge-base.md) · [Future tasks](docs/future-tasks.md) · [Channel events](docs/channel-events.md) · [Multi-account](docs/multi-account.md) · [Persona capabilities](docs/persona-capabilities.md) · [Local models](docs/LOCAL-MODELS.md) · [All docs](docs/README.md)
 
 ## Status
 
