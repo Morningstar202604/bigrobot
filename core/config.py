@@ -59,6 +59,9 @@ def _defaults() -> dict:
     },
     # 早期演示用的电商工具不再默认开启；需要时由工具注册表手动加。
     "tools": {},
+    # 声明式扩展包与 MCP 客户端：只存启用状态/来源，manifest 在 data/extensions 下
+    "extensions": {"enabled": {}, "sources": {}},
+    "mcp": {"servers": []},
     "multimodal": {
         "enable": True,
         # 看图模型：留空时自动沿用主模型（agnes 系主模型本身支持图片输入，

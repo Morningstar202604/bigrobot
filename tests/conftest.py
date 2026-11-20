@@ -21,6 +21,11 @@ def _isolated_db(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _isolated_extensions(monkeypatch, tmp_path):
+    """扩展包目录隔离：测试安装/回滚绝不写进仓库 data/extensions。"""
+    monkeypatch.setenv("BIGROBOT_EXTENSIONS_DIR", str(tmp_path / "extensions"))
+
+@pytest.fixture(autouse=True)
 def _isolated_kb(monkeypatch, tmp_path):
     """知识库隔离：任何测试（含未来新增的导入/编辑用例）都不会改动仓库里的 kb.json。"""
     from core import retrieval

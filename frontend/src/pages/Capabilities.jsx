@@ -1,6 +1,7 @@
 import ConsoleTabs from '../components/ConsoleTabs'
 import Settings from '../Settings'
 import EmoteCenter from '../EmoteCenter'
+import ExtensionsCenter from '../ExtensionsCenter'
 import BotPersona from '../BotPersona'
 import { t } from '../lib/t'
 
@@ -14,6 +15,7 @@ export default function Capabilities() {
         { key: 'registry', label: '能力与知识', render: () => <Settings scope="capabilities" /> },
         { key: 'persona', label: '人设', render: () => <BotPersona /> },
         { key: 'emotes', label: '表情包', render: () => <EmoteCenter /> },
+        { key: 'extensions', label: '扩展', render: () => <ExtensionsCenter /> },
       ]}
     />
   )

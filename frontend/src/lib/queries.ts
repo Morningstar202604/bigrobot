@@ -668,3 +668,137 @@ export async function bootstrapAdminToken(): Promise<boolean> {
   }
   return false
 }
+
+// ---- 扩展包 / MCP ----
+export interface ExtensionTool {
+  name: string
+  description: string
+  risk: string
+  method: string
+  params: Record<string, { type?: string; description?: string; required?: boolean; in?: string }>
+}
+export interface ExtensionItem {
+  id: string
+  name: string
+  version: string
+  description: string
+  author: string
+  kind: string
+  enabled: boolean
+  source: string
+  allow_private: boolean
+  allow_untrusted: boolean
+  tools: ExtensionTool[]
+  skills: { name: string; description: string; guide?: string }[]
+  permissions: string[]
+  installed_at: string
+  error?: string
+}
+export interface McpServer {
+  id: string
+  name: string
+  command: string
+  args: string[]
+  env_keys?: string[]
+  cwd?: string
+  enabled: boolean
+  allow_untrusted: boolean
+  risk: string
+  timeout_s: number
+  tools?: { name: string; description: string; input_schema?: unknown }[]
+  tools_count?: number
+  last_error?: string
+  last_tested?: string
+}
+
+export function useExtensions() {
+  return useQuery({
+    queryKey: ['extensions'],
+    queryFn: () => http.get<{ items: ExtensionItem[] }>('/api/extensions'),
+  })
+}
+
+export function useExtensionInstallUrl() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (url: string) => http.post<{ item: ExtensionItem }>('/api/extensions/install', { url }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['extensions'] }),
+  })
+}
+
+export function useExtensionUpload() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return http.postForm<{ item: ExtensionItem }>('/api/extensions/upload', fd)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['extensions'] }),
+  })
+}
+
+export function useExtensionToggle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: { id: string; enabled: boolean }) =>
+      http.post<{ item: ExtensionItem }>(`/api/extensions/${encodeURIComponent(p.id)}/toggle`, { enabled: p.enabled }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['extensions'] }),
+  })
+}
+
+export function useExtensionRollback() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => http.post<{ item: ExtensionItem }>(`/api/extensions/${encodeURIComponent(id)}/rollback`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['extensions'] }),
+  })
+}
+
+export function useExtensionDelete() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => http.del<{ ok: boolean }>(`/api/extensions/${encodeURIComponent(id)}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['extensions'] }),
+  })
+}
+
+export function useMcpServers() {
+  return useQuery({
+    queryKey: ['mcp-servers'],
+    queryFn: () => http.get<{ items: McpServer[]; available: boolean }>('/api/mcp/servers'),
+  })
+}
+
+export function useMcpCreate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) => http.post<{ server: McpServer }>('/api/mcp/servers', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['mcp-servers'] }),
+  })
+}
+
+export function useMcpToggle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: { id: string; enabled: boolean }) =>
+      http.post<{ server: McpServer }>(`/api/mcp/servers/${encodeURIComponent(p.id)}/toggle`, { enabled: p.enabled }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['mcp-servers'] }),
+  })
+}
+
+export function useMcpTest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => http.post<{ ok: boolean; error: string; tools: unknown[] }>(`/api/mcp/servers/${encodeURIComponent(id)}/test`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['mcp-servers'] }),
+  })
+}
+
+export function useMcpDelete() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => http.del<{ ok: boolean }>(`/api/mcp/servers/${encodeURIComponent(id)}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['mcp-servers'] }),
+  })
+}

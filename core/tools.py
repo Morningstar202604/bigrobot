@@ -1114,7 +1114,12 @@ def _authorize_tool(name: str, ctx: ToolContext) -> dict | None:
     既不查 allow_roots 之外的档位，也不落 action_log。这里补上同一套主体判定，
     并写审计；主体为空（内部直调/单测）时保持原行为，避免破坏工具的本职逻辑。
     """
-    if name not in PRIVILEGED_TOOLS or not ctx.principal:
+    dynamic = _dynamic_policy(name)
+    if name not in PRIVILEGED_TOOLS and not dynamic:
+        return None
+    if not ctx.principal:
+        return None
+    if dynamic and dynamic.get("allow_untrusted"):
         return None
     from core.actions import authz
 
@@ -1163,6 +1168,56 @@ def _builtin_impls() -> dict:
 
 def is_async_tool(name: str) -> bool:
     return name in _ASYNC_IMPLS
+
+
+def _dynamic_tools() -> dict:
+    """外部能力（声明式扩展 + MCP）→ 工具名到异步执行器。
+
+    这里做兜底而不是让异常冒到每轮对话：某个扩展 manifest 坏了，
+    应该只让那一个工具消失，不能让整个 Agent 起不来。
+    """
+    out: dict = {}
+    try:
+        from core import extensions
+        out.update(extensions.active_tools())
+    except Exception:
+        pass
+    try:
+        from core import mcp_client
+        out.update(mcp_client.active_tools())
+    except Exception:
+        pass
+    return out
+
+
+def _dynamic_specs() -> list[dict]:
+    out: list[dict] = []
+    try:
+        from core import extensions
+        out.extend(extensions.tool_specs())
+    except Exception:
+        pass
+    try:
+        from core import mcp_client
+        out.extend(mcp_client.tool_specs())
+    except Exception:
+        pass
+    return out
+
+
+def _dynamic_policy(name: str) -> dict | None:
+    try:
+        from core import extensions
+        p = extensions.tool_policy(name)
+        if p:
+            return p
+    except Exception:
+        pass
+    try:
+        from core import mcp_client
+        return mcp_client.tool_policy(name)
+    except Exception:
+        return None
 
 
 def _adapt_kwargs(fn, args: dict, ctx: ToolContext) -> dict:
@@ -1234,6 +1289,15 @@ async def invoke(name: str, args: dict | None, ctx: ToolContext = EMPTY) -> dict
             return fn(**_adapt_kwargs(fn, args, ctx))
         except TypeError as e:
             return miss_result(name, f"参数不对：{e}")
+    dynamic = _dynamic_tools().get(name)
+    if dynamic is not None:
+        try:
+            res = dynamic(**args)
+            if inspect.isawaitable(res):
+                res = await res
+            return res
+        except TypeError as e:
+            return miss_result(name, f"参数不对：{e}")
     return miss_result(name, f"工具「{name}」没有实现。")
 
 
@@ -1272,6 +1336,9 @@ def active_tools(cfg: dict) -> dict:
             out[tid] = _make_kb_search_tool(t)
         else:
             out[tid] = _make_stub_tool(t)
+    # 外部能力不能覆盖内置工具：先到先得，扩展重名在安装时也会被拒。
+    for name, fn in _dynamic_tools().items():
+        out.setdefault(name, fn)
     return out
 
 
@@ -1321,6 +1388,8 @@ def _executor_ready() -> bool:
 
 
 def _config_ready(tid: str) -> bool:
+    if tid not in _SYNC_IMPLS and tid not in _ASYNC_IMPLS:
+        return True
     from core import websearch
 
     if tid == "web_search":
@@ -1343,12 +1412,23 @@ def tool_schema_block(cfg: dict) -> list[dict]:
             continue
         args = tool_args(tid) or list(t.get("args_json", {}).keys())
         out.append({"name": tid, "args": args, "desc": t.get("desc") or t.get("name") or tid})
+    seen = {item["name"] for item in out}
+    for spec in _dynamic_specs():
+        name = spec["name"]
+        if name in seen or not spec.get("args") and not spec.get("desc"):
+            continue
+        seen.add(name)
+        out.append({"name": name, "args": list(spec.get("args") or []),
+                    "desc": spec.get("desc") or name})
     return out
 
 
 def tool_args(name: str) -> list[str]:
     if name in TOOL_META:
         return list(TOOL_META[name]["args"])
+    for spec in _dynamic_specs():
+        if spec["name"] == name:
+            return list(spec.get("args") or [])
     builtin = {"query_order": ["order_id"], "initiate_refund": ["order_id", "reason"],
                "lookup_policy": ["topic"]}
     if name in builtin:

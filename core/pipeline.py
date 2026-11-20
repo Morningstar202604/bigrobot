@@ -754,6 +754,14 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
         ctx["skills_block"] = skills_mod.render(cfg)
     except Exception:  # 技能渲染失败绝不能影响主链路
         ctx["skills_block"] = ""
+    try:
+        from core import extensions
+
+        ext_block = extensions.render_skills()
+        if ext_block:
+            ctx["skills_block"] = (ctx["skills_block"] + "\n" + ext_block).strip()
+    except Exception:
+        pass
     # 人物/群档案 + 黑话：让模型「先认得人再开口」，不用每轮从零推断。
     try:
         from core import profiles as profiles_mod

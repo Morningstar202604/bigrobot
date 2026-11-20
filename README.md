@@ -15,6 +15,7 @@ Most chat bots are built to answer messages. BigRobot starts from the other side
 | Action | Send text/image/voice/file, recall, mute, kick, edit card, publish notice |
 | Voice | Audio kept with the message, transcoded to wav, transcribed, written back into the transcript |
 | AI assistant | Tool calling with per-action risk levels, approvals, audit trail, knowledge base, reminders |
+| Extensions | Declarative HTTP packs and an MCP stdio client; installed tools join the same agent tool registry |
 | Console | One account dialog, one session drawer, capability-driven UI instead of per-platform hardcoding |
 
 ## Design notes
@@ -55,7 +56,7 @@ docs/      current docs plus an archive — see docs/README.md
 
 ## Docs
 
-[Deployment](docs/DEPLOY.md) · [Architecture](docs/ARCHITECTURE.md) · [Releasing](docs/RELEASING.md) · [Route audit](docs/route-audit.md) · [Persona eval](docs/PERSONA-EVAL.md)
+[Deployment](docs/DEPLOY.md) · [Architecture](docs/ARCHITECTURE.md) · [Releasing](docs/RELEASING.md) · [Route audit](docs/route-audit.md) · [Persona eval](docs/PERSONA-EVAL.md) · [Extensions & MCP](docs/extensions.md)
 
 ## Status
 
