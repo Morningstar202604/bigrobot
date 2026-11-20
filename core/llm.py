@@ -455,7 +455,9 @@ def _build_messages(query: str, ctx: dict, cfg: dict, image_b64: str = "",
         # 只在原句明显是英文时强制语言，避免把中文问句也带偏。
         ascii_chars = sum(1 for c in query if ord(c) < 128 and (c.isalpha() or c.isspace()))
         if len(query) >= 8 and ascii_chars / max(1, len(query)) > 0.55:
-            tail += chr(10) + "【语言】用户用英文提问，必须全程用英文回答，不要出现任何中文词或中文字符。"
+            tail += chr(10) + (
+                "【语言】用户用英文提问，必须全程用英文回答，不要出现任何中文词或中文字符。"
+                "直接回答，不要在结尾加反问、邀请继续对话或“What can I do?”这类句子。")
     # 能力事实必须写进 prompt：模型不知道自己「这一轮有没有联网」。
     # 不说清楚，它会反复说「我这就去查」却调不到工具（实测 u2-flash 稳定复现）。
     tool_names = {t.get("name") for t in (ctx.get("tools_schema") or []) if isinstance(t, dict)}

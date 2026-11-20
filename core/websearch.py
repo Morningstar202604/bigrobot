@@ -227,13 +227,14 @@ async def _news_feed_results(query: str, top_k: int) -> list[dict]:
         return []
     q = clean_query(query)
     # 去掉时间/疑问类高频词，剩下的实词才算主题
-    q = re.sub(r"(今天|今日|昨天|最新|有什么|什么|新闻|资讯|动态|消息|报道|一下|请问)", " ", q)
+    q = re.sub(r"(今天|今日|昨天|最新|有什么|什么|新闻|资讯|动态|消息|报道|进展|情况|相关|一下|请问)", " ", q)
     words = [w for w in re.split(r"[\s，,。、的了吗呢]+", q) if len(w) >= 2]
     grams = {q[i:i + 2] for i in range(len(q) - 1)} if len(q) >= 2 else set()
     scored: list[tuple[int, dict]] = []
     for it in items:
         blob = f"{it.get('title','')} {it.get('snippet','')}"
-        score = sum(2 for w in words if w in blob)
+        # 长词权重更高：「人工智能」命中应压过标题里碰巧出现的「AI」。
+        score = sum(max(1, len(w)) for w in words if w in blob)
         if grams:
             score += sum(1 for g in grams if g.strip() and g in blob)
         scored.append((score, it))

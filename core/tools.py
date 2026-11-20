@@ -1694,6 +1694,52 @@ def _route_general(q: str) -> tuple[str | None, dict | None]:
         body = re.sub(r"^json\s*(格式化|美化|校验|压缩|format)\s*[:：]?\s*", "", text, flags=re.I)
         return "json_format", {"text": body, "action": "format"}
 
+    # 颜色：HEX / RGB 互转。只认明确色值和转换意图，避免把普通 # 标签当成颜色。
+    cm = re.search(r"#([0-9a-fA-F]{6})\b", text)
+    if cm and re.search(r"rgb|hsl|hex|颜色|色值|转|换算", text, re.I):
+        return "color", {"hex_value": "#" + cm.group(1)}
+    cm = re.search(r"rgb\s*\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)", text, re.I)
+    if cm and re.search(r"hex|颜色|色值|转|换算", text, re.I):
+        return "color", {"hex_value": ",".join(cm.groups())}
+
+    # 随机抽取：候选必须有逗号/顿号分隔，避免把整句话当成一个候选。
+    rm = re.search(r"(?:从|在)\s*(.+?)\s*(?:里|中)?\s*(?:随机|随便|随手)\s*(?:抽|选|挑|来)(?:一个|一位|个)?", text)
+    if not rm:
+        rm = re.search(r"(?:随机|随便|随手)\s*(?:抽|选|挑)(?:一个|一位|个)?\s*[:：]?\s*(.+)", text)
+    if rm and re.search(r"[,，、\n]", rm.group(1)):
+        return "random", {"op": "pick", "items": rm.group(1).strip(" ：:")}
+
+    # 翻译：只接「把 X 翻译成 Y」/「translate X to Y」这种明确句式。
+    lang = {"中文": "zh", "汉语": "zh", "英文": "en", "英语": "en", "日文": "ja",
+            "日语": "ja", "韩文": "ko", "韩语": "ko", "法文": "fr", "法语": "fr",
+            "德文": "de", "德语": "de", "俄文": "ru", "俄语": "ru", "西班牙文": "es",
+            "西班牙语": "es", "zh": "zh", "en": "en", "ja": "ja", "ko": "ko"}
+    lang_names = "|".join(sorted(lang, key=len, reverse=True))
+    tm = re.search(rf"把\s*(.+?)\s*(?:翻译|译)\s*(?:成|为|到)\s*({lang_names})", text, re.I)
+    if not tm:
+        tm = re.search(rf"(?:翻译|translate)\s*(?:一下)?\s*[:：]?\s*(.+?)\s*(?:成|为|到|to|into)\s*({lang_names})", text, re.I)
+    if tm and tm.group(1).strip(" ：:，,。\"'") and len(tm.group(1).strip()) >= 1:
+        body = tm.group(1).strip(" ：:，,。\"'")
+        if body not in ("这句话", "这个", "它"):
+            return "translate", {"text": body, "target": lang[tm.group(2).lower()]}
+
+    # 汇率：货币对 + 汇率/换算。没有货币对时默认 USD→CNY，避免模型凭记忆编 8.70。
+    cur = {"美元": "USD", "美金": "USD", "人民币": "CNY", "欧元": "EUR", "日元": "JPY",
+           "英镑": "GBP", "港元": "HKD", "港币": "HKD", "韩元": "KRW", "加元": "CAD",
+           "澳元": "AUD", "美元指数": "USD"}
+    names = "|".join(sorted(cur, key=len, reverse=True))
+    xm = re.search(rf"(?:{names})\s*(?:兑|换|对|to|→|->)\s*(?:{names})", text, re.I)
+    if "汇率" in text and xm:
+        pair = re.findall(names, xm.group(0))
+        if len(pair) >= 2:
+            am = re.search(r"(\d+(?:\.\d+)?)\s*(?:美元|美金|人民币|欧元|日元|英镑|港元|港币|韩元|加元|澳元)", text)
+            return "exchange_rate", {"base": cur[pair[0]], "target": cur[pair[1]],
+                                     "amount": am.group(1) if am else "1"}
+    if "汇率" in text:
+        single = re.search(rf"({names})\s*(?:的)?汇率", text)
+        return "exchange_rate", {"base": cur[single.group(1)] if single else "USD",
+                                 "target": "CNY", "amount": "1"}
+
     return None, None
 
 

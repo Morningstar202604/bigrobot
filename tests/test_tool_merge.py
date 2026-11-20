@@ -28,6 +28,18 @@ def test_retired_tools_stay_dispatchable():
         )
 
 
+def test_utility_intents_are_routed_without_model_schema():
+    enabled = tools_mod.active_tools({"tools": {}})
+    assert tools_mod.detect_tool("把 #0E5C55 转成 RGB", enabled) == (
+        "color", {"hex_value": "#0E5C55"})
+    name, args = tools_mod.detect_tool("从 苹果,香蕉,橘子 里随机抽一个", enabled)
+    assert name == "random" and args["op"] == "pick"
+    name, args = tools_mod.detect_tool("美元兑人民币汇率是多少", enabled)
+    assert name == "exchange_rate" and args["base"] == "USD" and args["target"] == "CNY"
+    name, args = tools_mod.detect_tool("把 hello world 翻译成中文", enabled)
+    assert name == "translate" and args == {"text": "hello world", "target": "zh"}
+
+
 async def test_null_tool_context_is_normalized():
     result = await tools_mod.invoke("calc", {"expression": "2+2"}, None)
     assert result["found"] is True

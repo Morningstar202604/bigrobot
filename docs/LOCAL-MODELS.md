@@ -44,6 +44,8 @@ The eight compact tools are the tested path: time, reminders, weather, memory, a
 
 The full tool registry has 27 tools. With `local_compact=false` the model sees all of them, but sub-2B tool selection becomes less reliable; keep compact mode on unless you are debugging.
 
+Common utilities have deterministic intent routing, so they work in compact mode without exposing 27 schemas: color conversion, unit conversion, Base64/JSON, random pick, exchange rates and translation. Translation falls back to the current model when the free MyMemory quota is exhausted.
+
 These tools need extra infrastructure and stay explicitly "not configured" rather than pretending success:
 
 - `describe_image`: set `multimodal.vision_model` (the local text model cannot read images).

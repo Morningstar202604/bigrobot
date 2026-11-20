@@ -44,6 +44,8 @@ pip install -r requirements-local.txt
 
 完整工具表有 27 个。关掉 `local_compact` 后模型能看到全部，但 2B 以下选工具会明显变差；除非在调试，否则建议保持精简模式。
 
+颜色转换、单位换算、Base64/JSON、随机抽取、汇率、翻译这些常用工具有确定性意图路由，精简模式也能用，不必把 27 个 schema 全塞给模型。翻译在 MyMemory 免费额度耗尽时会用当前模型兜底。
+
 下面这些工具需要额外设施，没配就明确说“未接入”，不会假装成功：
 
 - `describe_image`：要配 `multimodal.vision_model`；本地文字模型看不了图。

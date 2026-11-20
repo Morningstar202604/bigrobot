@@ -365,7 +365,10 @@ async def _translate_with_model(body: str, source: str, target: str) -> str:
         return ""
     target_name = {"zh": "简体中文", "en": "English", "ja": "日本語"}.get(target, target)
     source_name = {"zh": "中文", "en": "英文", "ja": "日文"}.get(source, "原文")
-    prompt = f"把下面的{source_name}翻译成{target_name}，只输出译文，不要解释：\n{body[:1500]}"
+    prompt = (
+        f"把下面的{source_name}翻译成{target_name}。译文要符合目标语言习惯，"
+        f"不要逐字直译（例如英文问候语译成中文用“早上好”，不要写“好的早上”）。"
+        f"只输出译文，不要解释：\n{body[:1500]}")
     try:
         text = await llm._post_chat(str(llm_cfg["base_url"]).rstrip("/"), str(llm_cfg["api_key"]), {
             "model": llm_cfg.get("model") or "botpsy-0.8b",
