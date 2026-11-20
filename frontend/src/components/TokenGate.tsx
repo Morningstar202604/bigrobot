@@ -64,10 +64,10 @@ export function TokenGate({ error, onAuthed }: { error?: unknown; onAuthed?: () 
   }, [])
 
   const submit = () => {
-    const t = input.trim()
-    if (!t) return
+    const token = input.trim()
+    if (!token) return
     setPending(true)
-    setAdminToken(t)
+    setAdminToken(token)
     setTimeout(() => {
       setPending(false)
       onAuthed?.()

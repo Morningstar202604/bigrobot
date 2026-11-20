@@ -57,7 +57,7 @@ docs/      current docs plus an archive — see docs/README.md
 
 ## Docs
 
-[Deployment](docs/DEPLOY.md) · [Architecture](docs/ARCHITECTURE.md) · [Releasing](docs/RELEASING.md) · [Route audit](docs/route-audit.md) · [Persona eval](docs/PERSONA-EVAL.md) · [Extensions & MCP](docs/extensions.md) · [Knowledge base](docs/knowledge-base.md) · [Future tasks](docs/future-tasks.md)
+[Deployment](docs/DEPLOY.md) · [Architecture](docs/ARCHITECTURE.md) · [Releasing](docs/RELEASING.md) · [Route audit](docs/route-audit.md) · [Persona eval](docs/PERSONA-EVAL.md) · [Extensions & MCP](docs/extensions.md) · [Knowledge base](docs/knowledge-base.md) · [Future tasks](docs/future-tasks.md) · [Persona capabilities](docs/persona-capabilities.md)
 
 ## Status
 

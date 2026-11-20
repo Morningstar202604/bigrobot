@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass, field
 
 from core import persona as persona_mod
-from core import config, guardrail, llm, memory as memory_mod, retrieval, store, tools as tools_mod
+from core import config, guardrail, llm, memory as memory_mod, persona_caps, retrieval, store, tools as tools_mod
 from core.schemas import LlmReply
 from core import tracing
 from core.tool_context import EMPTY, ToolContext
@@ -183,8 +183,9 @@ def build_context(query: str, history: list[dict], cfg: dict, visitor_id: str) -
     kb_block = "\n".join(f"- [{h['id']}] {h['title']}: {h['answer']}" for _, h in hits) if hits else "（无相关条目）"
     used["kb"]["hits"] = [e["id"] for _, e in hits]
 
-    tools = tools_mod.active_tools(cfg) if modules_on.get("tools", True) else {}
-    tools_schema = tools_mod.tool_schema_block(cfg) if modules_on.get("tools", True) else []
+    tools = tools_mod.active_tools(cfg, persona_id) if modules_on.get("tools", True) else {}
+    tools_schema = (tools_mod.tool_schema_block(cfg, persona_id)
+                    if modules_on.get("tools", True) else [])
     used["tools"] = {"enabled": bool(modules_on.get("tools", True)), "active": list(tools.keys())}
 
     mem: dict = {}
@@ -801,13 +802,17 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
     try:
         from core import skills as skills_mod
 
-        ctx["skills_block"] = skills_mod.render(cfg)
+        ctx["skills_block"] = skills_mod.render(
+            cfg, persona_caps.allowed(cfg, ctx.get("persona_id", ""), "skills"))
     except Exception:  # 技能渲染失败绝不能影响主链路
         ctx["skills_block"] = ""
     try:
         from core import extensions
 
-        ext_block = extensions.render_skills()
+        ext_block = extensions.render_skills(
+            persona_caps.allowed(cfg, ctx.get("persona_id", ""), "extensions"),
+            persona_caps.allowed(cfg, ctx.get("persona_id", ""), "skills"),
+        )
         if ext_block:
             ctx["skills_block"] = (ctx["skills_block"] + "\n" + ext_block).strip()
     except Exception:

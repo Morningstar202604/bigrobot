@@ -24,7 +24,7 @@ from typing import Any, Callable
 
 import httpx
 
-from core import future_task_store, redact, reminder_parser, retrieval, store
+from core import future_task_store, persona_caps, redact, reminder_parser, retrieval, store
 from core.actions import registry as actions_registry
 from core.tool_context import EMPTY, ToolContext
 
@@ -1173,6 +1173,27 @@ PRIVILEGED_TOOLS = frozenset({
 })
 
 
+def _persona_denied(name: str, ctx: ToolContext) -> dict | None:
+    """角色能力闸门：清单已经过滤，这里再兜一层，防模型直接点名未授权工具。"""
+    pid = (ctx.persona_id or "").strip()
+    if not pid:
+        return None
+    from core import config
+
+    cfg = config.get_config()
+    if not persona_caps.tool_allowed(cfg, pid, name):
+        return miss_result(name, "当前角色没有这项工具权限。")
+    policy = _dynamic_policy(name)
+    if policy:
+        ext = str(policy.get("extension") or "")
+        server = str(policy.get("server") or "")
+        if ext and not persona_caps.extension_allowed(cfg, pid, ext):
+            return miss_result(name, "当前角色没有这项扩展权限。")
+        if server and not persona_caps.mcp_allowed(cfg, pid, server):
+            return miss_result(name, "当前角色没有这台 MCP 服务权限。")
+    return None
+
+
 def _authorize_tool(name: str, ctx: ToolContext) -> dict | None:
     """权限闸门：返回 None 表示放行，否则返回拒绝结果。
 
@@ -1317,6 +1338,9 @@ async def invoke_with(registry_map: dict | None, name: str, args: dict | None,
     当它包含该工具时以它为准——否则测试替身与用户自定义实现都会被内置表盖掉。
     """
     args = dict(args or {})
+    denied = _persona_denied(name, ctx)
+    if denied is not None:
+        return denied
     denied = _authorize_tool(name, ctx)
     if denied is not None:
         return denied
@@ -1335,6 +1359,9 @@ async def invoke_with(registry_map: dict | None, name: str, args: dict | None,
 async def invoke(name: str, args: dict | None, ctx: ToolContext = EMPTY) -> dict:
     """统一调用入口：同步/异步工具都能用。"""
     args = dict(args or {})
+    denied = _persona_denied(name, ctx)
+    if denied is not None:
+        return denied
     denied = _authorize_tool(name, ctx)
     if denied is not None:
         return denied
@@ -1387,12 +1414,15 @@ def _make_stub_tool(t: dict):
     return run
 
 
-def active_tools(cfg: dict) -> dict:
+def active_tools(cfg: dict, persona_id: str = "") -> dict:
     tools_cfg = cfg.get("tools", {})
+    allowed_tools = persona_caps.allowed(cfg, persona_id, "tools")
     out: dict = {}
     for t in store.active_tools():
         tid = t["id"]
         if not tools_cfg.get(tid, True):
+            continue
+        if allowed_tools is not None and tid not in allowed_tools:
             continue
         if tid in _SYNC_IMPLS:
             out[tid] = _SYNC_IMPLS[tid]
@@ -1403,7 +1433,13 @@ def active_tools(cfg: dict) -> dict:
         else:
             out[tid] = _make_stub_tool(t)
     # 外部能力不能覆盖内置工具：先到先得，扩展重名在安装时也会被拒。
+    specs = {item["name"]: item for item in _dynamic_specs()}
     for name, fn in _dynamic_tools().items():
+        if allowed_tools is not None and name not in allowed_tools:
+            continue
+        spec = specs.get(name)
+        if spec and not persona_caps.source_allowed(cfg, persona_id, spec):
+            continue
         out.setdefault(name, fn)
     return out
 
@@ -1467,12 +1503,15 @@ def _config_ready(tid: str) -> bool:
     return True
 
 
-def tool_schema_block(cfg: dict) -> list[dict]:
+def tool_schema_block(cfg: dict, persona_id: str = "") -> list[dict]:
     out = []
     enabled_cfg = cfg.get("tools", {})
+    allowed_tools = persona_caps.allowed(cfg, persona_id, "tools")
     for t in store.active_tools():
         tid = t["id"]
         if not enabled_cfg.get(tid, True):
+            continue
+        if allowed_tools is not None and tid not in allowed_tools:
             continue
         if not _config_ready(tid):
             continue
@@ -1482,6 +1521,10 @@ def tool_schema_block(cfg: dict) -> list[dict]:
     for spec in _dynamic_specs():
         name = spec["name"]
         if name in seen or not spec.get("args") and not spec.get("desc"):
+            continue
+        if allowed_tools is not None and name not in allowed_tools:
+            continue
+        if not persona_caps.source_allowed(cfg, persona_id, spec):
             continue
         seen.add(name)
         out.append({"name": name, "args": list(spec.get("args") or []),

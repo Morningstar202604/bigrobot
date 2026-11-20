@@ -59,6 +59,8 @@ def _defaults() -> dict:
     },
     # 早期演示用的电商工具不再默认开启；需要时由工具注册表手动加。
     "tools": {},
+    # 角色能力边界：空表 = 每个角色继承全部；显式 allow 才收缩
+    "persona_caps": {"items": {}},
     # 声明式扩展包与 MCP 客户端：只存启用状态/来源，manifest 在 data/extensions 下
     "extensions": {"enabled": {}, "sources": {}},
     "mcp": {"servers": []},
@@ -209,6 +211,7 @@ _SCHEMA: dict[str, dict[str, type | tuple]] = {
     "memory": {"enable": bool, "retrieval_top_k": int, "auto_capture": bool,
                "capture_keywords": list, "visit_greeting": bool},
     "tools": {},
+    "persona_caps": {"items": dict},
     "multimodal": {"enable": bool, "vision_model": str, "image_model": str,
                    "image_base_url": str, "image_api_key": str},
     "guardrail": {"injection_block": bool},

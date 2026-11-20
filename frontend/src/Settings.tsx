@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   SlidersHorizontal, BookOpen, BarChart3, Brain, ShieldAlert,
   Save, Plus, Pencil, Trash2, X, Activity, Inbox, MessageSquare,
   FileText, Users, Search, Wrench, Zap, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Upload, Download, KeyRound, Check,
-  Plug, Wand2, Lock, MessagesSquare } from 'lucide-react'
+  Plug, Wand2, Lock, MessagesSquare, UserCog } from 'lucide-react'
 import { ProviderPanel, SkillsPanel, HooksPanel, PermissionsPanel } from './ProviderCenter'
 import {
   useConfig, useUpdateConfig, useKb, useKbMutations, useKbImport, useKbTest, useKbDocImport, exportKb, useTools, useToolMutations,
@@ -24,6 +24,7 @@ import { Grp, Row, Pager } from './settings/bits'
 import { ParamsPanel } from './settings/panels-core'
 import { ToolsPanel, GuardrailPanel } from './settings/panels-core'
 import { KbPanel } from './settings/panels-kb'
+import PersonaCapsPanel from './settings/panels-persona-caps'
 import { DataPanel, MemPanel, InjPanel, TokenPanel } from './settings/panels-data'
 import { isAuthError } from './lib/queries'
 import { TOOL_LABEL } from './lib/labels'
@@ -45,6 +46,7 @@ const TAB_GROUPS: { group: string; items: { key: string; icon: React.ReactNode; 
   {
     group: '行为与知识',
     items: [
+      { key: 'persona-caps', icon: <UserCog size={15} />, label: '角色能力', sub: '每个角色能用的工具/技能/MCP/扩展' },
       { key: 'skills', icon: <Wand2 size={15} />, label: '技能', sub: '什么时候用哪个工具' },
       { key: 'tools', icon: <Wrench size={15} />, label: '工具注册表', sub: '可自定义 Agent 能执行的动作' },
       { key: 'cards', icon: <Brain size={15} />, label: '角色卡', sub: 'SillyTavern 卡导入 / 按群绑定人格' },
@@ -78,7 +80,7 @@ const KB_TAB = { key: 'kb', icon: <BookOpen size={15} />, label: '知识库', su
 const SCOPE_TABS: Record<string, { groups: string[]; keys: string[]; base: string; fallback: string }> = {
   capabilities: {
     groups: ['行为与知识'],
-    keys: ['skills', 'tools', 'cards', 'profiles', 'lexicon', 'mem', 'kb'],
+    keys: ['persona-caps', 'skills', 'tools', 'cards', 'profiles', 'lexicon', 'mem', 'kb'],
     base: '/capabilities',
     fallback: 'tools',
   },
@@ -173,6 +175,7 @@ export default function Settings({ scope }: { scope?: keyof typeof SCOPE_TABS } 
         {tab === 'providers' && shown && (
           <ProviderPanel cfg={shown} setCfg={(next) => setDraft(next)} persist={(next) => upd.mutate(next)} />
         )}
+        {tab === 'persona-caps' && <PersonaCapsPanel />}
         {tab === 'skills' && <SkillsPanel />}
         {tab === 'hooks' && <HooksPanel />}
         {tab === 'permission' && <PermissionsPanel />}

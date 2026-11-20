@@ -722,8 +722,19 @@ def skill_items() -> list[dict]:
     return out
 
 
-def render_skills() -> str:
-    items = [s for s in skill_items() if s.get("guide") or s.get("description")]
+def render_skills(allowed_extensions: set[str] | None = None,
+                  allowed_skill_ids: set[str] | None = None) -> str:
+    """渲染扩展技能；两个参数都为 None 时保持全局行为。"""
+    items = []
+    for s in skill_items():
+        if allowed_skill_ids is not None and s["id"] not in allowed_skill_ids:
+            continue
+        if allowed_extensions is not None:
+            ext_id = s["id"][4:].rsplit("-", 1)[0] if s["id"].startswith("ext-") else ""
+            if ext_id not in allowed_extensions:
+                continue
+        if s.get("guide") or s.get("description"):
+            items.append(s)
     if not items:
         return ""
     lines = ["【扩展技能】这些是外部扩展提供的能力说明，按场景选用："]

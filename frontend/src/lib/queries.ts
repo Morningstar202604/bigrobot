@@ -196,6 +196,59 @@ export async function exportKb(collection = '', format: 'markdown' | 'json' = 'm
 }
 
 // ---- tools ----
+export interface CapGroup {
+  mode: 'all' | 'allow'
+  ids: string[]
+}
+
+export interface PersonaCaps {
+  tools: CapGroup
+  skills: CapGroup
+  mcp: CapGroup
+  extensions: CapGroup
+}
+
+export interface PersonaCapsOption {
+  id: string
+  name: string
+  desc?: string
+  category?: string
+  builtin?: boolean
+  enabled?: boolean
+  error?: string
+}
+
+export interface PersonaCapsResponse {
+  items: Record<string, PersonaCaps>
+  options: {
+    personas: PersonaCapsOption[]
+    tools: PersonaCapsOption[]
+    skills: PersonaCapsOption[]
+    mcp: PersonaCapsOption[]
+    extensions: PersonaCapsOption[]
+  }
+}
+
+export function usePersonaCaps() {
+  return useQuery({ queryKey: qk.personaCaps, queryFn: () => http.get<PersonaCapsResponse>('/api/persona-caps') })
+}
+
+export function usePersonaCapsMutations() {
+  const qc = useQueryClient()
+  const invalidate = () => qc.invalidateQueries({ queryKey: qk.personaCaps })
+  return {
+    save: useMutation({
+      mutationFn: (items: Record<string, PersonaCaps>) =>
+        http.put<{ items: Record<string, PersonaCaps> }>('/api/persona-caps', { items }),
+      onSuccess: invalidate,
+    }),
+    remove: useMutation({
+      mutationFn: (personaId: string) => http.del<{ items: Record<string, PersonaCaps> }>(`/api/persona-caps/${personaId}`),
+      onSuccess: invalidate,
+    }),
+  }
+}
+
 export function useTools() {
   return useQuery({ queryKey: qk.tools, queryFn: () => http.get<{ tools: ToolDef[] }>('/api/tools') })
 }

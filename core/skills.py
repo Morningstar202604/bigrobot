@@ -107,10 +107,11 @@ def normalize_items(items) -> list[dict]:
     return out
 
 
-def render(cfg: dict) -> str:
-    """把启用的技能渲染成提示词片段；没有启用项返回空串。"""
+def render(cfg: dict, allowed_ids: set[str] | None = None) -> str:
+    """把启用的技能渲染成提示词片段；allowed_ids=None 表示不按角色收缩。"""
     items = normalize_items((cfg.get("skills") or {}).get("items"))
-    active = [s for s in items if s["enabled"] and (s["guide"] or s["description"])]
+    active = [s for s in items if s["enabled"] and (s["guide"] or s["description"])
+              and (allowed_ids is None or s["id"] in allowed_ids)]
     if not active:
         return ""
     lines = ["【可用技能】按场景选用，不要为了用技能而用："]

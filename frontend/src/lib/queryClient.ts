@@ -17,6 +17,7 @@ export const qk = {
   config: ['config'] as const,
   kb: ['kb'] as const,
   tools: ['tools'] as const,
+  personaCaps: ['persona-caps'] as const,
   injectionRules: ['injection-rules'] as const,
   admin: {
     overview: ['admin', 'overview'] as const,

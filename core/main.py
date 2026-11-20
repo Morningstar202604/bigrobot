@@ -1450,6 +1450,7 @@ def create_app() -> FastAPI:
     from core.api import kb as kb_api
     from core.api import extensions as extensions_api
     from core.api import future_tasks as future_tasks_api
+    from core.api import persona_caps as persona_caps_api
     from core.api import qq_deploy as qq_deploy_api
     from core.api import qq_login as qq_login_api
     from core.api import reminders as reminders_api
@@ -1461,6 +1462,7 @@ def create_app() -> FastAPI:
     app.include_router(kb_api.router)
     app.include_router(extensions_api.router)
     app.include_router(future_tasks_api.router)
+    app.include_router(persona_caps_api.router)
     app.include_router(qq_deploy_api.router)
     app.include_router(qq_login_api.router)
     app.include_router(reminders_api.router)
