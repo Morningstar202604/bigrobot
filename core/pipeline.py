@@ -372,6 +372,19 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
                     tool_used="translate", tool_result=tr,
                     ctx_used=ctx.get("used"))
 
+    if local_models.small_model_mode(cfg) and re.search(
+            r"你能做什么|你会什么|能干什么|有什么功能|what can you do|what do you do|your capabilities",
+            q, re.I):
+        if _CJK_RE.search(q):
+            text = ("我能查时间、设提醒、记事情、查天气、联网搜索、算数、查汇率、"
+                    "翻译、做颜色和单位换算。")
+        else:
+            text = ("I can tell the time, set reminders, remember facts, check the weather, "
+                    "search the web, do math, convert currencies, translate, and convert "
+                    "colours or units.")
+        return AgentReply(
+            text=text, confidence=0.9, mode="rule_react", ctx_used=ctx.get("used"))
+
     name, args = None, None
     # 搜索交给 _llm_answer 的 ReAct 链路：那里会在工具返回后再让本地模型
     # 用两三句归纳；_direct_tool 直接返回 note 会把标题、摘要、URL 原样倒给用户。

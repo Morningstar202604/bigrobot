@@ -525,3 +525,11 @@
   .stage-head { gap: 8px; }
   .bubble { max-width: 100%; }
 }
+
+.tool-result-img {
+  display: block;
+  max-width: 200px;
+  margin-top: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}

@@ -55,6 +55,8 @@ const MsgRow = memo(function MsgRow({ m, index, last, escalated, loading, onFeed
   }
   // 空占位不渲染：页面已有独立的「Agent 正在处理…」气泡，两者叠加会显示两个头像
   if (m.role === 'agent' && m.streaming && !(m.content || '').trim()) return null
+  const toolImage = m.tool_result && typeof m.tool_result === 'object'
+    ? m.tool_result.image_data_url : ''
   return (
     <div className={`msg-row ${m.role} ${m.deleted ? 'deleted' : ''}`}>
       <Avatar kind={m.role} size={30} />
@@ -76,6 +78,9 @@ const MsgRow = memo(function MsgRow({ m, index, last, escalated, loading, onFeed
                 ? m.content
                 : <Markdown text={m.content} />}
           </div>
+        )}
+        {m.role === 'agent' && !m.deleted && toolImage && (
+          <img src={toolImage} alt={t('工具生成的图片')} className="tool-result-img" />
         )}
         {m.role === 'agent' && !m.deleted && <MsgMeta msg={m} />}
         {m.ts && <span className="msg-time">{formatTime(m.ts)}</span>}

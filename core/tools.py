@@ -1663,7 +1663,7 @@ def _route_general(q: str) -> tuple[str | None, dict | None]:
              "km|cm|mm|kg|ml|lb|oz|ft|inch|mile|gal|m|g|l|t|c|f|k")
     m = re.search(
         rf"(\d+(?:\.\d+)?)\s*({units})\s*"
-        rf"(?:换算成|转换成|换成|转成|等于多少|等于|是多少|to|→|->)\s*"
+        rf"(?:换算成|转换成|换成|转成|换算|转|等于多少|等于|是多少|to|→|->)\s*"
         rf"(?:多少\s*)?({units})", text, re.I)
     if m:
         return "convert_unit", {"value": m.group(1), "from_unit": m.group(2),
@@ -1689,6 +1689,12 @@ def _route_general(q: str) -> tuple[str | None, dict | None]:
     if m:
         return "hash", {"text": m.group(2).strip(), "algorithm": m.group(1).lower()}
 
+    # 自然说法「格式化这段 JSON：{...}」也要路由，不能只认句首 json。
+    jm = re.search(r"(?:格式化|美化|校验|压缩)\s*(?:这段|一下)?\s*(?:JSON)?\s*[:：]?\s*([\{\[].+?[\}\]])\s*$", text, re.I | re.S)
+    if jm:
+        act = "minify" if "压缩" in jm.group(0) else "format"
+        return "json_format", {"text": jm.group(1), "action": act}
+
     # JSON
     if re.match(r"^(json)\s*(格式化|美化|校验|压缩|format)", text, re.I):
         body = re.sub(r"^json\s*(格式化|美化|校验|压缩|format)\s*[:：]?\s*", "", text, flags=re.I)
@@ -1701,6 +1707,13 @@ def _route_general(q: str) -> tuple[str | None, dict | None]:
     cm = re.search(r"rgb\s*\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)", text, re.I)
     if cm and re.search(r"hex|颜色|色值|转|换算", text, re.I):
         return "color", {"hex_value": ",".join(cm.groups())}
+
+    # 二维码：生成/制作 + 内容。返回 image_data_url，控制台会直接显示。
+    qm = re.search(r"(?:生成|制作|做)\s*(?:一个)?\s*二维码\s*[:：]?\s*(.+)", text, re.I)
+    if not qm:
+        qm = re.search(r"(?:把|将)\s*(.+?)\s*(?:生成|制作|做)\s*(?:一个)?\s*二维码", text, re.I)
+    if qm and qm.group(1).strip(" ：:，,。\"'"):
+        return "qr_code", {"text": qm.group(1).strip(" ：:，,。\"'")}
 
     # 随机抽取：候选必须有逗号/顿号分隔，避免把整句话当成一个候选。
     rm = re.search(r"(?:从|在)\s*(.+?)\s*(?:里|中)?\s*(?:随机|随便|随手)\s*(?:抽|选|挑|来)(?:一个|一位|个)?", text)

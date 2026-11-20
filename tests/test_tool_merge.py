@@ -38,6 +38,12 @@ def test_utility_intents_are_routed_without_model_schema():
     assert name == "exchange_rate" and args["base"] == "USD" and args["target"] == "CNY"
     name, args = tools_mod.detect_tool("把 hello world 翻译成中文", enabled)
     assert name == "translate" and args == {"text": "hello world", "target": "zh"}
+    name, args = tools_mod.detect_tool("5km 转英里", enabled)
+    assert name == "convert_unit" and args["from_unit"] == "km"
+    name, args = tools_mod.detect_tool('格式化这段 JSON：{"a":1}', enabled)
+    assert name == "format_text" and args["op"] == "json"
+    name, args = tools_mod.detect_tool("生成二维码 hello", enabled)
+    assert name == "qr_code" and args == {"text": "hello"}
 
 
 async def test_null_tool_context_is_normalized():
