@@ -55,6 +55,9 @@ export default function App() {
                 <Route path="/reminders" element={<Reminders />} />
                 {/* 旧入口一版重定向：必须放在 /settings/:tab 之前，否则会被动态段吞掉 */}
                 <Route path="/settings/kb" element={<Navigate to="/capabilities/kb" replace />} />
+                <Route path="/operator" element={<Navigate to="/sessions?view=desk" replace />} />
+                <Route path="/persona" element={<Navigate to="/capabilities?view=persona" replace />} />
+                <Route path="/annotations" element={<Navigate to="/sessions?view=annotate" replace />} />
                 <Route path="/settings/:tab" element={<Settings scope="settings" />} />
                 <Route path="/settings" element={<Settings scope="settings" />} />
                 <Route path="*" element={<NotFound />} />
