@@ -58,3 +58,16 @@ def test_llm_models_requires_token(client, monkeypatch):
     monkeypatch.setenv("ADMIN_TOKEN", "abc")
     assert client.get("/api/admin/llm-models").status_code == 401
     assert client.get("/api/admin/llm-models", headers={"X-Admin-Token": "abc"}).status_code == 200
+
+
+def test_provider_key_syncs_to_main_when_endpoint_matches(client):
+    """UI 只新增 providers、主 Key 还是旧厂商时，重新加载会把旧 Key 拿去撞 401。"""
+    _put_config(client, {"llm": {
+        "base_url": "https://api.example.com/v1", "model": "m1",
+        "api_key": "sk-alpha-1111"}})
+    _put_config(client, {"llm": {"providers": [{
+        "name": "P", "base_url": "https://api.example.com/v1", "model": "m1",
+        "protocol": "openai-compatible", "api_key": "sk-beta-2222"}]}})
+    body = client.get("/api/config").json()["config"]["llm"]
+    assert body["api_key"].endswith("2222")
+    assert body["key_source"] == "ui"

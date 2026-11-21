@@ -300,6 +300,24 @@
   cursor: pointer;
   display: grid; place-items: center;
 }
+.composer-file {
+  display: inline-flex; align-items: center; gap: 5px;
+  max-width: 260px;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+  color: var(--ink);
+  font-size: 12px;
+}
+.composer-file span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.composer-file button {
+  width: 16px; height: 16px;
+  border: none; background: transparent; color: var(--muted);
+  cursor: pointer; display: grid; place-items: center;
+}
 .composer-bar {
   display: flex; align-items: flex-end; gap: 8px;
   padding: 8px 12px 10px;

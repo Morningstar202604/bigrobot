@@ -11,6 +11,7 @@ import json
 import os
 import re
 import time
+import random
 
 import logging
 
@@ -52,6 +53,11 @@ _COOLDOWN_S = max(0.0, float(os.environ.get("USER_LLM_COOLDOWN_SECONDS", "120") 
 # 但代码从未定义它：429 分支必抛 NameError 打断整条备援链，配置等于失效。
 _RATE_LIMIT_COOLDOWN_S = max(
     0.0, float(os.environ.get("USER_LLM_RATE_LIMIT_COOLDOWN_SECONDS", "5") or 0))
+# 网络类瞬断（RemoteProtocolError/连接超时/读超时）不能按 120 秒熔断：
+# 实测一次 30 秒的流断开会让整轮会话后续 6 条全部掉到规则兜底，
+# 用户看到的才是“怎么老是一套回答”。瞬断短冷却 8 秒，给下一次请求机会。
+_TRANSIENT_COOLDOWN_S = max(
+    0.0, float(os.environ.get("USER_LLM_TRANSIENT_COOLDOWN_SECONDS", "8") or 0))
 _COOLDOWN: dict[tuple[str, str], float] = {}   # (base_url, model) -> wake_at(monotonic)
 
 
@@ -66,6 +72,33 @@ class RateLimited(Exception):
 def _cooling(base: str, model: str) -> bool:
     wake = _COOLDOWN.get((base, model))
     return wake is not None and time.monotonic() < wake
+
+
+def reset_cooldown() -> None:
+    """配置里换了 Key/端点后清空冷却池。
+
+    否则旧 Key 的一次 401 会留下 120 秒熔断：管理员在控制台换好 Key、
+    llm-test 也通过了，真实对话仍然连续掉规则兜底（压测时踩过）。
+    """
+    _COOLDOWN.clear()
+
+
+def _cooldown_wait(chain: list[dict]) -> float | None:
+    """所有候选都在冷却时，返回最晚的剩余秒数；有任一候选可用返回 None。
+
+    只用于「短冷却重试一次」：429/网络瞬断把整条链挡住时，直接掉规则兜底
+    会让同一句“没听明白”连续出现。等冷却结束再试一次，通常就能拿到模型回答。
+    """
+    waits: list[float] = []
+    for c in chain:
+        wake = _COOLDOWN.get((c["base_url"], c["model"]))
+        if wake is None:
+            return None
+        remain = wake - time.monotonic()
+        if remain <= 0:
+            return None
+        waits.append(remain)
+    return max(waits) if waits else None
 
 
 def _chain(llm_cfg: dict, model: str, vision: bool = False) -> list[dict]:
@@ -149,12 +182,27 @@ async def _race_chain(chain: list[dict], messages: list, base_payload: dict,
                     _COOLDOWN[(cand["base_url"], cand["model"])] = time.monotonic() + wait
                     lg.warning("llm rate limited, short cooldown %.0fs: %s@%s",
                                wait, cand["model"], cand["base_url"].split("//")[-1])
+                elif isinstance(err, (
+                        httpx.RemoteProtocolError, httpx.ConnectError,
+                        httpx.ReadTimeout, httpx.WriteTimeout, httpx.ConnectTimeout,
+                        httpx.PoolTimeout, asyncio.TimeoutError)):
+                    # 网络瞬断：短冷却，不把整轮对话打到规则兜底
+                    wait = min(_TRANSIENT_COOLDOWN_S, 15.0)
+                    _COOLDOWN[(cand["base_url"], cand["model"])] = time.monotonic() + wait
+                    lg.warning("llm transient failed (%s), short cooldown %.0fs: %s@%s",
+                               type(err).__name__, wait, cand["model"],
+                               cand["base_url"].split("//")[-1])
                 else:
-                    _COOLDOWN[(cand["base_url"], cand["model"])] = \
-                        time.monotonic() + _COOLDOWN_S
+                    # 认证/配置类错误才长冷却；5xx 之类给 30 秒，避免整段会话死掉
+                    wait = _COOLDOWN_S
+                    if isinstance(err, httpx.HTTPStatusError):
+                        code = err.response.status_code
+                        if code < 500 and code not in (401, 403):
+                            wait = min(wait, 30.0)
+                    _COOLDOWN[(cand["base_url"], cand["model"])] = time.monotonic() + wait
                     lg.warning("llm candidate failed (%s), cooldown %ss: %s@%s",
                                type(err).__name__ if err else ("empty" if text is not None else "bad-content"),
-                               _COOLDOWN_S, cand["model"], cand["base_url"].split("//")[-1])
+                               wait, cand["model"], cand["base_url"].split("//")[-1])
     finally:
         for t in pending:
             if not t.done():
@@ -681,6 +729,14 @@ async def react(query: str, ctx: dict, cfg: dict, image_b64: str = "",
         chain.sort(key=lambda c: 0 if c["model"] == prefer else 1)
     started = time.monotonic()
     parsed = await _race_chain(chain, messages, payload, parse=_parse_llm_answer)
+    if parsed is None:
+        # 429/瞬断后的短冷却：等冷却结束再试一次，别让一句限流把整段对话
+        # 打到规则兜底。只等短冷却（<=12s）；认证/长熔断不在这里干等。
+        wait = _cooldown_wait(chain)
+        if wait is not None and wait <= 12.0:
+            await asyncio.sleep(wait + random.uniform(0.1, 0.5))
+            lg.info("llm retry after short cooldown %.1fs", wait)
+            parsed = await _race_chain(chain, messages, payload, parse=_parse_llm_answer)
     _record_llm("ok" if parsed is not None else "fail")
     try:
         from core import metrics as _metrics

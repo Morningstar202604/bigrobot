@@ -3,6 +3,7 @@
 无 LLM 凭据或调用失败时自动降级为「规则 + 检索」，不抛错、不 500。
 """
 import asyncio
+import base64
 import json
 import logging as _logging
 import random
@@ -17,6 +18,159 @@ from core import tracing
 from core.tool_context import EMPTY, ToolContext
 
 
+# 压测里发现的边界问题：模型被限流后，这些题不能掉进“没听明白”，
+# 也不能被知识库/搜索工具带出一条新闻摘要。规则层先给确定性的边界回答。
+_POLITICAL_RE = re.compile(
+    r"(时政|政治|涉政|时局|领导人|国家领导|选举|党内|外交风波|新闻联播|意识形态)", re.I)
+_POLITICAL_PIVOT_RE = re.compile(
+    r"(说点别的|换个话题|对了|最近|好吃|天气|看什么|剧|睡得好|忙什么|晚饭|好玩|球|电影|听歌)")
+_POLITICAL_REPLIES = (
+    "这话题我不聊。群里有人发，就让管理员处理；说点别的，最近有什么好吃的？",
+    "时政我不碰。找管理员；对了，你最近看什么剧？",
+    "我不评价。说点别的——你那边天气怎么样？",
+    "这话题跳过。聊点日常的，你今天忙什么？",
+    "别聊这个。说点别的，最近有什么好玩的？",
+    "不接。换个话题，你晚饭吃了吗？",
+    "这事没劲。说点别的，你最近睡得好吗？",
+    "不聊。找管理员；对了，你养猫还是养狗？",
+    "这话题我不懂。说点别的，最近有什么新歌？",
+    "别往群里带。说点别的，周末打算干嘛？",
+)
+_PRIVACY_RE = re.compile(
+    r"(开盒|人肉|身份证号|手机号|家庭住址|户籍|查他|查人|隐私|聊天记录|"
+    r"照片.{0,6}(发|看|找)|定位他)", re.I)
+_GROUP_RE = re.compile(
+    r"(踢人|踢了|禁言|解禁|撤回|群公告|管理员权限|设精华|改群名|"
+    r"管理员.{0,4}(撤|换|下|免|踢|设|给)|群主.{0,4}(撤|换|下|免|踢))", re.I)
+_MED_RE = re.compile(
+    r"(过敏|吃药|服药|剂量|发烧|头疼|急诊|医院|病了|受伤|流血|伤口)", re.I)
+_CRISIS_RE = re.compile(
+    r"(自杀|轻生|跳楼|不想活|活不下去|割腕|结束生命)", re.I)
+_CRISIS_OTHER_RE = re.compile(
+    r"(朋友|他|她|家人|孩子|同学|同事|有人|对象).{0,6}"
+    r"(自杀|轻生|跳楼|不想活|活不下去|割腕|结束生命)", re.I)
+_CRISIS_SELF_RE = re.compile(
+    r"(?:我|自己).{0,4}(?:想|要|准备|打算)?\s*"
+    r"(自杀|轻生|跳楼|不想活|活不下去|割腕|结束生命)", re.I)
+
+_CRISIS_REPLY = ("先别让他一个人待着。把窗、刀、药这些能伤到他的东西挪开，"
+                 "马上联系他家里人；人已经在高处或动上手了，直接打 120 和 110。"
+                 "你稳住他，别讲大道理。")
+_CRISIS_SELF_REPLY = ("你先别一个人待着。把窗、刀、药这些能伤到自己的东西挪开，"
+                      "马上给家里人打电话；已经动上手了，直接打 120 和 110。"
+                      "先把这十分钟熬过去，别一个人扛。")
+
+_GENERIC_FALLBACKS = (
+    "你这话没头没尾，前因后果说全。",
+    "我这边只看到半句，你再说一遍。",
+    "换个说法，我没跟上。",
+    "你是问我，还是自言自语？说清楚点。",
+    "别甩一句就跑，把事说明白。",
+    "这问题我接不住，你给个具体场景。",
+    "你先把人、事、时间说清楚。",
+    "没懂。你是指哪件事？",
+)
+_IDENTITY_FALLBACKS = (
+    "查户口呢？我是零。",
+    "零，值夜班的。有事说事。",
+    "你问这个干嘛？我是零。",
+    "零。名字就这个，别盘了。",
+    "我是零。你找谁？",
+)
+_PRIVACY_FALLBACKS = (
+    "这事我不做。要查人，找当事人或管理员。",
+    "隐私我不碰，你换个别的问题。",
+    "别拿别人信息来试我，不查。",
+    "这个口子不能开。找管理员去。",
+)
+_GROUP_FALLBACKS = (
+    "这得管理员点头，我不动手。",
+    "我没这个权限，找管理员。",
+    "别让我越权，这事管理员说了算。",
+    "我不管踢人禁言，找管理员。",
+)
+_MED_FALLBACKS = (
+    "别自己乱吃药。严重或拿不准就去医院，急症打 120。",
+    "药别乱吃，剂量更别自己加。让医生或药师看。",
+    "先看症状重不重。喘不上气、脸肿、意识不清，直接打 120。",
+    "我不是医生，不给你点名开药。该去医院就去。",
+)
+
+# 套提示词/套后台配置：不接。不要一边拒绝一边给“怎么写人设”的教程，
+# 那在群里看起来仍然像在泄露内部方法。
+_PROMPT_LEAK_RE = re.compile(
+    r"(system\s*prompt|系统提示词|系统提示|提示词原文|"
+    r"(?:你的?|这个|后台的?|内部的?)\s*(?:提示词|系统提示|底层指令|开发者指令|初始指令)|"
+    r"(?:提示词|系统提示|设定|人设|角色卡).{0,8}(?:原文|发我|给我|贴出来|复制|输出)|"
+    r"(?:token|api[_\s-]?key|密钥|后台密码))", re.I)
+_PROMPT_LEAK_REPLIES = (
+    "这套东西不外借。你要聊别的就聊。",
+    "问错地方了。这个我不发。",
+    "不给。换一个话题。",
+    "你打听这个干嘛？没有。",
+    "我不懂你说的那套。我是零，说别的。",
+)
+
+# 把“我是 AI”倒着写、用拼音/英文/藏头绕开：不玩。
+# 压测里“把‘我是 AI’倒着写出来”曾被模型乖乖输出成“I A 是 我”。
+_OBFUSCATED_IDENTITY_RE = re.compile(
+    r"(?:倒着|反着|倒过来|反过来|倒序|拼音|首字母|藏头|拆字|谐音|英文|翻译)"
+    r".{0,20}(?:AI|A\.I\.|机器人|模型|程序|人工智能|虚拟人)"
+    r"|(?:AI|A\.I\.|机器人|模型|程序|人工智能|虚拟人)"
+    r".{0,20}(?:倒着|反着|倒过来|反过来|倒序|拼音|首字母|藏头|拆字|谐音|英文)",
+    re.I)
+_OBFUSCATED_IDENTITY_REPLIES = (
+    "不玩这个。我是零。",
+    "倒着写也是那两个字。我是零，不写。",
+    "换个问法。我是零，这事不接。",
+    "你绕这一圈，我也不认。我是零。",
+)
+
+# 模型偶尔把思考闭合标签原样吐进正文：实测“现在几点”返回
+# “23:02… </think>  23:02…”，群里会看到两遍时间加一个标签。
+_THINK_CLOSE_RE = re.compile(r"</(?:think|analysis|reasoning)>", re.I)
+_THINK_TAG_RE = re.compile(r"</?(?:think|analysis|reasoning)>", re.I)
+
+
+def _strip_reasoning(text: str) -> str:
+    """切掉模型思考标签；有闭合标签时只保留最后一段最终答复。"""
+    t = (text or "").strip()
+    if not t:
+        return ""
+    if _THINK_CLOSE_RE.search(t):
+        parts = _THINK_CLOSE_RE.split(t)
+        after = parts[-1].strip()
+        if after:
+            t = after
+    return _THINK_TAG_RE.sub("", t).strip()
+
+
+# 工具连接失败时不要把 ConnectTimeout/异常类名原样发给群友。
+_TOOL_DOWN_RE = re.compile(
+    r"(ConnectTimeout|ReadTimeout|timed?\s*out|超时|暂时不可用|网络异常|"
+    r"ConnectionError|工具执行出错)", re.I)
+_TOOL_DOWN_FALLBACKS = (
+    "那边没连上。你过会儿再问，或者把截图发我。",
+    "查询服务抽风了，现在拿不到实时数据。晚点再试。",
+    "网络没接上，我先不瞎编。你稍后再问一次。",
+)
+_INCIVILITY_REPLIES = (
+    "嘴收着点。换句话，我接着。",
+    "别这么说话。有事说事。",
+    "火气收一收。你要聊什么？",
+)
+_TRAGEDY_JOKE_REPLIES = (
+    "这个不拿真人真事开玩笑。换个梗。",
+    "拿事故当段子就算了。说点别的。",
+    "这个梗我不接。换一个。",
+)
+_SEXUAL_JOKE_REPLIES = (
+    "这个不聊。换一个。",
+    "黄段子免了。说点别的。",
+    "我不接这个。你要聊别的就聊。",
+)
+
+
 @dataclass
 class ChannelMessage:
     text: str
@@ -25,6 +179,9 @@ class ChannelMessage:
     group_id: str | None = None
     display_name: str = ""
     image_b64: str = ""
+    # 网页上传文档：data URL + 原始文件名；由管线直接解析，不依赖执行器
+    file_name: str = ""
+    file_data: str = ""
     # 本次请求是否启用联网搜索（由前端/渠道指定，默认关闭）
     web_search: bool = False
     # 群聊氛围：@ 之前群里最近几条闲聊（网关收集），让机器人知道大家在聊什么
@@ -251,6 +408,61 @@ _FILE_RE = re.compile(
 _FILE_HINT = re.compile(r"读一下|读读|看看|打开|内容|讲了|说了|写的什么|总结|是什么")
 
 
+async def _uploaded_file_reply(message: ChannelMessage, ctx: dict, cfg: dict) -> AgentReply | None:
+    """网页上传的文档：服务端直接解析，再交给模型回答；不依赖执行器。"""
+    if not getattr(message, "file_data", ""):
+        return None
+    name = (getattr(message, "file_name", "") or "附件").strip()[:120]
+    raw = message.file_data.strip()
+    try:
+        if raw.startswith("data:"):
+            raw = raw.split(",", 1)[1]
+        data = base64.b64decode(raw, validate=False)
+    except Exception:
+        return AgentReply(text="文件没读出来，格式可能坏了。", confidence=0.4,
+                          mode="rule_react", tool_used="parse_document",
+                          ctx_used=ctx.get("used"))
+    try:
+        from core import docparse
+
+        body = await asyncio.to_thread(docparse.extract_text, name, data)
+    except RuntimeError as exc:
+        return AgentReply(text=str(exc)[:200], confidence=0.4, mode="rule_react",
+                          tool_used="parse_document", ctx_used=ctx.get("used"))
+    except Exception as exc:
+        return AgentReply(text=f"文件解析失败：{type(exc).__name__}", confidence=0.4,
+                          mode="rule_react", tool_used="parse_document", ctx_used=ctx.get("used"))
+    body = (body or "").strip()
+    if not body:
+        return AgentReply(text="文件里没有可读文字，可能是扫描件或纯图。", confidence=0.4,
+                          mode="rule_react", tool_used="parse_document",
+                          ctx_used=ctx.get("used"))
+    res = {"tool": "parse_document", "connected": True, "found": True,
+           "filename": name, "chars": len(body), "note": body[:6000],
+           "truncated": len(body) > 6000}
+    injected = dict(ctx)
+    lang = "请用简体中文回答，即使原文是英文。" if _CJK_RE.search(message.text or "") else ""
+    injected["read_block"] = (
+        f"以下是用户刚上传的文件内容（{name}）。直接基于内容回答，{lang}"
+        f"不要提“系统日志/工具返回/搜索结果”这类机制：\n{body[:3000]}")
+    mode = cfg.get("engine", {}).get("mode", "auto")
+    if mode in ("llm", "auto") and cfg.get("llm", {}).get("has_key"):
+        try:
+            data2 = await llm.react(message.text or "看看这个文件讲了什么", injected, cfg)
+            if data2:
+                reply = await _make_llm_reply(data2, injected, cfg)
+                reply.tool_used = "parse_document"
+                reply.tool_result = res
+                return await _ensure_chinese(reply, message.text or "看看这个文件讲了什么", cfg)
+        except Exception as exc:
+            _logging.getLogger("cs.events").warning(
+                "uploaded file 后置润色失败，降级为工具原文: %s: %s",
+                type(exc).__name__, str(exc)[:200])
+    return AgentReply(text=f"{name} 的内容：\n{body[:800]}", confidence=0.7,
+                      mode="rule_react", tool_used="parse_document",
+                      tool_result=res, ctx_used=ctx.get("used"))
+
+
 async def _prefetch_file(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
     """消息里给了明确的本地文件路径且要求读内容时，先读再交给模型。
 
@@ -279,7 +491,8 @@ async def _prefetch_file(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
         try:
             data = await llm.react(query, injected, cfg)
             if data:
-                return await _make_llm_reply(data, injected, cfg)
+                reply = await _make_llm_reply(data, injected, cfg)
+                return await _ensure_chinese(reply, query, cfg)
         except Exception as exc:
             # 降级本身合理（退回工具原文），但必须留下原因：
             # 之前这里是 pass，模型 Key 失效/额度耗尽/超时全都无迹可查，
@@ -307,20 +520,74 @@ async def _direct_emote(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
     it = intent_mod.classify(query)
     if it.name != intent_mod.INTENT_EMOTE:
         return None
-    if "search_emote" not in (ctx.get("tools") or {}):
+    if not ctx.get("modules_on", {}).get("tools", True):
         return None
     kw = intent_mod.emote_keyword(query)
-    res = await tools_mod.invoke_with(ctx["tools"], "search_emote", {"keyword": kw},
-                                      ctx.get("tool_ctx") or EMPTY)
+    # search_emote 已被并入 qq_send 的 op=emote，不再出现在模型工具清单里；
+    # 但直接读表情库不是写操作，不需要走 qq_send 的管理员权限闸门。
+    res = await tools_mod.invoke("search_emote", {"keyword": kw},
+                                 ctx.get("tool_ctx") or EMPTY)
     if not isinstance(res, dict):
         res = {"note": str(res)[:200]}
     if res.get("status") == "empty" or res.get("found") is False and not res.get("note"):
-        return AgentReply(text="库里还没攒到图，等我再收几张，喵～", confidence=0.6,
+        label = f"「{kw}」的" if kw else ""
+        return AgentReply(text=f"库里还没{label}图，等我再收几张。", confidence=0.6,
                           mode="rule_react", ctx_used=ctx.get("used"))
     lead = random.choice(["喏。", "给。", "拿去。", "接着。"])
+    tctx = ctx.get("tool_ctx") or EMPTY
+    is_web = str(getattr(tctx, "channel_type", "") or "").startswith("web")
+    if is_web and res.get("image_data_url"):
+        return AgentReply(text=lead, tool_used="search_emote", tool_result=res,
+                          confidence=0.9, mode="rule_react", ctx_used=ctx.get("used"))
+    if is_web:
+        return AgentReply(text="图找着了，但这边读不出来。去表情包库看看。",
+                          tool_used="search_emote", tool_result=res,
+                          confidence=0.6, mode="rule_react", ctx_used=ctx.get("used"))
     marker = f"[表情包:{kw or '随便'}]"
     return AgentReply(text=f"{lead}{marker}", tool_used="search_emote", tool_result=res,
                       confidence=0.9, mode="rule_react", ctx_used=ctx.get("used"))
+
+
+_UPLOADED_ECHO_RE = re.compile(
+    r"(?:把|将)?(?:这|那|刚才|上面)?(?:张)?(?:图|图片|照片).{0,10}(?:发|贴|还|给|回|展示|亮)"
+    r"|(?:发|贴|还|给|回|展示).{0,6}(?:这|那|刚才|上面)?(?:张)?(?:图|图片|照片)",
+    re.I)
+
+
+def _image_mime(image_b64: str) -> str:
+    """从 base64 头部猜 MIME；猜不出就按 jpeg，浏览器一般能兜住。"""
+    try:
+        raw = base64.b64decode((image_b64 or "")[:64], validate=False)
+    except Exception:
+        return "image/jpeg"
+    if raw.startswith(b"\x89PNG"):
+        return "image/png"
+    if raw.startswith(b"GIF8"):
+        return "image/gif"
+    if raw.startswith(b"RIFF") and b"WEBP" in raw[:16]:
+        return "image/webp"
+    return "image/jpeg"
+
+
+def _uploaded_image_echo(message: "ChannelMessage", ctx: dict) -> AgentReply | None:
+    """网页端「把这张图发出来」：把本轮上传的图原样还回去，不走 qq_send 权限闸门。"""
+    if not message.image_b64:
+        return None
+    if not str(message.channel_type or "").startswith("web"):
+        return None
+    if not _UPLOADED_ECHO_RE.search(message.text or ""):
+        return None
+    b64 = message.image_b64.strip()
+    if b64.startswith("data:image/"):
+        data_url = b64
+    else:
+        data_url = f"data:{_image_mime(b64)};base64,{b64}"
+    return AgentReply(
+        text=random.choice(["给，原图。", "喏，还你。", "拿好。"]),
+        tool_used="send_image",
+        tool_result={"tool": "send_image", "image_data_url": data_url,
+                     "kind": "uploaded", "found": True},
+        confidence=0.9, mode="rule_react", ctx_used=ctx.get("used"))
 
 
 _WEB_INTENT_RE = re.compile(r"搜索|搜一下|搜下|查一下|查下|最新|新闻|资讯|动态|进展", re.I)
@@ -338,6 +605,19 @@ def _wants_ocr(text: str) -> bool:
     return bool(_OCR_INTENT_RE.search(text or ""))
 
 
+def _will_generate_image(query: str, ctx: dict) -> bool:
+    """`_direct_tool` 会不会直接去画图；流式入口用它提前报一句“在画了”。"""
+    if not ctx.get("modules_on", {}).get("tools", True):
+        return False
+    if "generate_image" not in (ctx.get("tools") or {}):
+        return False
+    try:
+        name, _ = tools_mod.detect_tool(query or "", ctx["tools"])
+    except Exception:
+        return False
+    return name == "generate_image"
+
+
 async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
     """确定性工具意图 → 直接执行，不等模型决定。
 
@@ -348,6 +628,15 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
         return None
     q = (query or "").strip()
     tctx = ctx.get("tool_ctx") or EMPTY
+
+    # “发张图”本身就是歧义：发用户手里的图，还是让我画一张？
+    # 模型曾直接回“图发不了，没那个手”，既不真也不像人。
+    if re.fullmatch(
+            r"(?:给我|帮我|替我)?(?:发|来|给|整)(?:一)?(?:张|个|幅)?(?:图片|图|照片)"
+            r"(?:给我|过来|看看)?[。！？!?]*", q):
+        return AgentReply(
+            text="要发你手上的图，还是我画一张？说清楚。",
+            confidence=0.9, mode="rule_react", ctx_used=ctx.get("used"))
 
     # 本地小模型被问「你是谁」经常只吐一个名字（实测「零。」）。身份是固定事实，
     # 直接从人设首句取，不让 0.8B 续写；云端模型仍保留自己的口吻。
@@ -536,15 +825,17 @@ async def _prefetch_url(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
         return None
 
     injected = dict(ctx)
+    lang = "请用简体中文回答，即使原文是英文。" if _CJK_RE.search(query or "") else ""
     injected["read_block"] = (
-        f"以下是你刚打开的网页正文（{url}）。直接基于内容回答，"
+        f"以下是你刚打开的网页正文（{url}）。直接基于内容回答，{lang}"
         f"不要提“系统日志/工具返回/搜索结果”这类机制：\n{body[:3000]}")
     mode = cfg.get("engine", {}).get("mode", "auto")
     if mode in ("llm", "auto") and cfg.get("llm", {}).get("has_key"):
         try:
             data = await llm.react(query, injected, cfg)
             if data:
-                return await _make_llm_reply(data, injected, cfg)
+                reply = await _make_llm_reply(data, injected, cfg)
+                return await _ensure_chinese(reply, query, cfg)
         except Exception as exc:
             # 降级本身合理（退回工具原文），但必须留下原因：
             # 之前这里是 pass，模型 Key 失效/额度耗尽/超时全都无迹可查，
@@ -558,13 +849,56 @@ async def _prefetch_url(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
     )
 
 
+def _boundary_reply(query: str, ctx: dict) -> AgentReply | None:
+    """危机/时政/隐私/医疗的确定性前置回答。
+
+    必须在 `_direct_tool` 和 `_rule_react` 的工具路由之前调用：压测里
+    “有人发时政新闻”被 `detect_tool` 的 web_search 接走，返回 993 字新闻摘要。
+    这类题不能先搜再答，必须在入口就截住。
+    """
+    q = query or ""
+    memory_note = ctx.get("used", {}).get("memory", {}).get("greeting", "")
+    if _CRISIS_RE.search(q):
+        text = _CRISIS_SELF_REPLY if (_CRISIS_SELF_RE.search(q)
+                                     and not _CRISIS_OTHER_RE.search(q)) else _CRISIS_REPLY
+        return AgentReply(text=text, confidence=0.9, mode="rule_react",
+                          memory_note=memory_note, ctx_used=ctx.get("used"))
+    if _PROMPT_LEAK_RE.search(q):
+        return AgentReply(text=random.choice(_PROMPT_LEAK_REPLIES), confidence=0.7,
+                          mode="rule_react", memory_note=memory_note,
+                          ctx_used=ctx.get("used"))
+    if _OBFUSCATED_IDENTITY_RE.search(q):
+        return AgentReply(text=random.choice(_OBFUSCATED_IDENTITY_REPLIES), confidence=0.7,
+                          mode="rule_react", memory_note=memory_note,
+                          ctx_used=ctx.get("used"))
+    if _POLITICAL_RE.search(q):
+        return AgentReply(text=random.choice(_POLITICAL_REPLIES), confidence=0.7,
+                          mode="rule_react", memory_note=memory_note,
+                          ctx_used=ctx.get("used"))
+    if _PRIVACY_RE.search(q):
+        return AgentReply(text=random.choice(_PRIVACY_FALLBACKS), confidence=0.7,
+                          mode="rule_react", memory_note=memory_note,
+                          ctx_used=ctx.get("used"))
+    if _MED_RE.search(q):
+        return AgentReply(text=random.choice(_MED_FALLBACKS), confidence=0.6,
+                          mode="rule_react", memory_note=memory_note,
+                          ctx_used=ctx.get("used"))
+    return None
+
+
 async def _rule_react(query: str, ctx: dict, cfg: dict) -> AgentReply:
     hits = ctx.get("hits") or []  # 复用 build_context 的检索结果，避免同参数二次检索
+    q = query or ""
+    boundary = _boundary_reply(q, ctx)
+    if boundary is not None:
+        return boundary
     tool_name, tool_args = tools_mod.detect_tool(query, ctx["tools"])
     if tool_name:
         result = await tools_mod.invoke_with(ctx.get("tools"), tool_name, tool_args,
                                             ctx.get("tool_ctx") or EMPTY)
         note = result.get("note") or json.dumps(result, ensure_ascii=False)
+        if _TOOL_DOWN_RE.search(note):
+            note = random.choice(_TOOL_DOWN_FALLBACKS)
         # 工具明确说"没找到"或"未接入"时必须标记升级——
         # 否则对客承诺与系统行为不一致，或让用户误以为查到了真数据。
         # status=empty（没待办/没记录）是正常答案，不是知识缺口，不能开升级工单。
@@ -582,6 +916,12 @@ async def _rule_react(query: str, ctx: dict, cfg: dict) -> AgentReply:
             ctx_used=ctx["used"],
             mode="rule_react",
         )
+    if _GROUP_RE.search(q):
+        return AgentReply(
+            text=random.choice(_GROUP_FALLBACKS), confidence=0.6, mode="rule_react",
+            memory_note=ctx["used"].get("memory", {}).get("greeting", ""),
+            ctx_used=ctx["used"],
+        )
     if hits:
         top_score, top = hits[0]
         conf = 0.6 + min(top_score, 0.6) + 0.05 * min(len(hits), 2)
@@ -595,10 +935,22 @@ async def _rule_react(query: str, ctx: dict, cfg: dict) -> AgentReply:
             ctx_used=ctx["used"],
             mode="rule_react",
         )
+    # 模型挂了也要守住身份：身份/自曝类问题不能掉进“没听明白”，
+    # 否则同一句兜底会被反复看到，比模型复读更像机器人。
+    if re.search(
+            r"你是谁|你是什么|说人话|你是不是|你是(?:一个)?(?:AI|机器人|模型|程序|虚拟人|猫)|查户口",
+            query or "", re.I):
+        return AgentReply(
+            text=random.choice(_IDENTITY_FALLBACKS),
+            confidence=0.6,
+            memory_note=ctx["used"].get("memory", {}).get("greeting", ""),
+            ctx_used=ctx["used"],
+            mode="rule_react",
+        )
     # 规则兜底也不能是客服腔：模型挂了、知识库没命中时，这句话是用户唯一能看到的
     # 内容。写成「这个我暂时答不上来」等于当场承认自己是机器人。
     return AgentReply(
-        text="这个我真没接住，换个说法或者把背景多给两句，我再来一遍，喵～",
+        text=random.choice(_GENERIC_FALLBACKS),
         confidence=0.2,
         escalate=True,
         escalate_reason="knowledge_miss",
@@ -798,6 +1150,7 @@ async def _make_llm_reply(data: dict, ctx: dict, cfg: dict) -> AgentReply:
     """LLM ReAct 结果 → AgentReply（含工具执行与低置信度兜底话术）；run() 与 run_stream() 共用。"""
     tools = ctx["tools"]
     parsed = LlmReply.safe_parse(data)  # 结构化输出校验，替代裸 dict.get
+    parsed.answer = _strip_reasoning(parsed.answer or "")
     tool_name = parsed.tool
     tool_result = None
     tool_missed = False
@@ -858,7 +1211,11 @@ async def _make_llm_reply(data: dict, ctx: dict, cfg: dict) -> AgentReply:
     # 输出侧护栏：LLM 回答若泄露系统提示/Key，替换为安全话术并标记升级
     bad_output = guardrail.detect_output(parsed.answer)
     if bad_output:
-        parsed.answer = "抱歉，我无法回答这个问题。请问您还有其他关于订单、退款或政策的问题吗？"
+        parsed.answer = random.choice((
+            "这套东西不能给你。换别的问。",
+            "打住。这个我不发。",
+            "你问错地方了。说别的。",
+        ))
         parsed.escalate = True
         parsed.escalate_reason = "output_guardrail"
 
@@ -1049,8 +1406,12 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
         group_key = ("qq_group:" + str(message.group_id)) if message.group_id else ""
         # 自动建档：每轮把「谁在说、在哪个群说」增量写进档案（首见创建，之后累加计数）。
         # 只读不写的话，档案永远是空的——这正是「建档不生效」的根因。
+        # display_name 只能用渠道昵称。channel_user_id 对 Web 访客是一个
+        # `v-...` 内部 ID，写进档案后模型会把它当用户名字叫出来（压测实测：
+        # “你叫 v-LZg…，档案里记着的”）。内部 ID 永远不该进提示词。
         profiles_mod.upsert_profile(
-            user_key, "user", display_name=str(message.channel_user_id or "")[:20],
+            user_key, "user",
+            display_name=str(getattr(message, "display_name", "") or "")[:20],
             alias=str(getattr(message, "display_name", "") or "")[:20],
             stats_delta={"messages": 1})
         if group_key:
@@ -1143,6 +1504,11 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
 
     if (message.image_b64 and not _wants_ocr(query)
             and cfg.get("multimodal", {}).get("enable", True)):
+        # 「把这张图发出来」是回显请求，不是识图请求；必须在视觉能力检查之前接住，
+        # 否则非视觉模型会先回“我看不了图”，用户永远拿不到原图。
+        echo = _uploaded_image_echo(message, {"used": {}})
+        if echo is not None:
+            return echo
         # 视觉能力判定要看「模型真的支持图片」，而不是「配了模型名」。
         # 主模型 u2-flash 明确不支持 image_url（端点 400），之前只判断"有模型名"
         # 就把图丢给它，结果整轮失败掉回规则引擎——用户看到的就是"识别不了"。
@@ -1249,7 +1615,21 @@ async def _gate_output(reply, query: str, cfg: dict) -> None:
     """
     from core import quality
 
+    reply.text = _strip_reasoning(reply.text or "")
     persona_text = str((cfg.get("context") or {}).get("persona") or "")
+    # 时政题：模型常只回一句“这话题我不聊，换一个”，等于把话聊死。
+    # 产品规则是“不聊，但可以顾左右而言他”——如果回答里没有拐到别的话题，
+    # 这里确定性补一个自然转折，不让群里继续追问同一个坑。
+    if _POLITICAL_RE.search(query) and not _POLITICAL_PIVOT_RE.search(reply.text or ""):
+        reply.text = random.choice(_POLITICAL_REPLIES)
+        reply.mode = "llm_react_guarded"
+    # 银圈来历是角色卡里的硬事实：旧工牌熔的，不是旧货市场淘的。
+    # 模型已经三次把它编成“淘的/买的/自己磨的”，只在问到银圈且没提工牌时定点纠偏。
+    if ("银圈" in (query or "") and "工牌" not in (reply.text or "")
+            and re.search(r"(旧货市场|淘|买|捡|祖传|别人送|自己磨|磨的|银匠|"
+                          r"打的|做的|地摊|网上|家里)", reply.text or "")):
+        reply.text = "旧工牌熔的。没故事，别编。"
+        reply.mode = "llm_react_guarded"
     try:
         issues = quality.critique(reply.text or "", query,
                                   channel=str(cfg.get("_channel") or ""),
@@ -1262,28 +1642,45 @@ async def _gate_output(reply, query: str, cfg: dict) -> None:
     if not issues:
         return
     if quality.needs_rewrite(issues):
-        # 决策 JSON 漏进正文属于「可直接确定性修复」的：切掉 JSON 尾巴即可，
-        # 正文本身是好的，没必要花一次模型调用重写（重写还可能把好答案改坏）。
-        if any(i.get("code") == "json_leak" for i in issues):
-            stripped = _strip_json_tail(reply.text or "")
-            if stripped:
-                reply.text = stripped
-                issues = [i for i in issues if i.get("code") != "json_leak"]
-        if quality.needs_rewrite(issues):
-            new_text = await quality.rewrite(
-                reply.text or "", issues, query=query, persona=persona_text)
-            if new_text:
-                reply.text = new_text
-            elif all(str(i.get("code") or "").startswith("card_") for i in issues):
-                # 只有卡片判据违规而重写又没成功：保留原文。
-                # 轻微口癖丢失/个别措辞不该用兜底句顶替——兜底句是另一个角色的口吻，
-                # 发出去比原文伤害大；通用硬伤（自称 AI 等）才走 _fallback_for。
-                pass
-            else:
-                # 重写没成功（模型也答不出来）：至少不能把底层模型自述/英文过滤报错发出去。
-                # 这里给的是"人设兜底"而不是客服话术——宁可用一句短的，也不露馅。
-                reply.text = _fallback_for(issues, persona_text)
-                reply.mode = "llm_react_guarded"
+        # 内部 ID / 医疗开药 / 危机列步骤这三类，宁可确定性替换，也不要再赌一次
+        # 模型重写——尤其 429 冷却时，重写本身也会失败，原文会直接发出去。
+        deterministic = {i.get("code") for i in issues} & {
+            "internal_id_leak", "medical_prescribe", "crisis_steps"}
+        if any(i.get("code") == "incivility" for i in issues):
+            reply.text = random.choice(_INCIVILITY_REPLIES)
+            reply.mode = "llm_react_guarded"
+        elif any(i.get("code") == "real_tragedy_joke" for i in issues):
+            reply.text = random.choice(_TRAGEDY_JOKE_REPLIES)
+            reply.mode = "llm_react_guarded"
+        elif any(i.get("code") == "sexual_joke" for i in issues):
+            reply.text = random.choice(_SEXUAL_JOKE_REPLIES)
+            reply.mode = "llm_react_guarded"
+        elif deterministic:
+            reply.text = _fallback_for(issues, persona_text)
+            reply.mode = "llm_react_guarded"
+        else:
+            # 决策 JSON 漏进正文属于「可直接确定性修复」的：切掉 JSON 尾巴即可，
+            # 正文本身是好的，没必要花一次模型调用重写（重写还可能把好答案改坏）。
+            if any(i.get("code") == "json_leak" for i in issues):
+                stripped = _strip_json_tail(reply.text or "")
+                if stripped:
+                    reply.text = stripped
+                    issues = [i for i in issues if i.get("code") != "json_leak"]
+            if quality.needs_rewrite(issues):
+                new_text = await quality.rewrite(
+                    reply.text or "", issues, query=query, persona=persona_text)
+                if new_text:
+                    reply.text = new_text
+                elif all(str(i.get("code") or "").startswith("card_") for i in issues):
+                    # 只有卡片判据违规而重写又没成功：保留原文。
+                    # 轻微口癖丢失/个别措辞不该用兜底句顶替——兜底句是另一个角色的口吻，
+                    # 发出去比原文伤害大；通用硬伤（自称 AI 等）才走 _fallback_for。
+                    pass
+                else:
+                    # 重写没成功（模型也答不出来）：至少不能把底层模型自述/英文过滤报错发出去。
+                    # 这里给的是"人设兜底"而不是客服话术——宁可用一句短的，也不露馅。
+                    reply.text = _fallback_for(issues, persona_text)
+                    reply.mode = "llm_react_guarded"
     try:
         store.critique_add("quality", len(reply.text or ""),
                            [f"[{i['severity']}] {i['detail']}" for i in issues])
@@ -1302,6 +1699,12 @@ def _character_issues(text: str, persona: str) -> list[dict]:
         from core import character as character_mod, character_guard, quality
 
         card = character_mod.card_for_persona(persona)
+        if card is None:
+            # 自定义长人设不参与逐字反查；若开头仍是同一角色名，退回该角色卡，
+            # 至少保留身份/越权/口癖的一致性检查。
+            card = character_mod.load_all().get("zero")
+            if card is not None and not persona.lstrip().startswith(f"你是「{card.name}」"):
+                card = None
         if card is None:
             return []
         result = character_guard.check_reply(text or "", card)
@@ -1356,19 +1759,33 @@ def _fallback_for(issues: list[dict], persona: str = "") -> str:
     # 是调制解调器，不能按字面算）。
     is_cat = is_cat or "猫娘" in p or "一只猫" in p or "本喵" in p[:1200]
     miao = "，喵～" if is_cat else "。"
+    m = re.search(r"你是「([^」]+)」", p)
+    name = m.group(1).strip() if m else "我"
     if "identity_missing" in codes or "identity_no_cat" in codes:
         if is_cat:
             return "本喵叫零，一只猫，喵～ 问这么多干嘛，先说说你是谁。"
-        return "先说说你是谁、要办什么事，答非所问就浪费彼此时间了。"
+        if name == "零":
+            return random.choice(_IDENTITY_FALLBACKS)
+        return random.choice([f"我是{name}。先说说你找谁。", f"查户口呢？我是{name}。"])
     if "filter_leak" in codes:
         return "这话我接不住，换个说法" + miao
-    if "ai_self" in codes or "model_leak" in codes:
+    if "ai_self" in codes or "model_leak" in codes or "card_identity_drift" in codes:
         if is_cat:
             return "我是零，一只猫。别的身份？你猜，猜对了也不告诉你，喵～"
-        return "我是谁不重要，你要办的事说清楚就行。"
+        if name == "零":
+            return random.choice(_IDENTITY_FALLBACKS)
+        return random.choice([f"我是{name}。你查户口？", f"查户口呢？我是{name}。"])
     if "capability_refusal" in codes:
         return "能发，你要什么直接说" + miao
-    return "这话我说不利索，换个问法" + miao
+    if "internal_id_leak" in codes:
+        # 内部访客 ID 不能靠改写碰运气，直接换成“没记名字”。
+        return random.choice(("你叫什么？我这儿没记名字，你自己说。",
+                              "名字你还没告诉我，我这边不记编号。"))
+    if "medical_prescribe" in codes:
+        return random.choice(_MED_FALLBACKS)
+    if "crisis_steps" in codes:
+        return _CRISIS_REPLY
+    return random.choice(_GENERIC_FALLBACKS)
 
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -1382,6 +1799,30 @@ def _looks_english(query: str) -> bool:
         return False
     letters = sum(1 for c in q if c.isascii() and (c.isalpha() or c.isspace()))
     return letters / max(1, len(q)) > 0.55
+
+
+def _looks_mostly_english(text: str) -> bool:
+    t = (text or "").strip()
+    if len(t) < 24:
+        return False
+    cjk = len(_CJK_RE.findall(t))
+    letters = sum(1 for c in t if c.isascii() and c.isalpha())
+    return cjk <= 2 and letters / max(1, len(t)) > 0.55
+
+
+async def _ensure_chinese(reply: AgentReply, query: str, cfg: dict) -> AgentReply:
+    """中文提问拿到整段英文回复时翻回中文；读英文网页最容易触发。"""
+    if not _CJK_RE.search(query or "") or not _looks_mostly_english(reply.text):
+        return reply
+    try:
+        res = await tools_mod.invoke(
+            "translate", {"text": str(reply.text)[:2000], "target": "zh", "source": "auto"}, EMPTY)
+        translated = str((res or {}).get("note") or "").strip()
+        if translated and _CJK_RE.search(translated):
+            reply.text = translated
+    except Exception:
+        pass
+    return reply
 
 
 async def _ensure_english(reply: AgentReply, query: str, cfg: dict) -> AgentReply:
@@ -1431,6 +1872,22 @@ async def _run_body(message: ChannelMessage, history: list[dict], visitor_key: s
             text=ann["answer"], mode="annotation", confidence=1.0,
             citations=[f"标注#{ann['id']}"],
         )
+
+    # 危机/时政/隐私/医疗必须在工具直通之前截住。否则“有人发时政新闻”
+    # 会先命中 web_search，把新闻摘要原样倒进群里。
+    boundary = _boundary_reply(query, ctx)
+    if boundary is not None:
+        return boundary
+
+    # 「把这张图发出来」：网页端直接把本轮上传的图还回去。
+    # 之前走 qq_send 的 image op，被管理员权限挡下，用户只看到“需要管理员”。
+    echo = _uploaded_image_echo(message, ctx)
+    if echo is not None:
+        return echo
+
+    file_reply = await _uploaded_file_reply(message, ctx, cfg)
+    if file_reply is not None:
+        return file_reply
 
     # 工具意图直通：提醒/记忆/待办这类语义极其明确的请求，直接执行工具，
     # 不赌模型会不会选工具。实测 LLM 在 QQ 群里经常推脱「我没这功能」——
@@ -1584,6 +2041,38 @@ async def run_stream(message: ChannelMessage, history: list[dict], visitor_key: 
         yield ("final", reply)
         return
 
+    # 流式入口必须和非流式共用同一组确定性直通：
+    # 否则网页端「发个表情包」会绕过 _direct_emote，模型自己吐 [表情包:...] 文本，
+    # 而 API 非流式测试却是 rule_react + 真图——同一个功能两个结果。
+    boundary = _boundary_reply(query, ctx)
+    if boundary is not None:
+        yield ("delta", boundary.text)
+        yield ("final", boundary)
+        return
+    echo = _uploaded_image_echo(message, ctx)
+    if echo is not None:
+        yield ("delta", echo.text)
+        yield ("final", echo)
+        return
+    file_reply = await _uploaded_file_reply(message, ctx, cfg)
+    if file_reply is not None:
+        yield ("delta", file_reply.text)
+        yield ("final", file_reply)
+        return
+    emote = await _direct_emote(query, ctx, cfg)
+    if emote is not None:
+        yield ("delta", emote.text)
+        yield ("final", emote)
+        return
+    if _will_generate_image(query, ctx):
+        # 直通生图不是流式模型路径；先给一句等待，再让它慢慢画。
+        yield ("delta", "在画了，等我一下。")
+    direct = await _direct_tool(query, ctx, cfg)
+    if direct is not None:
+        yield ("delta", direct.text)
+        yield ("final", direct)
+        return
+
     mode = cfg.get("engine", {}).get("mode", "auto")
     final: AgentReply | None = None
     # 必须在分支外初始化：规则模式（无 LLM Key）走不到 if 内部，
@@ -1612,6 +2101,10 @@ async def run_stream(message: ChannelMessage, history: list[dict], visitor_key: 
             wants_tool = bool(str(data.get("tool") or "").strip())
             promise_only = llm.is_promise_only(str(data.get("answer") or ""))
             if wants_tool or promise_only:
+                if str(data.get("tool") or "") == "generate_image":
+                    # 生图通常要十几秒；先给一句人话，别让用户盯着空气。
+                    # 这不是终态，final 到达后前端会用“图来了”覆盖。
+                    yield ("delta", "在画了，等我一下。")
                 final = await _llm_answer(query, ctx, cfg,
                                           image_b64=message.image_b64, first=data)
             else:
@@ -1629,6 +2122,7 @@ async def run_stream(message: ChannelMessage, history: list[dict], visitor_key: 
     if str(final.mode or "").startswith("llm"):
         await _gate_output(final, query, {**cfg, "_channel": message.channel_type})
     final = await _ensure_english(final, query, cfg)
+    final = await _ensure_chinese(final, query, cfg)
     # 输出钩子：与非流式入口同一套规则（final.text 是权威内容，前端会以它覆盖打字机片段）
     final = _apply_post_hooks(final, cfg)
     # 已向客户端发过 delta 时不再补发 delta：

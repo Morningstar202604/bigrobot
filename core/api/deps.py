@@ -14,24 +14,46 @@ from core import security, store
 
 # ---- 入参体积护栏（模块级常量，便于配置与测试覆盖）----
 MAX_IMAGE_B64_CHARS = int(os.environ.get("MAX_IMAGE_B64_CHARS", str(8_000_000)))
+MAX_FILE_B64_CHARS = int(os.environ.get("MAX_FILE_B64_CHARS", str(20_000_000)))
 MAX_TEXT_CHARS = int(os.environ.get("MAX_TEXT_CHARS", "20000"))
 MAX_KB_IMPORT_ITEMS = int(os.environ.get("MAX_KB_IMPORT_ITEMS", "2000"))
 
 # 图片 data URL 只允许这些前缀：拒绝 data:text/html 之类的 XSS 载荷
 _ALLOWED_IMAGE_PREFIXES = ("data:image/png", "data:image/jpeg", "data:image/jpg",
                            "data:image/webp", "data:image/gif", "data:image/bmp")
+# 网页上传文档只接这些类型；解析器按扩展名走，不执行内容
+_ALLOWED_FILE_SUFFIXES = (".pdf", ".docx", ".xlsx", ".xlsm", ".txt", ".md", ".markdown", ".csv")
+_ALLOWED_FILE_PREFIXES = (
+    "data:application/pdf",
+    "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "data:application/vnd.ms-excel.sheet.macroEnabled.12",
+    "data:text/plain",
+    "data:text/markdown",
+    "data:text/csv",
+    "data:application/octet-stream",
+    "data:;base64",
+)
 
 
-def check_payload(content: str, image: str | None = None) -> None:
-    """统一入参护栏：超长文本/超大图片/非图片 data URL 一律 413。"""
+def check_payload(content: str, image: str | None = None,
+                  file_data: str | None = None, file_name: str = "") -> None:
+    """统一入参护栏：超长文本/超大图片/超大文档/非法 data URL 一律拒绝。"""
     if content and len(content) > MAX_TEXT_CHARS:
         raise HTTPException(413, f"文本过长（上限 {MAX_TEXT_CHARS} 字符）")
-    if not image:
-        return
-    if len(image) > MAX_IMAGE_B64_CHARS:
-        raise HTTPException(413, "图片过大，请压缩后再发")
-    if image.startswith("data:") and not image.startswith(_ALLOWED_IMAGE_PREFIXES):
-        raise HTTPException(400, "只支持图片类型的 data URL")
+    if image:
+        if len(image) > MAX_IMAGE_B64_CHARS:
+            raise HTTPException(413, "图片过大，请压缩后再发")
+        if image.startswith("data:") and not image.startswith(_ALLOWED_IMAGE_PREFIXES):
+            raise HTTPException(400, "只支持图片类型的 data URL")
+    if file_data:
+        name = (file_name or "").strip().lower()
+        if not name or not name.endswith(_ALLOWED_FILE_SUFFIXES):
+            raise HTTPException(400, "只支持 PDF / DOCX / XLSX / TXT / MD / CSV 文件")
+        if len(file_data) > MAX_FILE_B64_CHARS:
+            raise HTTPException(413, "文件过大，请压缩后再发")
+        if file_data.startswith("data:") and not file_data.startswith(_ALLOWED_FILE_PREFIXES):
+            raise HTTPException(400, "文件类型不受支持")
 
 
 def require_admin(x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):

@@ -39,9 +39,7 @@ def score_answer(text: str, query: str = "", channel: str = "") -> float:
         s += 1.0
     if re.search(r"(我这就|稍等|正在为你|马上为你)", t):
         s -= 6.0
-    # 表情标记与猫味：少量加分，不是硬指标
-    if "喵" in t:
-        s += 0.5
+    # 表情标记：少量加分，不是硬指标；不再按“猫味”加分，当前角色是活人零
     return round(s, 3)
 
 

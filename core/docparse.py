@@ -14,6 +14,17 @@ def extract_text(filename: str, data: bytes) -> str:
     name = (filename or "").lower()
     if name.endswith((".md", ".markdown", ".txt")):
         return data.decode("utf-8", errors="replace")
+    if name.endswith(".csv"):
+        import csv
+        import io
+
+        try:
+            text = data.decode("utf-8-sig", errors="replace")
+            rows = list(csv.reader(io.StringIO(text)))
+        except Exception as e:
+            raise RuntimeError(f"CSV 解析失败：{type(e).__name__}: {str(e)[:80]}") from e
+        return "\n".join(" | ".join(str(c).strip() for c in row if str(c).strip())
+                         for row in rows if any(str(c).strip() for c in row))
     if name.endswith(".pdf"):
         try:
             import io

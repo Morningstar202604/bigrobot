@@ -54,7 +54,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             created_at TEXT,
             external_id TEXT,
             source TEXT,
-            account_id TEXT
+            account_id TEXT,
+            media TEXT
         );
         CREATE TABLE IF NOT EXISTS tickets (
             id TEXT PRIMARY KEY,
@@ -302,6 +303,8 @@ def _ensure_message_schema(conn) -> None:
         conn.execute("ALTER TABLE messages ADD COLUMN source TEXT")
     if "account_id" not in cols:
         conn.execute("ALTER TABLE messages ADD COLUMN account_id TEXT")
+    if "media" not in cols:
+        conn.execute("ALTER TABLE messages ADD COLUMN media TEXT")
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_external "
         "ON messages(session_id, external_id) WHERE external_id IS NOT NULL"

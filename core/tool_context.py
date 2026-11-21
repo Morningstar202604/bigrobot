@@ -55,7 +55,9 @@ class ToolContext:
         elif self.group_id:
             bits.append(f"群号={self.group_id}")
         if self.channel_user_id:
-            bits.append(f"用户={self.channel_user_id}")
+            # 不要把 QQ 号/访客 ID 原样交给模型：它会把内部 ID 当名字叫出来。
+            # 工具自己仍能拿到真实 ID 做权限判断，这里只给“是谁”的语义。
+            bits.append("用户=当前发言人")
         return "，".join(bits)
 
 

@@ -286,8 +286,29 @@ def update_config(patch: dict) -> dict:
 
         patch["hooks"]["items"] = hooks_mod.normalize_items(patch["hooks"].get("items"))
     llm_patch = patch.get("llm") or {}
+    current_llm = get_config()["llm"]
     if "api_key" in llm_patch and isinstance(llm_patch["api_key"], str) and llm_patch["api_key"].startswith("••"):
-        llm_patch["api_key"] = get_config()["llm"].get("api_key") or ""
+        llm_patch["api_key"] = current_llm.get("api_key") or ""
+
+    # 当前端点与某个 provider 档案一致时，provider 的 Key 才是这个端点的真 Key。
+    # UI 保存新厂商时只更新 providers，主配置 api_key 仍是旧厂商的；重启后配置缓存
+    # 重新解密，主候选会拿着旧 Key 撞 401（已复现：QS 的 glm-5.3-flash 测试 401，
+    # 直接 curl 同一个 Key 却是 200）。保存时把匹配档案的 Key 同步到主配置。
+    provs_raw = llm_patch.get("providers")
+    if isinstance(provs_raw, list):
+        base = (llm_patch.get("base_url") or current_llm.get("base_url") or "").rstrip("/")
+        model = (llm_patch.get("model") or current_llm.get("model") or "").strip()
+        for p in provs_raw:
+            if not isinstance(p, dict):
+                continue
+            pk = p.get("api_key")
+            if not isinstance(pk, str) or not pk.strip() or pk.startswith("••"):
+                continue
+            if ((p.get("base_url") or "").rstrip("/") == base
+                    and (p.get("model") or "").strip() == model):
+                llm_patch["api_key"] = pk.strip()
+                break
+
     # 落库前加密 api_key（Fernet），DB 里不再存明文
     if "api_key" in llm_patch and isinstance(llm_patch["api_key"], str):
         llm_patch["api_key"] = crypto.encrypt_key(llm_patch["api_key"])

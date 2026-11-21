@@ -93,12 +93,30 @@ def get_profile(key: str) -> dict | None:
     return _row_to_profile(row) if row else None
 
 
+def _clean_display_name(value: str) -> str:
+    """档案里的称呼只能是昵称，不能是内部 ID / QQ 号。
+
+    Web 访客的 `v-...` 和 QQ 号一旦写进档案，模型会把它当名字叫出来
+    （压测实测：“你叫 v-LZg…，档案里记着的”）。
+    """
+    v = str(value or "").strip()
+    if not v:
+        return ""
+    if re.match(r"^(v-|visitor[:：]|web:|qq:|onebot:)", v, re.I):
+        return ""
+    if re.fullmatch(r"\d{6,}", v):
+        return ""
+    return v
+
+
 def upsert_profile(key: str, kind: str, *, display_name: str = "",
                    alias: str = "", tags: list[str] | None = None,
                    note: str = "", stats_delta: dict | None = None) -> dict:
     """创建或增量更新档案；stats 计数累加，别名字/标签追加，其余覆盖（空值不覆盖）。"""
     if not key:
         raise ValueError("profile key 不能为空")
+    display_name = _clean_display_name(display_name)
+    alias = _clean_display_name(alias)
     ensure_tables()
     now = _now()
     with store.get_conn() as conn:
@@ -115,17 +133,21 @@ def upsert_profile(key: str, kind: str, *, display_name: str = "",
             )
         else:
             cur = _row_to_profile(row)
-            aliases = list(cur["aliases"])
+            aliases = [_clean_display_name(a) for a in cur["aliases"]]
+            aliases = [a for a in aliases if a]
             if alias and alias not in aliases:
                 aliases.append(alias)
             merged_tags = list(dict.fromkeys([*cur["tags"], *(tags or [])]))[:MAX_TAGS]
             stats = dict(cur["stats"])
             for k, v in (stats_delta or {}).items():
                 stats[k] = int(stats.get(k) or 0) + int(v)
+            # 旧档案里可能已经存了内部 ID；新一轮 display_name 为空时顺手清掉，
+            # 不能继续把 ID 当“称呼”喂给模型。
+            keep_name = display_name or _clean_display_name(cur["display_name"])
             conn.execute(
                 "UPDATE profiles SET display_name=?, aliases=?, tags=?, note=?, stats=?, last_seen=?"
                 " WHERE profile_key=?",
-                (display_name or cur["display_name"], json.dumps(aliases[-MAX_ALIASES:], ensure_ascii=False),
+                (keep_name, json.dumps(aliases[-MAX_ALIASES:], ensure_ascii=False),
                  json.dumps(merged_tags, ensure_ascii=False), note or cur["note"],
                  json.dumps(stats, ensure_ascii=False), now, key),
             )
@@ -236,10 +258,12 @@ def profile_block(key: str, group_key: str = "") -> str:
     p = get_profile(key)
     if p:
         bits = []
-        if p["display_name"]:
-            bits.append(f"称呼={p['display_name']}")
-        if p["aliases"]:
-            bits.append("别名=" + "/".join(p["aliases"][:4]))
+        display_name = _clean_display_name(p["display_name"])
+        aliases = [a for a in (_clean_display_name(x) for x in p["aliases"]) if a]
+        if display_name:
+            bits.append(f"称呼={display_name}")
+        if aliases:
+            bits.append("别名=" + "/".join(aliases[:4]))
         if p["tags"]:
             bits.append("标签=" + "/".join(p["tags"][:6]))
         if p["note"]:

@@ -71,3 +71,9 @@ docs/media/*.mp4
 
 # 本机验证截图与临时产物
 /artifacts/
+
+# 运行时密钥/日志，绝不入库
+.runtime/
+
+# 执行器实例本地策略（由部署生成）
+executor/policy.json

@@ -1,4 +1,4 @@
-"""内置角色回归：默认人设必须与前端预设逐字节一致，且猫味条款不丢。"""
+"""内置角色回归：默认人设必须与前端预设逐字节一致，且人类零的身份条款不丢。"""
 import pathlib
 import re
 
@@ -15,10 +15,11 @@ def test_env_persona_overrides_builtin(monkeypatch):
     assert persona.default_persona() == "测试人设"
 
 
-def test_builtin_persona_keeps_cat_traits():
+def test_builtin_persona_is_human_zero():
     text = persona.DEFAULT_PERSONA
-    assert "喵～" in text and "本喵" in text and "猫娘" in text
-    assert "不是程序" in text
+    assert "活人" in text and "夜班" in text
+    assert "本喵" not in text and "猫娘" not in text and "喵～" not in text
+    assert "查户口" in text
     assert len(text) > 2000
 
 
@@ -50,7 +51,7 @@ def test_presets_registry_is_consistent():
         assert len(p.persona) >= 120, f"{p.id} 人设过短，无法约束行为"
         assert 0 <= p.temperature <= 1.5, f"{p.id} 温度非法"
         assert p.description.strip(), f"{p.id} 缺少描述"
-    # 默认角色必须是猫娘「零」，与配置文件默认值一致
+    # 默认角色必须是活人「零」，与配置文件默认值一致
     assert personas.default().persona == persona.DEFAULT_PERSONA
 
 

@@ -782,17 +782,45 @@ def tool_search_emote(ctx: ToolContext, keyword: str = "", **_kw) -> dict:
         pass
     hits = [i for i in items if kws and any(
         k in label(i) or k in str(i.get("summary") or "") for k in kws)]
-    if not hits:
+    if not kws:
         hits = items[-10:]
+    elif not hits:
+        # 没命中就不该随便拿一张「无语」冒充「开心」；直接告诉调用方库里没有。
+        # 以前这里回退 items[-10:]，用户要“开心”会收到一张“别催”，比说没有更糟。
+        return empty_result(
+            "search_emote",
+            f"库里没有「{kw}」，现有：{'；'.join(label(i) for i in items[:20])}")
     shown = [f"{label(i)}（{i.get('kind') or 'face'}）" for i in hits[:10]]
     matched = bool(kws) and any(any(k in label(i) for k in kws) for i in hits[:10])
     note = (f"匹配「{kw}」的有：" if matched else "库里有这些（按情绪/主体检索更准）：") + "；".join(shown)
     note += ("。要真发出去就在回复里写 [表情包:<关键词>]，网关会从库里挑一张真图发；"
              "不要只描述表情，也不要贴本地路径。")
     sample = hits[0]
+    sample_path = str(sample.get("data") or "")
+    # Web 聊天没有 QQ 网关，不能靠 [表情包:关键词] 让网关挑图；
+    # 直接把库里的图读成 data URL 交给前端渲染。QQ 侧仍用 marker。
+    image_data_url = ""
+    if str(getattr(ctx, "channel_type", "") or "").startswith("web") and sample_path:
+        try:
+            import base64
+            import mimetypes
+            from pathlib import Path
+            from urllib.parse import unquote
+
+            raw_path = unquote(sample_path[7:]) if sample_path.startswith("file://") else sample_path
+            p = Path(raw_path)
+            if not p.is_absolute():
+                p = base_dir / p
+            p = p.resolve()
+            if (base_dir.resolve() in p.parents and p.is_file()
+                    and p.stat().st_size <= 2_000_000):
+                mime = mimetypes.guess_type(str(p))[0] or "image/png"
+                image_data_url = f"data:{mime};base64,{base64.b64encode(p.read_bytes()).decode()}"
+        except Exception:
+            image_data_url = ""
     return ok_result("search_emote", note, count=len(hits),
-                     sample_path=str(sample.get("data") or ""),
-                     kind=str(sample.get("kind") or ""))
+                     sample_path=sample_path, kind=str(sample.get("kind") or ""),
+                     image_data_url=image_data_url)
 
 
 # ============================================================
@@ -878,13 +906,12 @@ async def tool_qq_send(ctx: ToolContext, text: str, target: str = "", **_kw) -> 
 
 def tool_now(ctx: ToolContext, **_kw) -> dict:
     """当前时间。模型自己不知道今天几号，猜日期是常见幻觉来源。"""
-    from datetime import datetime as _dt, timezone as _tz
+    from datetime import datetime as _dt
     now = _dt.now().astimezone()
     week = "一二三四五六日"[now.weekday()]
     return ok_result(
         "now",
-        f"现在是 {now.strftime('%Y-%m-%d %H:%M:%S')}（星期{week}，{now.tzname() or '本地时区'}），"
-        f"UTC 时间 {_dt.now(_tz.utc).strftime('%Y-%m-%d %H:%M')}。",
+        f"现在是 {now.strftime('%H:%M')}，{now.month} 月 {now.day} 日，星期{week}。",
         iso=now.isoformat(), date=now.strftime("%Y-%m-%d"), time=now.strftime("%H:%M:%S"),
         weekday=week, tz=now.tzname() or "", epoch=int(now.timestamp()),
     )
@@ -1411,7 +1438,25 @@ def _persona_denied(name: str, ctx: ToolContext) -> dict | None:
     return None
 
 
-def _authorize_tool(name: str, ctx: ToolContext) -> dict | None:
+def _privileged_for_call(name: str, args: dict | None) -> bool:
+    """合并工具的权限按 op 细判：读公网网页不该跟读本机文件同权。
+
+    read_source 同时背 url/path 两种 op；整段拉进 PRIVILEGED_TOOLS 会让网页访客
+    连「总结这个链接」都被判成越权（实测返回“这个操作需要管理员权限”）。
+    SSRF 校验仍在 tool_read_webpage 内，公网 URL 放开是安全的。
+    """
+    a = args or {}
+    if name == "read_source":
+        op = str(a.get("op") or ("url" if a.get("url") else "path")).strip().lower()
+        return op != "url"
+    if name == "read_webpage":
+        return False
+    if name == "parse_document":
+        return not (a.get("url") and not a.get("path"))
+    return name in PRIVILEGED_TOOLS
+
+
+def _authorize_tool(name: str, ctx: ToolContext, args: dict | None = None) -> dict | None:
     """权限闸门：返回 None 表示放行，否则返回拒绝结果。
 
     工具层原来完全不看主体：模型（或注入内容）选中 write_file 就直接落到执行器，
@@ -1419,7 +1464,7 @@ def _authorize_tool(name: str, ctx: ToolContext) -> dict | None:
     并写审计；主体为空（内部直调/单测）时保持原行为，避免破坏工具的本职逻辑。
     """
     dynamic = _dynamic_policy(name)
-    if name not in PRIVILEGED_TOOLS and not dynamic:
+    if not _privileged_for_call(name, args) and not dynamic:
         return None
     if not ctx.principal:
         return None
@@ -1559,7 +1604,7 @@ async def invoke_with(registry_map: dict | None, name: str, args: dict | None,
     denied = _persona_denied(name, ctx)
     if denied is not None:
         return denied
-    denied = _authorize_tool(name, ctx)
+    denied = _authorize_tool(name, ctx, args)
     if denied is not None:
         return denied
     fn = (registry_map or {}).get(name)
@@ -1581,7 +1626,7 @@ async def invoke(name: str, args: dict | None, ctx: ToolContext = EMPTY) -> dict
     denied = _persona_denied(name, ctx)
     if denied is not None:
         return denied
-    denied = _authorize_tool(name, ctx)
+    denied = _authorize_tool(name, ctx, args)
     if denied is not None:
         return denied
     if not _config_ready(name):
@@ -2162,7 +2207,8 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
             r"(群公告|公告).{0,6}(发|写|拟|来)|(发|写).{0,4}公告", q):
         return "qq_group_notice", {}
     if _has("qq_recall") and re.search(
-            r"(撤回|撤了|回收).{0,6}(刚才|刚刚|这条|那条|上面|消息)?", q):
+            r"(撤回|回收).{0,6}(刚才|刚刚|这条|那条|上面|消息)?"
+            r"|撤了.{0,6}(刚才|刚刚|这条|那条|上面|消息)", q):
         return "qq_recall", {}
     if _has("qq_essence") and re.search(r"(设为|设置|加).{0,4}(群)?精华", q):
         return "qq_essence", {}
@@ -2200,7 +2246,9 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
     _web_lookup = (re.search(r"(查一下|查查)", q)
                    and re.search(r"(网上|网页|百科|资料|参数|价格|行情|官网|最新|实时)", q))
     _web_news = re.search(r"(新闻|资讯|热搜|最新进展)", q)
+    _meta_question = re.search(r"(怎么评价|你觉得|你认为|怎么看|评价一下|这条规矩|这个回答)", q)
     if ("web_search" in enabled and (_web_verb or _web_lookup or _web_news)
+            and not _meta_question
             and not re.search(r"提醒|待办|订单|记忆|天气|几点|时间|文件|目录|知识库", q)):
         return "web_search", {"query": q}
     if "generate_image" in enabled and re.search(
@@ -2254,6 +2302,23 @@ def _qq_tool(action: str, tool_name: str, desc: str, args: dict[str, str]):
         except actions_service.ActionError as e:
             if e.status == 409 or "审批" in str(e):
                 return ok_result(tool_name, f"这个操作需要管理员确认，已提交审批：{e}")
+            msg = str(e)
+            # 工具层不能把“缺少必填参数：message_id”原样发给群里。
+            # 压测实测：用户只看到一行内部字段名，不知道下一步该给什么。
+            if "缺少必填参数" in msg:
+                missing = msg.split("：", 1)[-1] if "：" in msg else msg
+                want = ("哪条消息" if "message_id" in missing else
+                        "哪个群" if "group_id" in missing else
+                        "哪个人" if "user_id" in missing else "具体对象")
+                note = f"你还没说清要操作的{want}。"
+                if "message_id" in missing:
+                    note += "把那条消息引用给我，或者把消息编号发我。"
+                elif "group_id" in missing:
+                    note += "把群名或群号发我。"
+                elif "user_id" in missing:
+                    note += "把对方昵称发我。"
+                return {"tool": tool_name, "connected": True, "found": False,
+                        "status": "need_context", "note": note}
             return miss_result(tool_name, f"没办成：{e}")
         except Exception as e:
             return miss_result(tool_name, f"没办成：{type(e).__name__}")

@@ -147,11 +147,15 @@ export function Composer({
   onPickImage,
   onRemoveImage,
   image,
+  onPickFile,
+  onRemoveFile,
+  file,
   loading,
   maxLength = 1000,
   placeholder = '输入您的问题…',
   disabled,
   imageTip = '上传图片（多模态）',
+  fileTip = '上传文档（PDF / DOCX / XLSX / TXT / MD / CSV）',
   /** 联网搜索开关（可选）。传入则显示按钮；不传则不显示。 */
   webSearch = false,
   onToggleWebSearch,
@@ -171,7 +175,7 @@ export function Composer({
     el.style.height = Math.min(el.scrollHeight, 132) + 'px'
   }, [value])
 
-  const hasContent = !!(value.trim() || image)
+  const hasContent = !!(value.trim() || image || file)
 
   return (
     <div className="composer">
@@ -179,6 +183,11 @@ export function Composer({
         <label className="icon-btn" title={imageTip}>
           <ImagePlus size={16} />
           <input type="file" accept="image/*" style={{ display: 'none' }} onChange={onPickImage} />
+        </label>
+        <label className="icon-btn" title={fileTip}>
+          <Paperclip size={16} />
+          <input type="file" accept=".pdf,.docx,.xlsx,.xlsm,.txt,.md,.markdown,.csv"
+                 style={{ display: 'none' }} onChange={onPickFile} />
         </label>
         {onToggleWebSearch && (
           <button
@@ -206,6 +215,17 @@ export function Composer({
             <img src={image} alt={t('预览')} />
             {onRemoveImage && (
               <button title={t('移除图片')} onClick={onRemoveImage}>
+                <X size={11} />
+              </button>
+            )}
+          </div>
+        )}
+        {file && (
+          <div className="composer-file" title={file.name}>
+            <Paperclip size={11} />
+            <span>{file.name}</span>
+            {onRemoveFile && (
+              <button title={t('移除文件')} onClick={onRemoveFile}>
                 <X size={11} />
               </button>
             )}

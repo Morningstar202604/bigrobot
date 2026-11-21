@@ -290,7 +290,8 @@ def test_rule_fallback_has_persona_not_service_tone():
            "memory_block": "", "kb_block": "", "summary": "", "history": [], "persona": ""}
     reply = asyncio.run(pipeline._rule_react("随便说点什么", ctx, Cfg()))
     assert "答不上来" not in reply.text
-    assert "喵" in reply.text
+    # 空人设（没有角色卡）时用中性兜底，不应凭空出现猫口癖。
+    assert "喵" not in reply.text
     assert not quality.critique(reply.text, "随便说点什么")
 
 

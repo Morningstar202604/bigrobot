@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   Copy,
   Trash2,
-  RotateCcw, Clock, Brain} from 'lucide-react'
+  RotateCcw, Clock, Brain, Paperclip} from 'lucide-react'
 import {
   Avatar,
   Composer,
@@ -55,8 +55,12 @@ const MsgRow = memo(function MsgRow({ m, index, last, escalated, loading, onFeed
   }
   // 空占位不渲染：页面已有独立的「Agent 正在处理…」气泡，两者叠加会显示两个头像
   if (m.role === 'agent' && m.streaming && !(m.content || '').trim()) return null
-  const toolImage = m.tool_result && typeof m.tool_result === 'object'
-    ? m.tool_result.image_data_url : ''
+  const tr = m.tool_result && typeof m.tool_result === 'object' ? m.tool_result : {}
+  // 只认图片字段或图片后缀；read_source 的 url 是网页地址，拿去 <img> 会裂图
+  const rawImg = tr.image_data_url || tr.image_url || tr.image || ''
+  const urlImg = /^https?:\/\//.test(tr.url || '')
+    && /\.(png|jpe?g|webp|gif|bmp)(\?|#|$)/i.test(tr.url) ? tr.url : ''
+  const toolImage = rawImg || urlImg
   return (
     <div className={`msg-row ${m.role} ${m.deleted ? 'deleted' : ''}`}>
       <Avatar kind={m.role} size={30} />
@@ -67,6 +71,11 @@ const MsgRow = memo(function MsgRow({ m, index, last, escalated, loading, onFeed
             alt={t('用户上传图')}
             className="user-img"
           />
+        )}
+        {m.file && (
+          <div className="composer-file" title={m.file}>
+            <Paperclip size={11} /><span>{m.file}</span>
+          </div>
         )}
         {m.role === 'agent' && m.thought && !m.deleted && <ThoughtBlock text={m.thought} />}
         {/* 流式占位但还没有任何增量时不要画空气泡：截图里是一个空框 + 下方"正在处理"重复 */}
@@ -117,6 +126,7 @@ export default function VisitorChat() {
   const [sessionId, setSessionId] = useState('')
   const [messages, setMessages] = useState([])
   const [image, setImage] = useState('')
+  const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   // 会话被关闭后禁止继续发送：之前只插一条系统消息，输入框仍可发，后端直接 409
   const [closed, setClosed] = useState(false)
@@ -164,6 +174,19 @@ export default function VisitorChat() {
     const reader = new FileReader()
     reader.onload = () => setImage(reader.result)
     reader.readAsDataURL(f)
+  }
+  const onPickFile = (e) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    if (f.size > 14 * 1024 * 1024) {
+      setError('文件超过 14MB，先压缩一下。')
+      e.target.value = ''
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => setFile({ name: f.name, data: reader.result })
+    reader.readAsDataURL(f)
+    e.target.value = ''
   }
 
   // 键盘弹起时把输入区保持在可视范围内（visualViewport）
@@ -293,6 +316,8 @@ export default function VisitorChat() {
           content: m.content,
           refs: m.refs || [],
           thought: m.thought || '',
+          tool_used: m.tool_used || null,
+          tool_result: m.tool_result || null,
           deleted: !!m.deleted,
           ts: m.created_at,
           message_id: m.id,
@@ -371,7 +396,7 @@ export default function VisitorChat() {
 
   const send = async (text, opts = {}) => {
     const content = (text ?? input).trim()
-    if (!content && !image) return
+    if (!content && !image && !file) return
     if (sendingRef.current || closed) return
     sendingRef.current = true
     const regenerate = !!opts.regenerate
@@ -379,14 +404,20 @@ export default function VisitorChat() {
     setLastMsg(null)
     setFeedback('')
     const img = image.startsWith('data:') ? image.split(',')[1] : image
-    const sid = await ensureSession(content)
+    const fileName = regenerate ? '' : (file?.name || '')
+    const fileData = regenerate ? null : (file?.data || null)
+    const sid = await ensureSession(content || fileName)
     onInputChange('')
     setImage('')
+    setFile(null)
     // 重新生成复用上一条访客气泡：再插一条会让界面出现重复提问（后端也没落库）
     if (!regenerate) {
       setMessages((prev) => [
         ...prev,
-        { role: 'visitor', content: content || '（附图）', refs: [], ts: new Date().toISOString(), image: img || undefined },
+        { role: 'visitor',
+          content: content || (fileName ? `（附件：${fileName}）` : '（附图）'),
+          refs: [], ts: new Date().toISOString(),
+          image: img || undefined, file: fileName || undefined },
       ])
     }
     // 流式气泡占位（delta 增量填充，done 事件权威替换）。
@@ -452,7 +483,8 @@ export default function VisitorChat() {
           'Content-Type': 'application/json',
           ...(sec ? { 'X-Session-Secret': sec } : {}),
         },
-        body: JSON.stringify({ content, image: img || null, web_search: webSearch && webAvailable, regenerate }),
+        body: JSON.stringify({ content, image: img || null, file_name: fileName,
+                               file_data: fileData, web_search: webSearch && webAvailable, regenerate }),
       })
       if (resp.ok && resp.body) {
         const reader = resp.body.getReader()
@@ -523,7 +555,8 @@ export default function VisitorChat() {
       }
       // 回退：整段接口（流式不可用时依旧可用）
       try {
-        const data = await http.post(`/api/sessions/${sid}/messages`, { content, image: img || null, web_search: webSearch && webAvailable, regenerate })
+        const data = await http.post(`/api/sessions/${sid}/messages`, { content, image: img || null,
+          file_name: fileName, file_data: fileData, web_search: webSearch && webAvailable, regenerate })
         finalize(data)
       } catch (e2) {
         if (!streamBuf) setMessages((prev) => prev.filter((m) => m.tempId !== streamBubbleRef.current))
@@ -735,6 +768,9 @@ export default function VisitorChat() {
             onPickImage={onPickImage}
             onRemoveImage={() => setImage('')}
             image={image}
+            onPickFile={onPickFile}
+            onRemoveFile={() => setFile(null)}
+            file={file}
             loading={loading}
             disabled={closed}
             placeholder={closed ? '会话已关闭，点「新对话」继续' : undefined}

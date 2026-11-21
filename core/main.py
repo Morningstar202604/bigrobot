@@ -301,6 +301,9 @@ def create_app() -> FastAPI:
     class MessageIn(BaseModel):
         content: str
         image: str | None = None
+        # 网页上传文档：data URL + 原始文件名（服务端解析，不落磁盘）
+        file_name: str = ""
+        file_data: str | None = None
         # 联网搜索：由前端开关传入
         web_search: bool = False
         # 重新生成：复用上一条访客消息，不再重复落库
@@ -463,6 +466,19 @@ def create_app() -> FastAPI:
             mode="fallback",
         )
 
+    def _media_for_store(tool_result) -> dict | None:
+        """只落图片/表情的展示字段；整包 tool_result 里还有渠道私有参数，不能进历史。"""
+        if not isinstance(tool_result, dict):
+            return None
+        data = tool_result.get("image_data_url") or ""
+        url = tool_result.get("url") or ""
+        # 单条消息最多留 300KB 的 data URL，超了只留 url，避免 SQLite 被大图撑爆。
+        if data and len(data) > 300_000:
+            data = ""
+        if not data and not url:
+            return None
+        return {"image_data_url": data, "url": url}
+
     def _is_human_handled(sid: str) -> bool:
         """会话是否已由坐席在控制台实际接管。
 
@@ -488,6 +504,7 @@ def create_app() -> FastAPI:
 
     async def _handle_inbound(sid: str, text: str, image: str | None, visitor_key: str,
                               web_search: bool = False,
+                              file_name: str = "", file_data: str | None = None,
                               ambient: list[str] | None = None, group_name: str = "",
                               channel_type: str = "", channel_user_id: str = "",
                               group_id: str | None = None, message_id: str = "",
@@ -506,12 +523,13 @@ def create_app() -> FastAPI:
                     history = prev
             except Exception:  # 兜底失败不影响主流程
                 pass
-        visitor_msg_id = store.add_message(sid, "visitor", text or "（附图）",
-                                           external_id=message_id or None,
-                                           account_id=account_id or None)
+        visitor_msg_id = store.add_message(
+            sid, "visitor", text or (f"（附件：{file_name}）" if file_name else "（附图）"),
+            external_id=message_id or None, account_id=account_id or None)
         try:
             reply = await pipeline.run(
                 pipeline.ChannelMessage(text=text, image_b64=image or "", web_search=web_search,
+                                        file_name=file_name, file_data=file_data or "",
                                         ambient=ambient or [], group_name=group_name,
                                         channel_type=channel_type or "webchat",
                                         channel_user_id=channel_user_id or visitor_key,
@@ -524,7 +542,8 @@ def create_app() -> FastAPI:
             reply = _safe_reply(e)
         msg_id = store.add_message(sid, "agent", reply.text, refs=reply.citations,
                                    tool_used=reply.tool_used, thought=reply.thought,
-                                   account_id=account_id or None)
+                                   account_id=account_id or None,
+                                   media=_media_for_store(reply.tool_result))
         ev.info(
             f"reply session={sid[:8]} mode={reply.mode} tool={reply.tool_used} "
             f"escalate={reply.escalate} citations={reply.citations}"
@@ -552,7 +571,8 @@ def create_app() -> FastAPI:
         return ""
 
     async def _regenerate_inbound(sid: str, text: str, image: str | None, visitor_key: str,
-                                  history_limit: int = 60, web_search: bool = False):
+                                  history_limit: int = 60, web_search: bool = False,
+                                  file_name: str = "", file_data: str | None = None):
         """重新生成：只追加新的 Agent 回答，不重复落访客消息。"""
         history = store.get_messages(sid, limit=history_limit, include_deleted=False)
         # 问题以会话记录为准，忽略客户端传入的 content（防伪造提问）
@@ -567,7 +587,8 @@ def create_app() -> FastAPI:
             visitor_key,
         )
         msg_id = store.add_message(sid, "agent", reply.text, refs=reply.citations,
-                                   tool_used=reply.tool_used, thought=reply.thought)
+                                   tool_used=reply.tool_used, thought=reply.thought,
+                                   media=_media_for_store(reply.tool_result))
         ticket_id = None
         if reply.escalate:
             store.mark_escalated(sid, reply.escalate_reason or "escalate")
@@ -918,9 +939,9 @@ def create_app() -> FastAPI:
     @app.post("/api/sessions/{sid}/messages")
     async def post_message(sid: str, body: MessageIn, request: Request, _=Depends(_require_session_secret)):
         content = (body.content or "").strip()
-        if not content and not body.image:
+        if not content and not body.image and not body.file_data:
             raise HTTPException(400, "消息内容不能为空")
-        _check_payload(content, body.image)
+        _check_payload(content, body.image, body.file_data, body.file_name)
         sess = store.get_session(sid)
         if sess and sess["status"] == "closed":
             raise HTTPException(409, "会话已关闭，请开始新会话")
@@ -940,7 +961,7 @@ def create_app() -> FastAPI:
         if body.regenerate:
             reply, msg_id, ticket_id = await _regenerate_inbound(
                 sid, content, body.image, visitor_id, history_limit=60,
-                web_search=body.web_search)
+                web_search=body.web_search, file_name=body.file_name, file_data=body.file_data)
             return {"role": "agent", "text": reply.text, "citations": reply.citations,
                     "confidence": reply.confidence, "escalate": reply.escalate,
                     "escalate_reason": reply.escalate_reason, "ticket_id": ticket_id,
@@ -949,7 +970,8 @@ def create_app() -> FastAPI:
                     "ctx_used": reply.ctx_used, "thought": reply.thought,
                     "message_id": msg_id, "visitor_message_id": None}
         reply, msg_id, ticket_id, visitor_msg_id = await _handle_inbound(
-            sid, content, body.image, visitor_id, web_search=body.web_search)
+            sid, content, body.image, visitor_id, web_search=body.web_search,
+            file_name=body.file_name, file_data=body.file_data)
         return {
             "role": "agent",
             "text": reply.text,
@@ -975,9 +997,9 @@ def create_app() -> FastAPI:
     async def chat_stream(sid: str, body: MessageIn, request: Request, _=Depends(_require_session_secret)):
         """访客流式问答（SSE 范式：delta 增量打字机 → done 权威终态，终态 text 为准）。"""
         content = (body.content or "").strip()
-        if not content and not body.image:
+        if not content and not body.image and not body.file_data:
             raise HTTPException(400, "消息内容不能为空")
-        _check_payload(content, body.image)
+        _check_payload(content, body.image, body.file_data, body.file_name)
         sess = store.get_session(sid)
         visitor_id = (sess or {}).get("visitor_id", "anonymous")
         limiter: security.RateLimiter = app.state.limiter
@@ -1018,7 +1040,8 @@ def create_app() -> FastAPI:
                 regen_text = _last_visitor_text(history) or content
             else:
                 regen_text = content
-                visitor_msg_id = store.add_message(sid, "visitor", content or "（附图）")
+                visitor_msg_id = store.add_message(
+                    sid, "visitor", content or (f"（附件：{body.file_name}）" if body.file_name else "（附图）"))
                 yield _sse("ack", {"visitor_message_id": visitor_msg_id})
             _preflight(sid, regen_text, visitor_id)
             ev.info(f"ingest(visitor stream) visitor={visitor_id} text={regen_text[:60]}")
@@ -1026,6 +1049,7 @@ def create_app() -> FastAPI:
             try:
                 async for kind, payload in pipeline.run_stream(
                     pipeline.ChannelMessage(text=regen_text, image_b64=body.image or "",
+                                            file_name=body.file_name, file_data=body.file_data or "",
                                             web_search=body.web_search),
                     history,
                     visitor_id,
@@ -1040,7 +1064,8 @@ def create_app() -> FastAPI:
                 # run_stream 正常结束却没产出 final（契约破坏或空实现）：退回安全话术，不让请求 500
                 reply = _safe_reply(RuntimeError("pipeline stream produced no final reply"))
             msg_id = store.add_message(sid, "agent", reply.text, reply.citations,
-                                       tool_used=reply.tool_used, thought=reply.thought)
+                                       tool_used=reply.tool_used, thought=reply.thought,
+                                       media=_media_for_store(reply.tool_result))
             if reply.escalate:
                 store.mark_escalated(sid, reply.escalate_reason)
                 ticket_id = store.create_ticket(sid)
@@ -1265,6 +1290,12 @@ def create_app() -> FastAPI:
             cfg = config.update_config(patch)
         except ValueError as e:
             raise HTTPException(400, str(e))
+        # Key/端点可能刚被换掉：清掉旧失败留下的冷却，否则管理员看到
+        # llm-test 通过，真实对话还在 120 秒熔断里。
+        try:
+            llm.reset_cooldown()
+        except Exception:
+            pass
         # 配置变更必须留痕：谁在什么时候改了哪些组（不记录任何密钥值）
         store.append_audit("admin", "config.updated", {
             "groups": sorted(patch.keys()),
