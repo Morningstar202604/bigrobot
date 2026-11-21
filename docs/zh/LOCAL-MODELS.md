@@ -54,8 +54,8 @@ pip install -r requirements-local.txt
 下面这些工具需要额外设施，没配就明确说“未接入”，不会假装成功：
 
 - `ocr`：本机装 `tesseract` 就能用，支持中英文；控制台上传图片后直接说“识别这张图的文字”即可，不需要额外 Python 包。
-- `describe_image`：要配 `multimodal.vision_model`；本地文字模型看不了图。
-- `generate_image`：要配 `IMAGE_API_BASE_URL` 和 `IMAGE_API_KEY`；llama.cpp 没有生图端点。
+- `describe_image`：可配 `multimodal.vision_model` 走云端；本机也可用 `USER_VISION_MODEL` + `LOCAL_VISION_MODEL_PATH` + `LOCAL_VISION_MMPROJ_PATH` 加载 MiniCPM-V 1B GGUF，不依赖外部 Key。
+- `generate_image`：可配 OpenAI 兼容端点（`IMAGE_API_BASE_URL` + `IMAGE_API_KEY`）；也可用免 Key 的 Pollinations 端点 `https://image.pollinations.ai`，中文提示会先转英文，免费额度约 45 秒一张。
 - `fs` / `write_file`：要启动执行器并配 `EXECUTOR_URL`。
 - QQ 类工具：要接 QQ/OneBot 网关和账号。
 - `translate`：先走 MyMemory，免费额度用完会用当前模型兜底；只要模型可用就能翻译。

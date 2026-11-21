@@ -54,8 +54,8 @@ Common utilities have deterministic intent routing, so they work in compact mode
 These tools need extra infrastructure and stay explicitly "not configured" rather than pretending success:
 
 - `ocr`: works with a local `tesseract` install (Chinese + English). Upload an image in the console and ask "read the text in this image"; no extra Python package is needed.
-- `describe_image`: set `multimodal.vision_model` (the local text model cannot read images).
-- `generate_image`: set `IMAGE_API_BASE_URL` and `IMAGE_API_KEY`; llama.cpp has no image endpoint.
+- `describe_image`: set `multimodal.vision_model` for a cloud vision model, or use `USER_VISION_MODEL` + `LOCAL_VISION_MODEL_PATH` + `LOCAL_VISION_MMPROJ_PATH` to load a local MiniCPM-V 1B GGUF without an external key.
+- `generate_image`: set an OpenAI-compatible endpoint (`IMAGE_API_BASE_URL` + `IMAGE_API_KEY`), or use the keyless Pollinations endpoint `https://image.pollinations.ai`; Chinese prompts are translated to English first, at roughly one free image every 45 seconds.
 - `fs` / `write_file`: start the executor and set `EXECUTOR_URL`.
 - QQ tools: connect a QQ/OneBot gateway and account.
 - `translate`: uses MyMemory first; if the free quota is exhausted it falls back to the current model, so a configured model is enough.

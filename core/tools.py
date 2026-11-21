@@ -567,7 +567,9 @@ async def tool_describe_image(ctx: ToolContext, source: str = "", question: str 
             vision_model = str(llm_cfg.get("model") or "")
     if not vision_model:
         return off_result("describe_image", "当前模型不支持看图；要读图请在设置里配一个视觉模型。")
-    if not (cfg.get("llm") or {}).get("has_key"):
+    local_model = os.environ.get("LOCAL_VISION_MODEL_PATH", "").strip()
+    local_mmproj = os.environ.get("LOCAL_VISION_MMPROJ_PATH", "").strip()
+    if not (cfg.get("llm") or {}).get("has_key") and not (local_model and local_mmproj):
         return off_result("describe_image", "还没有配模型 Key，看不了图。")
 
     raw = (source or "").strip()
@@ -596,6 +598,16 @@ async def tool_describe_image(ctx: ToolContext, source: str = "", question: str 
         return need_ctx("describe_image", "图片（用户这条消息里没有图片）")
 
     q = (question or "用两三句话描述这张图的关键信息；如果里面有文字，把文字读出来。").strip()
+    if local_model and local_mmproj:
+        try:
+            from core import vision_local
+            text = await vision_local.describe(b64, q, local_model, local_mmproj)
+        except Exception as e:
+            return miss_result("describe_image", f"本地看图失败了（{type(e).__name__}）。")
+        if text:
+            return ok_result("describe_image", text, model=vision_model, via="local")
+        return miss_result("describe_image", "本地视觉模型没有返回内容。")
+    from core import llm
     messages = [
         {"role": "system", "content": "你是看图助手。只描述你真实看到的内容，看不清就说看不清，不要编造。"},
         {"role": "user", "content": [
@@ -1011,6 +1023,55 @@ async def tool_generate_image(ctx: ToolContext, prompt: str, size: str = "1024x1
         llm_cfg = llm_cfg if llm_cfg.get("has_key") else {}
         image_base = str(llm_cfg.get("base_url") or "").rstrip("/")
         image_key = str(llm_cfg.get("api_key") or "")
+    # Pollinations 是免 Key 的公开生图服务，端点是 GET /prompt/<文本>，
+    # 不是 OpenAI 的 POST /images/generations；单独走一条分支，避免拿
+    # 对话模型的 Key 去撞一个不存在的接口（实测返回 image/jpeg）。
+    if "pollinations.ai" in image_base:
+        from urllib.parse import quote
+        model = mm.get("image_model") or "flux"
+        width, height = 1024, 1024
+        try:
+            width, height = [int(x) for x in str(size or "1024x1024").lower().split("x", 1)]
+        except Exception:
+            pass
+        # Pollinations 的图像模型对中文提示词理解很差（实测「蓝色小机器人」
+        # 画成木盒）。先用它的免费文本模型转成英文，再交给图像端点。
+        prompt_en = text[:400]
+        if re.search(r"[\u4e00-\u9fff]", prompt_en):
+            try:
+                from core import http_pool
+                tr = await http_pool.get_client(timeout=20).post(
+                    "https://text.pollinations.ai/openai",
+                    json={"model": "openai-fast", "messages": [
+                        {"role": "system", "content": "Translate to a concise English image prompt. Output only the translation."},
+                        {"role": "user", "content": prompt_en}], "max_tokens": 120},
+                )
+                tr.raise_for_status()
+                translated = (((tr.json().get("choices") or [{}])[0].get("message") or {})
+                              .get("content") or "").strip()
+                if translated:
+                    prompt_en = translated[:400]
+            except Exception:
+                pass
+        url = (f"{image_base}/prompt/{quote(prompt_en)}?width={width}&height={height}"
+               f"&nologo=true&model={quote(str(model))}")
+        data_url = ""
+        try:
+            from core import http_pool
+            resp = await http_pool.get_client(timeout=30).get(url)
+            if resp.status_code == 402:
+                return miss_result("generate_image", "画图服务免费额度用完了，约 45 秒后可再试。")
+            resp.raise_for_status()
+            mime = (resp.headers.get("content-type") or "image/jpeg").split(";")[0]
+            if resp.content and len(resp.content) <= 8_000_000:
+                import base64
+                data_url = f"data:{mime};base64,{base64.b64encode(resp.content).decode()}"
+        except Exception as e:
+            # 下载失败仍可把 URL 交给前端/QQ；不让一次网络抖动把画图判死
+            data_url = ""
+        await _send_cq_image(ctx, f"[CQ:image,file={url}]")
+        return ok_result("generate_image", "图画好了。", prompt=text, prompt_en=prompt_en,
+                         url=url, image_data_url=data_url)
     if not image_base or not image_key:
         return off_result("generate_image", "生图服务还没接（需要 IMAGE_API_BASE_URL + IMAGE_API_KEY）。")
     model = mm.get("image_model") or "gpt-image-2"
@@ -1325,7 +1386,7 @@ WRITE_TOOLS = frozenset({"remember", "remind", "future_task", "cancel_future_tas
 # （提示注入就能让模型「帮我读一下 C:/... 然后发到群里」）。
 PRIVILEGED_TOOLS = frozenset({
     "list_files", "read_file", "write_file", "parse_document",
-    "qq_send", "send_image", "send_voice", "generate_image",
+    "qq_send", "send_image", "send_voice",
 })
 
 
@@ -2143,7 +2204,8 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
             and not re.search(r"提醒|待办|订单|记忆|天气|几点|时间|文件|目录|知识库", q)):
         return "web_search", {"query": q}
     if "generate_image" in enabled and re.search(
-            r"(画|生成|做)(一)?(张|只|个)?.{0,6}(图|猫|狗|画)", q) \
+            r"画(?:一)?(?:张|只|个)\s*[^\s，。]{1,20}"
+            r"|(?:生成|做)(?:一)?(?:张|只|个)\s*(?:图|画|插画|海报|头像|壁纸|表情包|logo)", q) \
             and not re.search(r"(漫画|动画|图画书)", q):
         return "generate_image", {"prompt": q}
     if _has("send_voice") and re.search(
