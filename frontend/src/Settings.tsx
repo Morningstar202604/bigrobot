@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  SlidersHorizontal, BookOpen, BarChart3, Brain, ShieldAlert,
-  Save, Plus, Pencil, Trash2, X, Activity, Inbox, MessageSquare,
+  SlidersHorizontal, BookOpen, BarChart3, Brain,
+  Save, Plus, Pencil, Trash2, X, Inbox, MessageSquare,
   FileText, Users, Search, Wrench, Zap, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Upload, Download, KeyRound, Check,
-  Plug, Wand2, Lock, MessagesSquare, Cpu } from 'lucide-react'
-import { ProviderPanel, SkillsPanel, HooksPanel, PermissionsPanel } from './ProviderCenter'
+  Plug, Wand2, MessagesSquare, Cpu } from 'lucide-react'
+import { ProviderPanel, SkillsPanel } from './ProviderCenter'
 import { LocalModelsPanel } from './LocalModels'
 import {
   useConfig, useUpdateConfig, useKb, useKbMutations, useKbImport, useKbTest, useKbDocImport, exportKb, useTools, useToolMutations,
@@ -23,9 +23,9 @@ import type { AgentConfig, KbEntry, ToolDef, InjectionRule, MemoryEntry, Injecti
 import { usePagination } from './lib/pagination'
 import { Grp, Row, Pager } from './settings/bits'
 import { ParamsPanel } from './settings/panels-core'
-import { ToolsPanel, GuardrailPanel } from './settings/panels-core'
+import { ToolsPanel } from './settings/panels-core'
 import { KbPanel } from './settings/panels-kb'
-import { DataPanel, MemPanel, InjPanel, TokenPanel } from './settings/panels-data'
+import { DataPanel, MemPanel, TokenPanel } from './settings/panels-data'
 import { isAuthError } from './lib/queries'
 import { TOOL_LABEL } from './lib/labels'
 import TokenGate from './components/TokenGate'
@@ -54,15 +54,6 @@ const TAB_GROUPS: { group: string; items: { key: string; icon: React.ReactNode; 
     ],
   },
   {
-    group: '安全与合规',
-    items: [
-      { key: 'permission', icon: <Lock size={15} />, label: '权限', sub: '全面放开 / 核心锁定' },
-      { key: 'guardrail', icon: <ShieldAlert size={15} />, label: '注入规则', sub: '护栏检测规则管理' },
-      { key: 'hooks', icon: <ShieldAlert size={15} />, label: '钩子', sub: '管线固定位置的强制规则' },
-      { key: 'inj', icon: <Activity size={15} />, label: '注入日志', sub: '护栏审计' },
-    ],
-  },
-  {
     group: '数据与运维',
     items: [
       { key: 'data', icon: <BarChart3 size={15} />, label: '存储维护', sub: '数据库容量 / 180 天数据清理' },
@@ -81,12 +72,6 @@ const SCOPE_TABS: Record<string, { groups: string[]; keys: string[]; base: strin
     keys: ['skills', 'tools', 'profiles', 'lexicon', 'mem', 'kb'],
     base: '/capabilities',
     fallback: 'tools',
-  },
-  policy: {
-    groups: ['安全与合规'],
-    keys: ['permission', 'guardrail', 'hooks', 'inj'],
-    base: '/policy',
-    fallback: 'permission',
   },
   settings: {
     groups: ['模型与推理', '数据与运维'],
@@ -133,8 +118,8 @@ export default function Settings({ scope }: { scope?: keyof typeof SCOPE_TABS } 
   const active = tabs.find((t) => t.key === tab)!
   // scope 页面本身就是一级入口：侧栏再叫「管理中心」会和「设置」混淆，
   // 改成对应子项名，明确它只是当前页的二级导航。
-  const sideTitle = scope === 'capabilities' ? tr('能力子项') : scope === 'policy' ? tr('规则子项') : tr('管理中心')
-  const sideSub = scope === 'capabilities' ? tr('工具、知识与记忆') : scope === 'policy' ? tr('权限、护栏与钩子') : tr('Agent 运行时配置 · 即时生效')
+  const sideTitle = scope === 'capabilities' ? tr('能力子项') : tr('管理中心')
+  const sideSub = scope === 'capabilities' ? tr('工具、知识与记忆') : tr('Agent 运行时配置 · 即时生效')
 
   return (
     <div className={`set-app ${mobile ? 'set-app-mobile' : ''}`}>
@@ -179,17 +164,13 @@ export default function Settings({ scope }: { scope?: keyof typeof SCOPE_TABS } 
         )}
         {tab === 'local' && <LocalModelsPanel onActivated={() => void refetch()} />}
         {tab === 'skills' && <SkillsPanel />}
-        {tab === 'hooks' && <HooksPanel />}
-        {tab === 'permission' && <PermissionsPanel />}
         {tab === 'params' && shown && <ParamsPanel cfg={shown} setDraft={setDraft} upd={upd} />}
         {tab === 'tools' && <ToolsPanel />}
-        {tab === 'guardrail' && <GuardrailPanel />}
         {tab === 'kb' && <KbPanel />}
         {tab === 'data' && <DataPanel />}
         {tab === 'mem' && <MemPanel />}
         {tab === 'profiles' && <ProfilesPanel />}
         {tab === 'lexicon' && <LexiconPanel />}
-        {tab === 'inj' && <InjPanel />}
         {tab === 'token' && <TokenPanel />}
       </main>
     </div>

@@ -9,7 +9,9 @@ import { t as tr } from '../lib/t'
  */
 export default function ConsoleTabs({ tabs, title, sub }) {
   const [params, setParams] = useSearchParams()
-  const current = tabs.find((x) => x.key === params.get('view')) || tabs[0]
+  const requested = params.get('view')
+  // 兼容旧二级页的 view 名；新标签只保留一个规范 key，避免同一面板两个 URL。
+  const current = tabs.find((x) => x.key === requested || (x.aliases || []).includes(requested)) || tabs[0]
 
   if (tabs.length === 1) {
     return <>{current.render()}</>

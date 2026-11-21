@@ -52,6 +52,13 @@ export default function App() {
                 <Route path="/sessions" element={<Sessions />} />
                 <Route path="/capabilities/:tab" element={<Capabilities />} />
                 <Route path="/capabilities" element={<Capabilities />} />
+                {/* 策略页压平后的兼容：旧二级页回到对应一级 tab */}
+                <Route path="/policy/rules" element={<Navigate to="/policy?view=permission" replace />} />
+                <Route path="/policy/approvals" element={<Navigate to="/policy?view=approvals" replace />} />
+                <Route path="/policy/permission" element={<Navigate to="/policy?view=permission" replace />} />
+                <Route path="/policy/guardrail" element={<Navigate to="/policy?view=guardrail" replace />} />
+                <Route path="/policy/hooks" element={<Navigate to="/policy?view=hooks" replace />} />
+                <Route path="/policy/inj" element={<Navigate to="/policy?view=inj" replace />} />
                 <Route path="/policy/:tab" element={<Policy />} />
                 <Route path="/policy" element={<Policy />} />
                 <Route path="/observe" element={<Observe />} />
