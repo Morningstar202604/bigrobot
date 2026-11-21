@@ -75,25 +75,28 @@ CATALOG: list[dict] = [
         "chat_template_kwargs": {"enable_thinking": False},
     },
     {
-        "id": "qwen3.5-2b",
-        "name": "Qwen3.5-2B",
-        "params_b": 2.0,
-        "repo": "unsloth/Qwen3.5-2B-GGUF",
-        "file": "Qwen3.5-2B-Q4_K_M.gguf",
-        "size": 1_280_835_840,
+        "id": "minicpm5-2b",
+        "name": "MiniCPM5-2B",
+        "params_b": 2.5,
+        "repo": "openbmb/MiniCPM5-2B-GGUF",
+        "file": "MiniCPM5-2B-Q4_K_M.gguf",
+        "size": 1_561_318_368,
         "quant": "Q4_K_M",
-        "context": 262_144,
+        "context": 131_072,
         "license": "Apache-2.0",
         "tool_calling": True,
         "chinese": True,
-        "released": "2026-03",
-        "badge": "2B 通用",
-        "tagline": "真正的 2B 档：262K 上下文，Q4 约 1.28GB，4GB 级机器也能选。",
-        "why": "Qwen3.5-2B 原生 262K 上下文，2B 参数档比 0.8B/1B 更能扛中文问答、短代码和基础工具链；4GB 内存可运行，但不建议当唯一主力。",
-        "best_for": ["2B 档", "4GB 低配", "日常问答", "基础工具"],
+        "released": "2026-05-19",
+        "badge": "2B 级",
+        "tagline": "MiniCPM5 系列 2B 级：总参 2.52B，128K 上下文，Q4 约 1.56GB；工具与 Agent 能力是同尺寸重点。",
+        "why": "官方总参数 2,516,756,480（非 embedding 1.98B），定位 2B 级端侧模型；128K 原生上下文，工具调用、代码、数学和长文是同尺寸重点。4GB 内存可跑，适合做本地全功能验证。",
+        "best_for": ["2B 级", "全功能验证", "工具调用", "4GB 低配"],
         "ram_gb": 4,
         "min_ram_gb": 3.5,
         "test_only": False,
+        # 2B 级在 2 核/4GB 机器上仍吃不下 27 个工具的长提示：保留短人设+核心工具，
+        # 结构化能力由 pipeline 的确定性路由兜底，避免 prompt eval 拖到 100 秒。
+        "compact": True,
         "default_ctx": 8192,
         "chat_template_kwargs": {"enable_thinking": False},
     },
@@ -255,6 +258,10 @@ def small_model_mode(cfg: dict) -> bool:
     llm = (cfg or {}).get("llm") or {}
     if llm.get("local_compact") is False:
         return False
+    mid = str(llm.get("local_model_id") or "")
+    for item in CATALOG:
+        if item["id"] == mid and item.get("compact"):
+            return True
     # 4B/9B 本地模型有足够参数吃完整人设和工具清单，不该再按 1B 收紧。
     if local_model_params(cfg) > 2.0:
         return False
@@ -513,6 +520,10 @@ def start_server(model_id: str, n_ctx: int | None = None) -> dict:
             return status
         # 同一时间只留一个本地模型：切模型先停旧的，避免两个进程抢 CPU 和内存。
         stop_server()
+    elif status.get("pid_alive"):
+        # 进程还活着但健康检查没通过：先收尸，绝不能再起一个占第二份内存。
+        stop_server()
+        time.sleep(1)
     with _SERVER_LOCK:
         if not _llama_available():
             raise RuntimeError("未安装 llama-cpp-python：pip install -r requirements-local.txt")
@@ -595,6 +606,41 @@ def stop_server() -> dict:
     return {"running": False}
 
 
+def resume_server() -> dict:
+    """应用重启后按已保存配置把本地模型拉回来。
+
+    之前模型是 uvicorn 的子进程，主进程退出后它也死；但 config 里
+    local_model_id 还在，下一次聊天会打到 18082 的死端口。这里在 lifespan
+    启动时补一次恢复，用户不需要再点「启用」。
+    """
+    cfg = config.get_config()
+    llm = cfg.get("llm") or {}
+    mid = str(llm.get("local_model_id") or "").strip()
+    if not mid:
+        return {"running": False, "resumed": False, "reason": "no local model configured"}
+    try:
+        item = _entry(mid)
+    except KeyError:
+        return {"running": False, "resumed": False, "reason": f"unknown model {mid}"}
+    if not is_installed(item):
+        return {"running": False, "resumed": False, "reason": "model file missing"}
+    status = server_status()
+    if status.get("running") and status.get("model_id") == mid:
+        return {**status, "resumed": False}
+    ctx = int(llm.get("context_window") or 0)
+    server = start_server(mid, n_ctx=ctx or None)
+    config.update_config({"llm": {
+        "base_url": server["base_url"], "model": mid, "api_key": "local",
+        "protocol": "openai-compatible",
+        "context_window": int(server.get("n_ctx") or 8192),
+        "max_output": 1024 if item["params_b"] > 2 else 512,
+        "tool_calling": True, "supports_vision": False,
+        "local_model_id": mid,
+        "local_compact": bool(item.get("compact")) or item["params_b"] <= 2.0,
+    }})
+    return {**server, "resumed": True}
+
+
 def activate(model_id: str, n_ctx: int | None = None) -> dict:
     item = _entry(model_id)
     server = start_server(item["id"], n_ctx=n_ctx)
@@ -610,7 +656,7 @@ def activate(model_id: str, n_ctx: int | None = None) -> dict:
             "supports_vision": False,
             "local_model_id": item["id"],
             # 4B/9B 用完整人设和全量工具；1B 才进精简模式。
-            "local_compact": item["params_b"] <= 2.0,
+            "local_compact": bool(item.get("compact")) or item["params_b"] <= 2.0,
         },
     })
     return {"ok": True, "model_id": item["id"], "server": server}

@@ -71,6 +71,11 @@ async def _run_action(spec: ActionSpec, params: dict, principal_label: str,
     agent_autonomous_tier 只在"Agent 自主执行"时非 0；
     管理员/坐席手动操作传 0，因此不会触发 T3 的爆炸半径阈值。
     """
+    if spec.name == "now":
+        # 本机时间不需要走协议端；这是 Agent 唯一能确定拿到“现在”的来源。
+        local = datetime.now().astimezone()
+        return {"data": {"iso": local.isoformat(), "local": local.strftime("%Y-%m-%d %H:%M:%S"),
+                         "weekday": "一二三四五六日"[local.weekday()]}}
     if _is_computer_action(spec.name):
         from core.actions import computer
 

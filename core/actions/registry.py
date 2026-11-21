@@ -63,6 +63,7 @@ class ActionSpec:
 # ---- 动作清单 ----
 _SPECS: list[ActionSpec] = [
     # ===== L0：账号与自检 =====
+    ActionSpec("now", "获取当前本机时间（只读，不经过协议端）", RISK_L0, group="system", timeout_s=5),
     ActionSpec("get_login_info", "查询机器人自身账号信息", RISK_L0, group="account", timeout_s=5),
     ActionSpec("get_status", "查询机器人运行状态", RISK_L0, group="account", timeout_s=5),
     ActionSpec("get_version_info", "查询协议端版本", RISK_L0, group="account", timeout_s=5),
@@ -230,6 +231,7 @@ FORCED_APPROVAL_ALWAYS = frozenset({
 
 # 默认允许 Agent 自主执行的动作（T1 档位）：只放查询类，写操作需要显式配置
 DEFAULT_AGENT_ACTIONS = frozenset({
+    "now",
     "get_login_info", "get_status", "get_version_info",
     "get_group_list", "get_group_info", "get_group_member_list", "get_group_member_info",
     "get_friend_list", "get_stranger_info",

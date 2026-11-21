@@ -1771,6 +1771,19 @@ def _route_general(q: str) -> tuple[str | None, dict | None]:
         return "convert_unit", {"value": m.group(1), "from_unit": m.group(2),
                                 "to_unit": m.group(3)}
 
+    # 密码：明确要密码且给了位数/符号要求时直接生成。
+    if "密码" in text and re.search(r"(生成|来|要|给|设置|做)", text):
+        pm = re.search(r"(\d{1,3})\s*位", text)
+        n = pm.group(1) if pm else "16"
+        sym = "false" if re.search(r"(不含|不要|不带|去掉)\s*(特殊)?符号", text) else "true"
+        return "password", {"length": n, "symbols": sym}
+
+    # 正则试跑：「正则测试：^\d+$ 能不能匹配 12345」
+    rm = re.search(r"正则(?:表达式)?\s*(?:测试|匹配)?\s*[:：]?\s*(.+?)\s*(?:能不能|能否|是否|可不可以|匹配|对)\s*(?:匹配|对)?\s*(.+)", text, re.S)
+    if rm and rm.group(1).strip() and rm.group(2).strip():
+        return "regex_test", {"pattern": rm.group(1).strip(" ：:，,。\"'"),
+                              "text": rm.group(2).strip(" ：:，,。\"'")}
+
     # 时间戳：「1730000000 是几号」「时间戳 1730000000」
     m = re.search(r"(1\d{9}|1\d{12})", text)
     if m and any(w in text for w in ("时间戳", "timestamp", "几号", "什么时候", "哪天")):
@@ -1778,26 +1791,43 @@ def _route_general(q: str) -> tuple[str | None, dict | None]:
     if "现在时间戳" in text or "当前时间戳" in text:
         return "timestamp", {"action": "now", "value": ""}
 
-    # Base64
-    if re.match(r"^(base64|b64)\s*(编码|加密|encode)", text, re.I):
-        body = re.sub(r"^(base64|b64)\s*(编码|加密|encode)\s*[:：]?\s*", "", text, flags=re.I)
-        return "base64", {"text": body, "action": "encode"}
-    if re.match(r"^(base64|b64)\s*(解码|解析|decode)", text, re.I):
-        body = re.sub(r"^(base64|b64)\s*(解码|解析|decode)\s*[:：]?\s*", "", text, flags=re.I)
-        return "base64", {"text": body, "action": "decode"}
+    # Base64：既认句首「base64 编码 X」，也认「把 X 做 Base64 编码」。
+    b64_head = re.match(r"^(base64|b64)\s*(编码|加密|encode|解码|解析|decode)\s*[:：]?\s*(.+)$", text, re.I)
+    if b64_head:
+        action = "decode" if b64_head.group(2).lower() in ("解码", "解析", "decode") else "encode"
+        body = re.split(r"[，,。]\s*(?:只给|只回答|只输出|只返回|不要|别|结果)", b64_head.group(3).strip())[0].strip()
+        return "base64", {"text": body, "action": action}
+    b64_mid = re.search(
+        r"(?:把|将)\s*(.+?)\s*(?:做|进行|用|转成|转为|改成)?\s*(?:base64|b64)\s*"
+        r"(编码|加密|encode|解码|解析|decode)", text, re.I)
+    if b64_mid:
+        action = "decode" if b64_mid.group(2).lower() in ("解码", "解析", "decode") else "encode"
+        body = re.split(r"[，,。]\s*(?:只给|只回答|只输出|只返回|不要|别|结果)", b64_mid.group(1).strip(" ：:，,。\"'"))[0].strip()
+        return "base64", {"text": body, "action": action}
 
     # 哈希
     m = re.match(r"^(md5|sha1|sha256|sha512)\s*[:：]?\s*(.+)$", text, re.I)
+    if not m:
+        m = re.search(r"(?:把|将|对)\s*(.+?)\s*(?:做|计算|生成|算|取)\s*(md5|sha1|sha256|sha512)\b", text, re.I)
+    if not m:
+        # 「算一下 hello 的 SHA256」：动词在文本前，算法在末尾。
+        m = re.search(r"(?:算|计算|生成|取|求)\s*(?:一下|下)?\s*(.+?)\s*的?\s*(md5|sha1|sha256|sha512)\s*[，,。.；;：:]?\s*$", text, re.I)
     if m:
-        return "hash", {"text": m.group(2).strip(), "algorithm": m.group(1).lower()}
+        body = (m.group(2) or "").strip(" ：:，,。\"'")
+        alg = (m.group(1) or "").strip(" ：:，,。\"'").lower()
+        # 两种正则的捕获组顺序不同：句首式 group1=算法、group2=文本；
+        # 自然语序 group1=文本、group2=算法。
+        if alg not in ("md5", "sha1", "sha256", "sha512"):
+            body, alg = alg, (m.group(2) or "").strip().lower()
+        return "hash", {"text": body, "algorithm": alg}
 
-    # 自然说法「格式化这段 JSON：{...}」也要路由，不能只认句首 json。
+    # JSON：兼容「格式化这段 JSON：{...}」和「把 {...} 格式化成缩进 JSON」。
     jm = re.search(r"(?:格式化|美化|校验|压缩)\s*(?:这段|一下)?\s*(?:JSON)?\s*[:：]?\s*([\{\[].+?[\}\]])\s*$", text, re.I | re.S)
+    if not jm:
+        jm = re.search(r"(?:把|将)\s*([\{\[].+?[\}\]])\s*(?:格式化|美化|校验|压缩)", text, re.I | re.S)
     if jm:
         act = "minify" if "压缩" in jm.group(0) else "format"
         return "json_format", {"text": jm.group(1), "action": act}
-
-    # JSON
     if re.match(r"^(json)\s*(格式化|美化|校验|压缩|format)", text, re.I):
         body = re.sub(r"^json\s*(格式化|美化|校验|压缩|format)\s*[:：]?\s*", "", text, flags=re.I)
         return "json_format", {"text": body, "action": "format"}
@@ -1810,10 +1840,11 @@ def _route_general(q: str) -> tuple[str | None, dict | None]:
     if cm and re.search(r"hex|颜色|色值|转|换算", text, re.I):
         return "color", {"hex_value": ",".join(cm.groups())}
 
-    # 二维码：生成/制作 + 内容。返回 image_data_url，控制台会直接显示。
-    qm = re.search(r"(?:生成|制作|做)\s*(?:一个)?\s*二维码\s*[:：]?\s*(.+)", text, re.I)
+    # 二维码：生成/制作 + 内容。必须先匹配「把 X 生成二维码」，
+    # 否则「生成二维码。」会被当成内容，实际没拿到链接（实测）。
+    qm = re.search(r"(?:把|将)\s*(.+?)\s*(?:生成|制作|做)\s*(?:一个)?\s*二维码", text, re.I)
     if not qm:
-        qm = re.search(r"(?:把|将)\s*(.+?)\s*(?:生成|制作|做)\s*(?:一个)?\s*二维码", text, re.I)
+        qm = re.search(r"(?:生成|制作|做)\s*(?:一个)?\s*二维码\s*[:：]?\s*([^。\n]+)", text, re.I)
     if qm and qm.group(1).strip(" ：:，,。\"'"):
         return "qr_code", {"text": qm.group(1).strip(" ：:，,。\"'")}
 
@@ -1838,11 +1869,16 @@ def _route_general(q: str) -> tuple[str | None, dict | None]:
         if body not in ("这句话", "这个", "它"):
             return "translate", {"text": body, "target": lang[tm.group(2).lower()]}
 
-    # 汇率：货币对 + 汇率/换算。没有货币对时默认 USD→CNY，避免模型凭记忆编 8.70。
+    # 汇率：货币对 + 汇率/换算。没有「汇率」二字但问「100 美元等于多少人民币」
+    # 也要接住；否则模型只能凭训练数据编一个汇率。
     cur = {"美元": "USD", "美金": "USD", "人民币": "CNY", "欧元": "EUR", "日元": "JPY",
            "英镑": "GBP", "港元": "HKD", "港币": "HKD", "韩元": "KRW", "加元": "CAD",
            "澳元": "AUD", "美元指数": "USD"}
     names = "|".join(sorted(cur, key=len, reverse=True))
+    xm_eq = re.search(rf"(\d+(?:\.\d+)?)\s*({names})\s*(?:等于|是|换|兑|转|换算成|换成|值)\s*(?:多少)?\s*({names})", text, re.I)
+    if xm_eq:
+        return "exchange_rate", {"base": cur[xm_eq.group(2)], "target": cur[xm_eq.group(3)],
+                                 "amount": xm_eq.group(1)}
     xm = re.search(rf"(?:{names})\s*(?:兑|换|对|to|→|->)\s*(?:{names})", text, re.I)
     if "汇率" in text and xm:
         pair = re.findall(names, xm.group(0))
@@ -1904,7 +1940,9 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
             start, end = _original_span(q_spans, tm.start(1), tm.end(1))
             when = q[start:end].strip()
             text = q[:start] + " " + q[end:]
-            text = text.replace("提醒我", " ").replace("提醒", " ")
+            # 只剥句首的「提醒我 / 提醒」，不能全局 replace：正文里也可能有「提醒」
+            # 二字（「测试提醒触发」会被吃成「测试 触发」，已实测）。
+            text = re.sub(r"^\s*(?:请|麻烦)?(?:帮我|给我)?(?:设个?|定个?|加个?)?\s*提醒我?", " ", text)
             # 旧写法 text.strip(" ，,。.；;：: 请帮我设个") 是 bug：
             # str.strip 的字符集会从两端逐个剥离，文本末尾的「个」也会被吃掉
             # （「拿个快递」→「拿快递」）。这里只剥标点，再单独剥前缀客套话。
@@ -1914,9 +1952,23 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
             # 「明天九点的提醒，提醒我喝水」剥掉时间后剩「的提醒…」，
             # 再剥掉「提醒」就会留下孤零零的「的」。这不是正文，去掉。
             text = re.sub(r"^(?:的|地)\s*[，,。；;：:]?\s*", "", text)
+            # 「九点的提醒，提醒我喝水」在这一步还可能剩下「提醒，提醒我喝水」；
+            # 只剥正文最前面的提醒动词，不动正文内部的「提醒」二字。
+            text = re.sub(r"^\s*(?:提醒我|提醒)\s*[，,。；;：:]?\s*(?:提醒我|提醒)?\s*", "", text)
             text = text.strip(" ，,。.；;：:")
             if text:
                 return "remind", {"text": text, "when": when}
+    # 取消提醒/未来任务必须有确定性路由：2.5B 对「#5」这种编号经常
+    # 自己编一段「没有 #5」的答复，或者拖到 80 秒后才回。
+    if "取消" in q and "reminders" in enabled:
+        m = re.search(r"(?:#|编号|第\s*)(\d{1,6})\s*(?:号|个)?", q)
+        if not m:
+            m = re.search(r"取消\s*(?:提醒|任务)\s*#?\s*(\d{1,6})", q)
+        if m:
+            rid = m.group(1)
+            if "任务" in q or "future" in q.lower():
+                return "reminders", {"op": "cancel_task", "task_id": rid}
+            return "reminders", {"op": "cancel", "reminder_id": rid}
     if ("待办" in q or "提醒" in q) and ("列" in q or "有什" in q or "哪些" in q or "查看" in q) and _has("list_reminders"):
         return "list_reminders", {}
 
@@ -1945,7 +1997,9 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
     if "weather" in enabled and re.search(r"天气|气温|下雨|下雪", q):
         wm = re.search(r"([\u4e00-\u9fa5]{2,10}?)(?:今天|明天|后天|现在)?(?:的)?(?:天气|气温|下雨|下雪)", q)
         if wm:
-            return "weather", {"city": wm.group(1)}
+            city = re.sub(r"^(?:今天|明天|后天|现在|当前|今日|明日|搜索一下|搜一下|查一下|帮我查一下)\s*", "", wm.group(1)).strip()
+            if city:
+                return "weather", {"city": city}
 
     # 纯算式：只认「算一下/等于几」或整句就是算式，避免把正文里的数字当计算
     if "calc" in enabled:
@@ -2079,8 +2133,14 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
             r"(总结|读|解析|看看).{0,6}(pdf|docx?|xlsx?|文档|文件)", q, re.I) \
             and re.search(r"[A-Za-z]:[\\/]|https?://", q):
         return "parse_document", {"path": "", "url": ""}
-    if "web_search" in enabled and re.search(
-            r"(搜一下|搜搜|搜索|查一下|查查).{0,10}(新闻|资讯|最新|今天|今天有什么)", q):
+    # 只认明确的联网意图：单独的「查一下」太宽，会把
+    # 「帮我查一下根本不存在的神秘服务」也拖去搜索，掩盖本该转人工的未命中。
+    _web_verb = re.search(r"(搜一下|搜搜|搜索|联网|网上搜)", q)
+    _web_lookup = (re.search(r"(查一下|查查)", q)
+                   and re.search(r"(网上|网页|百科|资料|参数|价格|行情|官网|最新|实时)", q))
+    _web_news = re.search(r"(新闻|资讯|热搜|最新进展)", q)
+    if ("web_search" in enabled and (_web_verb or _web_lookup or _web_news)
+            and not re.search(r"提醒|待办|订单|记忆|天气|几点|时间|文件|目录|知识库", q)):
         return "web_search", {"query": q}
     if "generate_image" in enabled and re.search(
             r"(画|生成|做)(一)?(张|只|个)?.{0,6}(图|猫|狗|画)", q) \
@@ -2356,13 +2416,30 @@ def _merged_tool(name: str, meta: dict):
     """
     ops: dict[str, tuple[str, dict]] = meta["ops"]
     default_op: str = meta.get("default_op") or next(iter(ops))
+    # 2.5B 模型看到工具名 encode，会把 op 填成 encode/format 这类动词；
+    # 只认精确 op 会让工具明明被选中却返回「未知 op」。这里做输入归一化。
+    aliases = {
+        "encode": {"encode": "base64", "编码": "base64", "加密": "base64", "b64": "base64",
+                   "decode": "base64", "解码": "base64", "解析": "base64",
+                   "hash": "hash", "摘要": "hash", "md5": "hash", "sha": "hash",
+                   "sha1": "hash", "sha256": "hash", "sha512": "hash"},
+        "format_text": {"format": "json", "格式化": "json", "美化": "json", "校验": "json",
+                        "压缩": "json", "json": "json", "regex": "regex", "正则": "regex"},
+        "random": {"random": "pick", "抽签": "pick", "抽取": "pick", "选": "pick",
+                   "pick": "pick", "password": "password", "密码": "password"},
+        "reminders": {"future": "future", "tasks": "tasks", "cancel_task": "cancel_task",
+                      "list": "list", "cancel": "cancel"},
+        "now": {"time": "now", "时间": "now", "now": "now", "convert": "convert",
+                "转换": "convert"},
+    }.get(name, {})
     hidden = set(meta.get("hide_from_child") or ())
 
     async def run(ctx: ToolContext, **kw) -> dict:
-        op = str(kw.get("op") or default_op).strip()
+        raw_op = str(kw.get("op") or default_op).strip()
+        op = aliases.get(raw_op.lower(), raw_op)
         child = ops.get(op)
         if child is None:
-            return miss_result(name, f"未知 op「{op}」，可用：{'/'.join(ops)}")
+            return miss_result(name, f"未知 op「{raw_op}」，可用：{'/'.join(ops)}")
         child_name, rename = child
         if rename:
             args = {dst: kw[src] for dst, src in rename.items()

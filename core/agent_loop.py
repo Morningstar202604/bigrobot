@@ -171,6 +171,7 @@ async def run_agent(
     budget: dict | None = None,
     cancel_event=None,
     run_id: str | None = None,
+    allowed_tool_names: set[str] | None = None,
 ) -> RunResult:
     """执行一次多步任务。
 
@@ -189,6 +190,8 @@ async def run_agent(
     steps: list[StepOutcome] = []
     repeated: dict[str, int] = {}
     tools = available_tools(principal)
+    if allowed_tool_names:
+        tools = [t for t in tools if t["name"] in allowed_tool_names]
     messages = [
         {"role": "system", "content": build_system_prompt(principal, tools, budget)},
         {"role": "user", "content": goal},

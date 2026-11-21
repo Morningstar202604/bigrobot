@@ -93,9 +93,9 @@ def test_test_models_are_separate_from_user_choices():
     from core import local_models
 
     production = [m for m in local_models.CATALOG if not m.get("test_only")]
-    assert [m["id"] for m in production] == ["qwen3.5-9b", "qwen3.5-4b", "qwen3.5-2b"]
+    assert [m["id"] for m in production] == ["qwen3.5-9b", "qwen3.5-4b", "minicpm5-2b"]
     assert "minicpm5-1b" in [m["id"] for m in local_models.CATALOG if m.get("test_only")]
-    assert local_models.CATALOG[2]["params_b"] == 2.0
+    assert local_models.CATALOG[2]["params_b"] == 2.5
 
 
 async def test_ocr_reads_an_uploaded_image():

@@ -12,7 +12,7 @@ The catalog separates user-selectable models from test fixtures. The console doe
 |---|---|---|---|
 | Qwen3.5-9B | 9B / Q4_K_M | 256K | 16GB RAM tier; daily driver, code, long documents and complex tools. |
 | Qwen3.5-4B | 4B / Q4_K_M | 256K | 8GB RAM tier; general-purpose pick. |
-| Qwen3.5-2B | 2B / Q4_K_M | 256K | True 2B option for 4GB RAM; Q4 file about 1.28GB. |
+| MiniCPM5-2B | 2B-class / Q4_K_M (2.52B total) | 128K | 2B-class option for 4GB RAM; Q4 about 1.56GB, meant for full-feature validation. |
 | MiniCPM5-1B | 1.08B / Q4_K_M | 128K | Capability testing and low-spec validation only; not a built-in recommendation. |
 | BotPsy-0.8B | 0.8B / Q4_K_M | 256K | Tool-call regression fixture. |
 | Qwen3.5-0.8B | 0.8B / Q4_K_M | 256K | Original baseline fixture. |

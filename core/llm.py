@@ -924,7 +924,12 @@ async def react_stream(query: str, ctx: dict, cfg: dict, image_b64: str = ""):
                         yield {"type": "delta", "text": data}
                         continue
                     xml_gate += data
-                    if "<tool_call" in xml_gate or xml_gate.lstrip().startswith("<function="):
+                    if ("<tool_call" in xml_gate
+                            or xml_gate.lstrip().startswith("<function=")
+                            # MiniCPM5 的 llama.cpp 模板会把工具调用吐成裸
+                            # `name="now"> name="op">now`，不是 XML 标签；
+                            # 不拦就会让用户在打字机里看到工具调用原文。
+                            or re.match(r"\s*name=[\"']", xml_gate)):
                         xml_tool = True
                     elif len(xml_gate) >= 24 or "\n" in xml_gate:
                         stream_started = True
@@ -1110,6 +1115,12 @@ def _parse_llm_answer(raw: str) -> dict | None:
         return None
     if not isinstance(data, dict):
         return None
+    # 模型可能把用户要的 JSON 本体直接吐出来（例如格式化 {"a":1}）。
+    # 这不是决策对象，不能因为缺 answer/tool 就判失败。
+    decision_keys = {"thought", "tool", "answer", "citations", "confidence",
+                     "escalate", "escalate_reason", "tool_args"}
+    if not (decision_keys & set(data.keys())):
+        return {"answer": raw, "confidence": 0.62, "citations": [], "escalate": False}
     # 工具调用决策的 answer 本来就是空的（要先执行工具再回答）。
     # 旧逻辑把空 answer 一律判失败，导致「模型选了工具」被当成「模型没说话」，
     # 整条备援链把 u2-flash 标成 empty 并冷却 120 秒（实测日志：candidate failed (empty)）。

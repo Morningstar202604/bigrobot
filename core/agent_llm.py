@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from core.http_pool import get_client
 
@@ -127,6 +128,22 @@ def _parse_content(content: str) -> dict:
         if text.lower().startswith("json"):
             text = text[4:]
         text = text.strip()
+    # MiniCPM5 在 llama.cpp 下经常把工具调用吐成裸 XML：
+    #   name="fs.list"> name="path">/tmp
+    # 不是 OpenAI tool_calls。第一个 name 是工具名，后面的 name=value
+    # 是参数；不解析就会把工具名当最终答复，或参数为空。
+    matches = list(re.finditer(r'\bname\s*=\s*["\']([^"\']+)["\']\s*>', text))
+    if matches:
+        tool = matches[0].group(1).strip()
+        args = {}
+        for i in range(1, len(matches)):
+            arg = matches[i].group(1).strip()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+            value = text[matches[i].end():end].strip().strip('"\'').strip()
+            if arg:
+                args[arg] = value
+        return {"thought": "", "tool": tool, "args": args,
+                "final": "", "finish_reason": "tool_calls"}
     try:
         decision = json.loads(text)
     except json.JSONDecodeError:
@@ -163,6 +180,11 @@ async def call_llm(messages: list[dict], tools: list[dict], timeout_s: float = 6
     api_key, base, model = _creds()
     if not api_key or not base:
         raise RuntimeError("LLM 未配置（缺少 api_key 或 base_url）")
+    # 本地 2.5B 在 2 核机器上跑完整 27 工具 schema，prompt eval 可能 100s+；
+    # 60s 默认超时会把 Agent 多步任务误判成「模型调用失败」。本地端点给足 180s。
+    from core import config
+    if (config.get_config().get("llm") or {}).get("local_model_id"):
+        timeout_s = max(timeout_s, 180.0)
 
     messages = _trim_messages(messages)
     payload: dict = {

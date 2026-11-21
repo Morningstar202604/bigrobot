@@ -144,6 +144,15 @@ async def lifespan(app: FastAPI):
             "CHANNEL_TOKEN 未设置：/v1/ingest 与网关心跳已禁用（503）。生产部署必须设置。"
         )
     app.state.limiter = ratelimit.SQLiteRateLimiter()
+    # 本地模型是主进程的子进程；重启后按已保存的 local_model_id 自动拉回，
+    # 否则 config 还指着死掉的 18082，用户一聊天就超时。
+    try:
+        _local_resume = local_models.resume_server()
+        if _local_resume.get("resumed"):
+            logger.info("local model resumed: %s on %s", _local_resume.get("model_id"),
+                        _local_resume.get("base_url"))
+    except Exception as exc:  # noqa: BLE001 - 模型恢复失败不能阻塞控制台启动
+        logger.warning("local model resume failed: %s: %s", type(exc).__name__, str(exc)[:200])
 
     # 提醒调度：到点主动推回原渠道（QQ 群/私聊 or 网页会话）
     from core import future_tasks, reminders
@@ -162,6 +171,11 @@ async def lifespan(app: FastAPI):
                 await asyncio.wait_for(task, timeout=5)
             except (asyncio.TimeoutError, asyncio.CancelledError):
                 task.cancel()
+    # 退出时先停本地模型，避免它变成孤儿进程继续占内存。
+    try:
+        local_models.stop_server()
+    except Exception:
+        pass
     # 退出时关闭共享 HTTP 连接池，避免资源泄漏
     try:
         from core import http_pool
@@ -2041,6 +2055,14 @@ def create_app() -> FastAPI:
         if not body.goal.strip():
             raise HTTPException(400, "任务目标不能为空")
         agent_token = os.environ.get("AGENT_TOKEN", "").strip()
+        _agent_cfg = config.get_config()
+        _local_agent = local_models.small_model_mode(_agent_cfg)
+        # 2 核机器上给 2.5B 看 41 个动作会 prompt eval 到 180s 以上；
+        # 本地只开放只读、少而稳的一套，避免多步任务第一步就 ReadTimeout。
+        _local_actions = ({"now", "get_status", "get_group_list", "get_group_info",
+                           "get_group_member_list", "get_group_msg_history",
+                           "get_group_file_list", "fs.list", "fs.read"}
+                         if _local_agent else None)
         trusted = (
             (bool(security.admin_token()) and security.constant_time_equals(
                 x_admin_token, security.admin_token()))
@@ -2082,6 +2104,7 @@ def create_app() -> FastAPI:
                     budget=budget or None,
                     cancel_event=cancel,
                     run_id=run_id,
+                    allowed_tool_names=_local_actions,
                 )
             finally:
                 app.state.run_cancels.pop(run_id, None)

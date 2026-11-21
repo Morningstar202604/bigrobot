@@ -446,3 +446,17 @@ def test_api_cancel_running_background_task(client, monkeypatch):
     n_after = calls["n"]
     _t.sleep(0.4)
     assert calls["n"] == n_after, "取消后仍继续调用模型"
+
+
+def test_parse_minicpm_bare_tool_call_with_args():
+    """MiniCPM5 在 llama.cpp 下吐裸 XML，而不是 OpenAI tool_calls。"""
+    from core.agent_llm import _parse_content
+
+    d = _parse_content(' name="fs.list"> name="path">/tmp')
+    assert d["tool"] == "fs.list"
+    assert d["args"] == {"path": "/tmp"}
+    assert d["final"] == ""
+
+    d = _parse_content('name="now">')
+    assert d["tool"] == "now"
+    assert d["args"] == {}

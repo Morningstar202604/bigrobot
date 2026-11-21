@@ -30,7 +30,6 @@ import re
 import secrets
 import string
 import time
-import urllib.parse
 from datetime import datetime, timezone
 
 from core.tool_result import miss_result, need_ctx, off_result, ok_result
@@ -70,6 +69,9 @@ def _norm_unit(u: str) -> str:
 
 def _temp_convert(value: float, src: str, dst: str) -> float | None:
     """温度换算：先统一到摄氏度再转出。"""
+    # 归一化后中文单位会变成「摄氏 / 华氏 / 开尔文」，不能只认 c/f/k。
+    alias = {"c": "c", "摄氏": "c", "f": "f", "华氏": "f", "k": "k", "开尔文": "k"}
+    src, dst = alias.get(src, src), alias.get(dst, dst)
     to_c = {"c": lambda v: v, "f": lambda v: (v - 32) * 5 / 9, "k": lambda v: v - 273.15}
     from_c = {"c": lambda v: v, "f": lambda v: v * 9 / 5 + 32, "k": lambda v: v + 273.15}
     if src not in to_c or dst not in from_c:
@@ -158,7 +160,9 @@ def tool_timestamp(value: str = "", action: str = "", **_kw) -> dict:
 
 def tool_base64(text: str = "", action: str = "encode", **_kw) -> dict:
     """Base64 编码 / 解码。"""
-    raw = text or ""
+    raw = (text or "").strip()
+    # 模型常把「，只给结果」「。别解释」一起塞进 text；这些是指令不是载荷。
+    raw = re.split(r"[，,。]\s*(?:只给|只回答|只输出|只返回|不要|别|结果)", raw)[0].strip()
     if not raw:
         return need_ctx("base64", "要处理的文本")
     act = (action or "encode").strip().lower()
@@ -246,6 +250,10 @@ def tool_random_pick(items: str = "", count: str = "1", **_kw) -> dict:
     raw = (items or "").strip()
     if not raw:
         return need_ctx("random_pick", "候选列表（用逗号或换行分隔）")
+    # 中文列举常用「A、B和C」；已有逗号/顿号时把「和/与/及」也当分隔符，
+    # 否则「苹果、香蕉和橘子」会变成两个候选「苹果」「香蕉和橘子」。
+    if re.search(r"[,，、\n]", raw):
+        raw = re.sub(r"[和与及]", "、", raw)
     pool = [x.strip() for x in re.split(r"[,\n，、]", raw) if x.strip()]
     if not pool:
         return need_ctx("random_pick", "候选列表")
@@ -315,42 +323,109 @@ def tool_color(hex_value: str = "", **_kw) -> dict:
 
 # ---------------------------------------------------------------- 网络类
 
+_WMO_ZH = {
+    0: "晴", 1: "大部晴朗", 2: "多云", 3: "阴", 45: "雾", 48: "霜雾",
+    51: "小毛毛雨", 53: "毛毛雨", 55: "大毛毛雨",
+    56: "冻毛毛雨", 57: "强冻毛毛雨", 61: "小雨", 63: "中雨", 65: "大雨",
+    66: "冻雨", 67: "强冻雨", 71: "小雪", 73: "中雪", 75: "大雪",
+    77: "雪粒", 80: "小阵雨", 81: "阵雨", 82: "强阵雨",
+    85: "小阵雪", 86: "强阵雪", 95: "雷阵雨", 96: "雷阵雨伴冰雹",
+    99: "强雷阵雨伴冰雹",
+}
+
+
+def _weather_desc(code) -> str:
+    try:
+        return _WMO_ZH.get(int(code), "未知天气")
+    except (TypeError, ValueError):
+        return "未知天气"
+
+
 async def tool_weather(city: str = "", **_kw) -> dict:
-    """查天气（wttr.in，无需 API Key）。"""
+    """查天气：Open-Meteo 地理编码 + 预报，按城市坐标取数。
+
+    不能把中文城市名直接丢给 wttr.in：它会把「今天潮州」地理编码到
+    同名的村/镇（实测返回 Wangdingdi、-0°C），城市级天气完全错位。
+    先用 Open-Meteo 的 geocoding 拿到市/县坐标，再用坐标查预报。
+    """
     name = (city or "").strip()
+    # 路由可能把「今天/明天」一起带进来，城市名只保留地名本身。
+    name = re.sub(r"^(今天|明天|后天|现在|当前|今日|明日)\s*", "", name).strip()
     if not name:
         return need_ctx("weather", "要查的城市名")
     from core.http_pool import get_client
 
+    lat = lon = None
+    area_name = name
+    admin = ""
     try:
         client = get_client(timeout=15)
-        r = await client.get(f"https://wttr.in/{urllib.parse.quote(name)}?format=j1&lang=zh")
+        g = await client.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": name, "count": 1, "language": "zh", "format": "json"},
+        )
+        g.raise_for_status()
+        rows = (g.json() or {}).get("results") or []
+        # 中文地级市常被官方库登记为「潮州市」；只写「潮州」会查不到，
+        # 补一个「市」再查一次，不能把城市级查询降级成乡镇。
+        if not rows and re.fullmatch(r"[\u4e00-\u9fa5]{2,6}", name) and not name.endswith("市"):
+            g = await client.get(
+                "https://geocoding-api.open-meteo.com/v1/search",
+                params={"name": name + "市", "count": 1, "language": "zh", "format": "json"},
+            )
+            g.raise_for_status()
+            rows = (g.json() or {}).get("results") or []
+        if rows:
+            first = rows[0]
+            lat, lon = first.get("latitude"), first.get("longitude")
+            area_name = str(first.get("name") or name)
+            admin = str(first.get("admin1") or "")
+    except Exception as e:  # noqa: BLE001
+        return miss_result("weather", f"天气服务暂时不可用（{type(e).__name__}），稍后再试")
+    if lat is None or lon is None:
+        return miss_result("weather", f"没有找到「{name}」的天气站点，换个更具体的城市名再试。")
+
+    try:
+        client = get_client(timeout=15)
+        r = await client.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": lat, "longitude": lon,
+                "current": "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min",
+                "timezone": "auto", "forecast_days": 3,
+            },
+        )
         r.raise_for_status()
         data = r.json()
-    except Exception as e:  # noqa: BLE001 - 外部服务失败要如实说
+    except Exception as e:  # noqa: BLE001
         return miss_result("weather", f"天气服务暂时不可用（{type(e).__name__}），稍后再试")
     try:
-        cur = (data.get("current_condition") or [{}])[0]
-        desc = (cur.get("lang_zh") or cur.get("weatherDesc") or [{}])[0].get("value", "")
-        temp = cur.get("temp_C", "?")
-        feels = cur.get("FeelsLikeC", "?")
-        humidity = cur.get("humidity", "?")
-        wind = cur.get("windspeedKmph", "?")
-        area = (data.get("nearest_area") or [{}])[0]
-        area_name = (area.get("areaName") or [{}])[0].get("value", name)
-        days = data.get("weather") or []
+        cur = data.get("current") or {}
+        desc = _weather_desc(cur.get("weather_code"))
+        temp = cur.get("temperature_2m", "?")
+        feels = cur.get("apparent_temperature", "?")
+        humidity = cur.get("relative_humidity_2m", "?")
+        wind = cur.get("wind_speed_10m", "?")
+        daily = data.get("daily") or {}
+        dates = daily.get("time") or []
+        codes = daily.get("weather_code") or []
+        highs = daily.get("temperature_2m_max") or []
+        lows = daily.get("temperature_2m_min") or []
         forecast = []
-        for d in days[:3]:
-            if not isinstance(d, dict):
+        for i, day in enumerate(dates[:3]):
+            try:
+                forecast.append(
+                    f"{day} {lows[i]}~{highs[i]}°C {_weather_desc(codes[i])}"
+                )
+            except (IndexError, TypeError):
                 continue
-            forecast.append(
-                f"{d.get('date', '')} {d.get('mintempC', '?')}~{d.get('maxtempC', '?')}°C "
-                f"{(d.get('hourly') or [{}])[0].get('lang_zh', [{'value': ''}])[0].get('value', '')}"
-            )
-        note = f"{area_name}：{desc}，{temp}°C（体感 {feels}°C），湿度 {humidity}%，风速 {wind}km/h"
+        where = f"{area_name}{('·' + admin) if admin and admin != area_name else ''}"
+        note = f"{where}：{desc}，{temp}°C（体感 {feels}°C），湿度 {humidity}%，风速 {wind}km/h"
         if forecast:
             note += "\n未来几天：\n" + "\n".join(forecast)
-        return ok_result("weather", note, temp_c=temp, desc=desc, forecast=forecast)
+        return ok_result("weather", note, temp_c=temp, desc=desc, forecast=forecast,
+                         latitude=lat, longitude=lon)
     except (KeyError, IndexError, TypeError):
         return miss_result("weather", "天气服务返回了无法解析的数据")
 

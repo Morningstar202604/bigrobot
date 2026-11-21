@@ -409,6 +409,20 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
                 mode="rule_react", tool_used="ocr", tool_result=res,
                 escalate=False, ctx_used=ctx.get("used"))
 
+    # 「9.11 和 9.9 哪个大」这类比较不要让 2.5B 自己算：它会把差值正负看反，
+    # 也会在 8K 上下文里绕 100 秒。数值比较是确定性事实，直接算。
+    cmp = re.search(r"([-+]?\d+(?:\.\d+)?)\s*(?:和|与|跟|比|vs)\s*([-+]?\d+(?:\.\d+)?)\s*(?:哪个|谁|哪一个)?\s*(?:更)?\s*(大|小)", q)
+    if cmp:
+        from decimal import Decimal
+        try:
+            a, b = Decimal(cmp.group(1)), Decimal(cmp.group(2))
+            pick = a if (a > b) == (cmp.group(3) == "大") else b
+            text = f"{pick} 更{cmp.group(3)}。"
+            return AgentReply(text=text, confidence=0.95, mode="rule_react",
+                              ctx_used=ctx.get("used"))
+        except Exception:
+            pass
+
     name, args = None, None
     # 搜索交给 _llm_answer 的 ReAct 链路：那里会在工具返回后再让本地模型
     # 用两三句归纳；_direct_tool 直接返回 note 会把标题、摘要、URL 原样倒给用户。
@@ -423,8 +437,9 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
                 name, args = "recall_memory", {"key": key}
     if not name:
         name, args = tools_mod.detect_tool(q, ctx["tools"])
-    if name == "web_search" and local_models.small_model_mode(cfg):
-        name, args = None, None
+    # 显式「搜一下/新闻/最新」交给 web_search 直接执行。此前把 web_search
+    # 从 direct 路径踢回 ReAct，2.5B 经常不选工具、反而答「我没有实时信息」，
+    # 用户看到的是功能明明装了却不能用。只在明确搜索意图时命中，闲聊不受影响。
     if not name:
         m = _REMEMBER_RE.match(q)
         if m and "remember" in ctx["tools"]:

@@ -25,7 +25,7 @@ def _tiny_server(payload: bytes):
 def test_catalog_has_production_and_test_tiers():
     production = [m for m in local_models.CATALOG if not m.get("test_only")]
     tests = [m for m in local_models.CATALOG if m.get("test_only")]
-    assert [m["id"] for m in production] == ["qwen3.5-9b", "qwen3.5-4b", "qwen3.5-2b"]
+    assert [m["id"] for m in production] == ["qwen3.5-9b", "qwen3.5-4b", "minicpm5-2b"]
     assert tests and all(m["params_b"] < 2.0 for m in tests)
     for item in local_models.CATALOG:
         assert item["context"] >= 131_072
@@ -114,7 +114,7 @@ def test_reminder_uses_user_original_text_not_model_args():
 def test_fit_labels_follow_detected_ram():
     sysinfo = {"os": "Linux", "arch": "x86_64", "cpu": "test", "cpu_cores": 2,
                "ram_gb": 3.9, "gpu": "", "vram_gb": 0.0, "unified_memory": False}
-    item_2b = next(m for m in local_models.CATALOG if m["id"] == "qwen3.5-2b")
+    item_2b = next(m for m in local_models.CATALOG if m["id"] == "minicpm5-2b")
     item_4b = next(m for m in local_models.CATALOG if m["id"] == "qwen3.5-4b")
     assert local_models._fit_label(item_2b, sysinfo)["state"] == "ok"
     assert local_models._fit_label(item_4b, sysinfo)["state"] == "no"
@@ -124,8 +124,10 @@ def test_large_local_models_do_not_run_in_compact_mode():
     assert local_models.small_model_mode({
         "llm": {"base_url": "http://127.0.0.1:18080/v1", "local_model_id": "qwen3.5-4b"}
     }) is False
+    # MiniCPM5-2B 在 4GB/2 核机器上仍走精简提示：27 个工具的长 prompt 会把
+    # prompt eval 拖到 100 秒。结构化能力由确定性路由兜底。
     assert local_models.small_model_mode({
-        "llm": {"base_url": "http://127.0.0.1:18080/v1", "local_model_id": "qwen3.5-2b"}
+        "llm": {"base_url": "http://127.0.0.1:18080/v1", "local_model_id": "minicpm5-2b"}
     }) is True
     assert local_models.small_model_mode({
         "llm": {"base_url": "http://127.0.0.1:18080/v1", "local_model_id": "minicpm5-1b"}
@@ -141,4 +143,4 @@ def test_overview_does_not_force_a_recommendation(monkeypatch, tmp_path):
     d = local_models.overview()
     assert "recommendation" not in d
     assert not any(m.get("recommended") for m in d["models"])
-    assert any(m["id"] == "qwen3.5-2b" and m["test_only"] is False for m in d["models"])
+    assert any(m["id"] == "minicpm5-2b" and m["test_only"] is False for m in d["models"])

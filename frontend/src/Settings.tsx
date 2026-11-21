@@ -41,7 +41,7 @@ const TAB_GROUPS: { group: string; items: { key: string; icon: React.ReactNode; 
     group: '模型与推理',
     items: [
       { key: 'providers', icon: <Plug size={15} />, label: '模型厂商', sub: '地址 + Key 自动检测模型与能力 · 三协议' },
-      { key: 'local', icon: <Cpu size={15} />, label: '本地模型', sub: '推荐 / 下载 / 一键启用 · 2B 以下' },
+      { key: 'local', icon: <Cpu size={15} />, label: '本地模型', sub: '目录 / 下载 / 一键启用 · 用户自选' },
       { key: 'params', icon: <SlidersHorizontal size={15} />, label: '能力参数', sub: '模型 / 检索 / 上下文 / 记忆 / 引擎' },
     ],
   },
