@@ -324,7 +324,7 @@ export default function OperatorDesk() {
 
   return (
     <div className={`op-app ${isMobile ? 'op-app-mobile' : ''} ${isMobile && active ? 'show-dialog' : ''}`}
-      style={{ height: 'calc(100dvh - 170px)', minHeight: 420 }}>
+      style={isMobile ? undefined : { height: 'calc(100dvh - 170px)', minHeight: 420 }}>
       <section className="op-pane op-left">
         <div className={`op-left-head ${isMobile ? 'op-left-head-mobile' : ''}`}>
           <div className="op-conn">

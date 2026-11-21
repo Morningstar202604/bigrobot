@@ -362,7 +362,7 @@ export function GuardrailPanel() {
         </div>
       </div>
 
-      <div className="tbl-wrap">
+      <div className="tbl-wrap guardrail-table">
         <table className="dt">
           <thead><tr><th>#</th><th>{tr('表达式')}</th><th>{tr('动作')}</th><th>{tr('启用')}</th><th></th></tr></thead>
           <tbody>
@@ -385,6 +385,24 @@ export function GuardrailPanel() {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="guardrail-cards">
+        {rules.map((r) => (
+          <div className="guardrail-card" key={r.id}>
+            <div className="guardrail-card-head">
+              <span className="guardrail-card-id">#{r.id}</span>
+              <button className={`badge ${r.action === 'block' ? 'danger' : 'warn'}`} onClick={() => rm.update.mutate({ ...r, action: r.action === 'block' ? 'log_only' : 'block' })}>
+                {r.action === 'block' ? tr('拦截') : tr('仅记录')}
+              </button>
+              <label className="guardrail-card-toggle">
+                <input type="checkbox" checked={r.enabled} onChange={(e) => rm.update.mutate({ ...r, enabled: e.target.checked })} />
+                {tr('启用')}
+              </label>
+              <button className="btn ghost sm" aria-label={tr('删除规则')} title={tr('删除规则')} onClick={() => rm.remove.mutate(r.id)}><Trash2 size={13} /></button>
+            </div>
+            <div className="guardrail-card-expr">{r.expr}</div>
+          </div>
+        ))}
       </div>
       {rm.create.isError || rm.update.isError ? <div className="mt-2"><ErrorBanner message={(rm.create.error || rm.update.error || new Error()).message} onRetry={() => refetch()} /></div> : null}
     </div>

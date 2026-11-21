@@ -385,6 +385,8 @@ table.dt .raw { max-width: 300px; overflow: hidden; text-overflow: ellipsis; whi
   .kc-actions { opacity: 1; }
 }
 
+.guardrail-cards { display: none; }
+
 .page-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   margin-bottom: 18px; gap: 12px; flex-wrap: wrap;
@@ -396,7 +398,10 @@ table.dt .raw { max-width: 300px; overflow: hidden; text-overflow: ellipsis; whi
 @media (max-width: 960px) {
   .op-app { grid-template-columns: 1fr; height: 100%; min-height: 0; }
   .op-app-mobile {
-    height: calc(100dvh - 52px);
+    /* 移动端页头（大标题 + 页内 tabs）约 134px，加上顶栏 52px；
+       index.css 对根节点做了 1.12 倍整体缩放，所以再除回去，
+       否则列表底部会多出约 100px 的页面滚动。 */
+    height: calc((100dvh - 192px) / 1.12);
     min-height: 0; overflow: hidden;
     display: grid;
     grid-template-rows: minmax(0, 42%) minmax(0, 1fr);
@@ -410,7 +415,12 @@ table.dt .raw { max-width: 300px; overflow: hidden; text-overflow: ellipsis; whi
   .op-app-mobile .op-left-head { padding: 10px 12px; }
   .op-app-mobile .op-list { padding: 8px; }
   .op-app-mobile .op-dialog { padding: 14px; }
-  .op-app-mobile .op-foot { padding: 10px 12px 12px; }
+  .op-app-mobile .op-foot { padding: 10px 12px 12px; flex-wrap: wrap; gap: 6px; }
+  /* 快捷话术占满一行，输入框和回复按钮留在下一行；否则 390px 宽度下
+     CannedBar 的固有宽度会把 textarea/按钮挤成竖条。 */
+  .op-app-mobile .op-foot .canned-bar { flex: 1 1 100%; margin-bottom: 2px; }
+  .op-app-mobile .op-foot textarea { flex: 1 1 0; min-width: 0; }
+  .op-app-mobile .op-foot .btn { flex: 0 0 auto; }
 
   .set-app { grid-template-columns: 1fr; height: 100%; min-height: 0; }
   .set-app-mobile {
@@ -435,6 +445,21 @@ table.dt .raw { max-width: 300px; overflow: hidden; text-overflow: ellipsis; whi
 }
 
 @media (max-width: 640px) {
+  /* 注入规则：宽表在 390px 下只能横向拖动，看不到右侧动作/开关。
+     手机改成逐条卡片，表达式直接换行完整显示。 */
+  .guardrail-table { display: none; }
+  .guardrail-cards { display: flex; flex-direction: column; gap: 8px; }
+  .guardrail-card {
+    background: var(--panel); border: 1px solid var(--line-2);
+    border-radius: var(--r-md); padding: 10px 12px;
+  }
+  .guardrail-card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .guardrail-card-id { color: var(--muted); font-size: 12px; margin-right: auto; }
+  .guardrail-card-toggle { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); min-height: 36px; }
+  .guardrail-card-expr {
+    margin-top: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; line-height: 1.55; overflow-wrap: anywhere;
+  }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .f-row { flex-wrap: wrap; }
   .f-row .f-lb { flex-basis: 100%; }
@@ -613,8 +638,18 @@ table.dt .raw { max-width: 300px; overflow: hidden; text-overflow: ellipsis; whi
 @media (max-width: 960px) {
   .op-app-mobile { grid-template-rows: minmax(0, 1fr) !important; }
   .op-app-mobile .op-right { display: none; }
+  .op-app-mobile.show-dialog {
+    /* 打开会话后占满视口；页面头部（标题 + tabs）让位给对话，
+       否则 390px 高度下回复框会被顶到屏幕外。 */
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    height: auto !important;
+    min-height: 0;
+    background: var(--bg);
+  }
   .op-app-mobile.show-dialog .op-left { display: none; }
-  .op-app-mobile.show-dialog .op-right { display: flex; }
+  .op-app-mobile.show-dialog .op-right { display: flex; height: 100%; }
 }
 
 /* 手机端坐席对话头：按钮多时换行，不能把标题挤成两行 */
