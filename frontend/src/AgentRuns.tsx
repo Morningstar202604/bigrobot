@@ -12,7 +12,6 @@ import TokenGate from './components/TokenGate'
 import { ACTION_LABEL, label } from './lib/labels'
 import './pages2.css'
 import { t } from './lib/t'
-import ActionsCenter from './ActionsCenter'
 
 const STATUS_LABEL: Record<string, string> = {
   running: '运行中',
@@ -103,7 +102,6 @@ function StepCard({ step }: { step: { id: number; step_no: number; thought: stri
 }
 
 export default function AgentRuns() {
-  const [view, setView] = useState<'agent' | 'actions'>('agent')
   const [goal, setGoal] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const runs = useAgentRuns()
@@ -141,20 +139,14 @@ export default function AgentRuns() {
   return (
     <div className="p-4 md:p-6 max-w-[1400px] mx-auto w-full space-y-4 pb-24 md:pb-10">
       <PageHead
-        title={t('运行记录')}
-        sub={t('让 Agent 用多步工具调用完成一个目标 · 每步的思考与观察都可回放')}
+        title={t('Agent 任务')}
+        sub={t('用多步工具调用完成一个目标 · 每步的思考与观察都可回放')}
         right={
           <div className="flex items-center gap-2">
-            <button className={`mod-toggle ${view === 'agent' ? 'on' : ''}`}
-              onClick={() => setView('agent')}>{t('Agent 任务')}</button>
-            <button className={`mod-toggle ${view === 'actions' ? 'on' : ''}`}
-              onClick={() => setView('actions')}>{t('动作审计')}</button>
             <button className="btn ghost sm" onClick={() => runs.refetch()} title={t('立即刷新')}><RefreshCw size={13} /></button>
           </div>
         }
       />
-      {view === 'actions' && <ActionsCenter />}
-      {view === 'agent' && (
       <>
 
 
@@ -282,7 +274,6 @@ export default function AgentRuns() {
         </div>
       )}
       </>
-      )}
     </div>
   )
 }

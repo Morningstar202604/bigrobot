@@ -9,10 +9,10 @@ export default function Observe() {
   return (
     <ConsoleTabs
       title={t('观测')}
-      sub={t('任务轨迹、运行日志与审计')}
+      sub={t('任务轨迹、运行日志与渠道事件')}
       tabs={[
         { key: 'runs', label: 'Agent 任务', render: () => <AgentRuns /> },
-        { key: 'logs', label: '日志与审计', render: () => <LogsCenter /> },
+        { key: 'logs', label: '运行日志', render: () => <LogsCenter /> },
         { key: 'events', label: '渠道事件', render: () => <ChannelEvents /> },
       ]}
     />
