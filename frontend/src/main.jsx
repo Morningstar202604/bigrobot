@@ -45,6 +45,9 @@ export default function App() {
               <ErrorBoundary>
               <Routes>
                 <Route path="/" element={<VisitorChat />} />
+                {/* 角色三入口合并后的兼容：旧子路由回到角色工作台的对应子页 */}
+                <Route path="/capabilities/persona-caps" element={<Navigate to="/capabilities?view=persona&role=caps" replace />} />
+                <Route path="/capabilities/cards" element={<Navigate to="/capabilities?view=persona&role=cards" replace />} />
                 <Route path="/instances" element={<Instances />} />
                 <Route path="/sessions" element={<Sessions />} />
                 <Route path="/capabilities/:tab" element={<Capabilities />} />
@@ -55,6 +58,8 @@ export default function App() {
                 <Route path="/reminders" element={<Reminders />} />
                 {/* 旧入口一版重定向：必须放在 /settings/:tab 之前，否则会被动态段吞掉 */}
                 <Route path="/settings/kb" element={<Navigate to="/capabilities/kb" replace />} />
+                <Route path="/settings/cards" element={<Navigate to="/capabilities?view=persona&role=cards" replace />} />
+                <Route path="/settings/persona-caps" element={<Navigate to="/capabilities?view=persona&role=caps" replace />} />
                 <Route path="/operator" element={<Navigate to="/sessions?view=workbench" replace />} />
                 <Route path="/persona" element={<Navigate to="/capabilities?view=persona" replace />} />
                 <Route path="/annotations" element={<Navigate to="/sessions?view=annotate" replace />} />

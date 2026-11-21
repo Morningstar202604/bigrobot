@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
-  Bot, Save, RotateCcw, Zap, Send, Check, Loader2, FlaskConical,
+  Bot, Save, RotateCcw, Send, Check, Loader2, FlaskConical,
   Trash2, BookOpen,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -166,69 +167,6 @@ function CardViewer({ preset, onClose }: { preset: { id: string; name: string };
   )
 }
 
-
-/* ============ LLM 提供商管理（AstrBot 多提供商对标）：
-   保存 base_url+model 档案（Key 只跟随当前激活配置），一键切换 ============ */
-function ProviderPanel({ draft, patch }: { draft: AgentConfig; patch: (fn: (d: AgentConfig) => void) => void }) {
-  const providers = draft.llm.providers || []
-  const isCurrent = (p: { base_url: string; model: string }) =>
-    p.base_url === draft.llm.base_url && p.model === draft.llm.model
-
-  const saveCurrent = () => {
-    const name = `${draft.llm.model} @ ${new URL(draft.llm.base_url).host}`
-    if (providers.some((p) => p.name === name)) return
-    patch((d) => {
-      d.llm.providers = [...(d.llm.providers || []), { name, base_url: d.llm.base_url, model: d.llm.model }]
-    })
-  }
-  const apply = (p: { name: string; base_url: string; model: string }) =>
-    patch((d) => { d.llm.base_url = p.base_url; d.llm.model = p.model })
-  const remove = (name: string) =>
-    patch((d) => { d.llm.providers = (d.llm.providers || []).filter((p) => p.name !== name) })
-  const setKey = (name: string, v: string) =>
-    patch((d) => { const t = (d.llm.providers || []).find((x) => x.name === name); if (t) t.api_key = v })
-
-  return (
-    <section className="bp-sec">
-      <div className="bp-sec-head">
-        <h2>{t('LLM 提供商')}</h2>
-        <span>{t('备援链随行待命：主模型挂了自动切下一个；同站点未填 Key 自动沿用主 Key，异站需填自己的 Key')}</span>
-      </div>
-      <div className="bp-roles">
-        {providers.map((p) => (
-          <div key={p.name} className={`bp-role ${isCurrent(p) ? 'bp-role-on' : ''}`}>
-            <div className="bp-role-main" onClick={() => apply(p)} title={t('切换到此提供商')}>
-              <b>{p.name}{isCurrent(p) && '（当前）'}</b>
-              <span>{p.base_url}</span>
-              <input
-                type="password"
-                placeholder={p.has_key ? `已存 Key（${p.api_key || '••••'}）· 点此可换` : '该站点的 API Key（同站可留空）'}
-                value={p.api_key && !p.api_key.startsWith('••') ? p.api_key : ''}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => setKey(p.name, e.target.value)}
-                style={{ marginTop: 4 }}
-              />
-            </div>
-            {!isCurrent(p) && (
-              <button className="btn secondary sm ac-del" title={t('删除档案')}
-                onClick={() => remove(p.name)}>
-                <Trash2 size={13} />
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="bp-hint" style={{ marginTop: 8 }}>
-        当前：{draft.llm.model} @ {draft.llm.base_url}（主 Key 在下方「LLM 接入」填写）
-        {!providers.some((p) => isCurrent(p)) && (
-          <button className="btn secondary sm" style={{ marginLeft: 10 }} onClick={saveCurrent}>
-            把当前端点存为提供商
-          </button>
-        )}
-      </div>
-    </section>
-  )
-}
 
 /* ============ 角色库（AstrBot 情景管理对标）：
    命名保存当前人设，随时切换/删除，支持导出导入 JSON 迁移 ============ */
@@ -403,7 +341,7 @@ export default function BotPersona() {
       <div className="bp-head">
         <div>
           <h1 className="bp-title">{t('角色人设')}</h1>
-          <p className="bp-sub">{t('角色 · 提示词 · 生成参数 · 改完即时试问')}</p>
+          <p className="bp-sub">{t('角色 · 提示词 · 角色库 · 改完即时试问')}</p>
         </div>
         <div className="bp-head-actions">
           {dirty && <span className="bp-dirty">{t('未保存')}</span>}
@@ -508,9 +446,6 @@ export default function BotPersona() {
         </div>
       </section>
 
-      {/* LLM 提供商管理（AstrBot 多提供商对标） */}
-      <ProviderPanel draft={draft} patch={patch} />
-
       {/* 渠道准入（chatgpt-on-wechat 群白名单对标） */}
       <section className="bp-sec">
         <div className="bp-sec-head">
@@ -544,35 +479,16 @@ export default function BotPersona() {
       </section>
 
       <div className="bp-cols">
-        {/* 引擎与参数 */}
+        {/* 运行参数只读提示：不再和设置页的「能力参数」各改一份 */}
         <section className="bp-sec">
-          <div className="bp-sec-head"><h2>{t('引擎模式')}</h2></div>          <div className="mod-row">
-            {(['auto', 'llm', 'rule'] as const).map((m) => (
-              <button
-                key={m}
-                className={`mod-toggle ${draft.engine.mode === m ? 'on' : ''}`}
-                onClick={() => patch((d) => { d.engine.mode = m })}
-              >
-                <Zap size={12} />
-                {m === 'auto' ? '自动' : m === 'llm' ? '强制 LLM' : '纯规则'}
-              </button>
-            ))}
+          <div className="bp-sec-head">
+            <h2>{t('运行参数')}</h2>
+            <span>{t('温度、Top-p、回复上限、ReAct 步数与引擎模式统一在设置维护')}</span>
           </div>
           <p className="bp-hint">
-            {draft.engine.mode === 'auto' && '有可用 LLM Key 时走大模型，否则自动降级规则引擎。'}
-            {draft.engine.mode === 'llm' && '强制走大模型；Key 失效时会标注 rule_fallback 并兜底。'}
-            {draft.engine.mode === 'rule' && '完全用规则 ReAct 引擎，不调用大模型。'}
+            这里只保留角色本身：预设、提示词、角色库与试问。换模型、调采样参数请去「设置 → 能力参数」，避免同一个数值在两处被改成不同版本。
           </p>
-
-          <div className="bp-sec-head" style={{ marginTop: 18 }}><h2>{t('生成参数')}</h2></div>
-          <Slider label={t('创造性 · temperature')} value={draft.llm.temperature} min={0} max={2} step={0.05}
-            onChange={(v) => patch((d) => { d.llm.temperature = v })} />
-          <Slider label={t('核采样 · top_p')} value={draft.llm.top_p} min={0} max={1} step={0.05}
-            onChange={(v) => patch((d) => { d.llm.top_p = v })} />
-          <Slider label={t('回复上限 · max_tokens')} value={draft.llm.max_tokens} min={128} max={4096} step={64}
-            onChange={(v) => patch((d) => { d.llm.max_tokens = v })} />
-          <Slider label={t('ReAct 步数')} value={draft.escalation.react_steps} min={1} max={8} step={1}
-            onChange={(v) => patch((d) => { d.escalation.react_steps = v })} />
+          <Link className="btn secondary sm" to="/settings/params">{t('去设置调整')}</Link>
         </section>
 
         {/* 即时试问 */}
@@ -585,20 +501,6 @@ export default function BotPersona() {
   )
 }
 
-function Slider({ label, value, min, max, step, onChange }: {
-  label: string; value: number; min: number; max: number; step: number
-  onChange: (v: number) => void
-}) {
-  return (
-    <div className="bp-slider">
-      <div className="bp-slider-head"><span>{label}</span><b>{value}</b></div>
-      <input type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))} />
-    </div>
-  )
-}
-
-/* ============ 即时试问：开一个临时会话，用当前配置实测回复 ============ */
 function TryPanel() {
   const [question, setQuestion] = useState('')
   const [busy, setBusy] = useState(false)
@@ -699,16 +601,13 @@ function modeLabel(mode: string): string {
 
 /** 只挑本页负责的配置组，避免整包覆盖其它面板未加载的字段 */
 function pick(cfg: AgentConfig): Partial<AgentConfig> {
+  // 角色页只提交角色相关字段：人设、温度、渠道白名单。
+  // 不再整包回写 llm/base_url/providers，避免在角色页保存时覆盖设置页刚改的模型配置。
   return {
-    context: {
-      ...cfg.context,
-      modules: { ...cfg.context.modules },
-    },
-    engine: { ...cfg.engine },
-    llm: { ...cfg.llm, api_key: cfg.llm.api_key ?? '' },
-    escalation: { ...cfg.escalation },
+    context: { persona: cfg.context.persona },
+    llm: { temperature: cfg.llm.temperature },
     channels: cfg.channels
       ? { allowlist_enabled: cfg.channels.allowlist_enabled, group_allowlist: [...(cfg.channels.group_allowlist || [])] }
       : undefined,
-  }
+  } as Partial<AgentConfig>
 }

@@ -5,7 +5,7 @@ import {
   Save, Plus, Pencil, Trash2, X, Activity, Inbox, MessageSquare,
   FileText, Users, Search, Wrench, Zap, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Upload, Download, KeyRound, Check,
-  Plug, Wand2, Lock, MessagesSquare, UserCog, Cpu } from 'lucide-react'
+  Plug, Wand2, Lock, MessagesSquare, Cpu } from 'lucide-react'
 import { ProviderPanel, SkillsPanel, HooksPanel, PermissionsPanel } from './ProviderCenter'
 import { LocalModelsPanel } from './LocalModels'
 import {
@@ -25,14 +25,12 @@ import { Grp, Row, Pager } from './settings/bits'
 import { ParamsPanel } from './settings/panels-core'
 import { ToolsPanel, GuardrailPanel } from './settings/panels-core'
 import { KbPanel } from './settings/panels-kb'
-import PersonaCapsPanel from './settings/panels-persona-caps'
 import { DataPanel, MemPanel, InjPanel, TokenPanel } from './settings/panels-data'
 import { isAuthError } from './lib/queries'
 import { TOOL_LABEL } from './lib/labels'
 import TokenGate from './components/TokenGate'
 import { useAppStore } from './store/appStore'
 import { useFeedback } from './components/Feedback'
-import CardsPanel from './CardsPanel'
 import './pages2.css'
 import { t as tr } from './lib/t'
 
@@ -46,12 +44,10 @@ const TAB_GROUPS: { group: string; items: { key: string; icon: React.ReactNode; 
     ],
   },
   {
-    group: '行为与知识',
+    group: '工具与知识',
     items: [
-      { key: 'persona-caps', icon: <UserCog size={15} />, label: '角色能力', sub: '每个角色能用的工具/技能/MCP/扩展' },
       { key: 'skills', icon: <Wand2 size={15} />, label: '技能', sub: '什么时候用哪个工具' },
       { key: 'tools', icon: <Wrench size={15} />, label: '工具注册表', sub: '可自定义 Agent 能执行的动作' },
-      { key: 'cards', icon: <Brain size={15} />, label: '角色卡', sub: 'SillyTavern 卡导入 / 按群绑定人格' },
       { key: 'profiles', icon: <Users size={15} />, label: '档案', sub: '人物与群：备注/标签，机器人靠它认人' },
       { key: 'lexicon', icon: <MessagesSquare size={15} />, label: '黑话表', sub: '群里的梗与缩写，机器人靠它听懂黑话' },
       { key: 'mem', icon: <Brain size={15} />, label: '长期记忆', sub: '跨会话沉淀' },
@@ -81,8 +77,8 @@ const KB_TAB = { key: 'kb', icon: <BookOpen size={15} />, label: '知识库', su
 // scope 决定这一页收哪些 tab，避免同一个能力在三个页面各出现一次。
 const SCOPE_TABS: Record<string, { groups: string[]; keys: string[]; base: string; fallback: string }> = {
   capabilities: {
-    groups: ['行为与知识'],
-    keys: ['persona-caps', 'skills', 'tools', 'cards', 'profiles', 'lexicon', 'mem', 'kb'],
+    groups: ['工具与知识'],
+    keys: ['skills', 'tools', 'profiles', 'lexicon', 'mem', 'kb'],
     base: '/capabilities',
     fallback: 'tools',
   },
@@ -138,7 +134,7 @@ export default function Settings({ scope }: { scope?: keyof typeof SCOPE_TABS } 
   // scope 页面本身就是一级入口：侧栏再叫「管理中心」会和「设置」混淆，
   // 改成对应子项名，明确它只是当前页的二级导航。
   const sideTitle = scope === 'capabilities' ? tr('能力子项') : scope === 'policy' ? tr('规则子项') : tr('管理中心')
-  const sideSub = scope === 'capabilities' ? tr('工具、角色、知识与记忆') : scope === 'policy' ? tr('权限、护栏与钩子') : tr('Agent 运行时配置 · 即时生效')
+  const sideSub = scope === 'capabilities' ? tr('工具、知识与记忆') : scope === 'policy' ? tr('权限、护栏与钩子') : tr('Agent 运行时配置 · 即时生效')
 
   return (
     <div className={`set-app ${mobile ? 'set-app-mobile' : ''}`}>
@@ -182,12 +178,10 @@ export default function Settings({ scope }: { scope?: keyof typeof SCOPE_TABS } 
           <ProviderPanel cfg={shown} setCfg={(next) => setDraft(next)} persist={(next) => upd.mutate(next)} />
         )}
         {tab === 'local' && <LocalModelsPanel onActivated={() => void refetch()} />}
-        {tab === 'persona-caps' && <PersonaCapsPanel />}
         {tab === 'skills' && <SkillsPanel />}
         {tab === 'hooks' && <HooksPanel />}
         {tab === 'permission' && <PermissionsPanel />}
         {tab === 'params' && shown && <ParamsPanel cfg={shown} setDraft={setDraft} upd={upd} />}
-        {tab === 'cards' && <CardsPanel />}
         {tab === 'tools' && <ToolsPanel />}
         {tab === 'guardrail' && <GuardrailPanel />}
         {tab === 'kb' && <KbPanel />}
