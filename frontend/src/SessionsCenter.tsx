@@ -192,8 +192,8 @@ export default function SessionsCenter() {
   return (
     <div className="p-4 md:p-6 max-w-[1400px] mx-auto w-full space-y-4 pb-24 md:pb-10">
       <PageHead
-        title={t('会话中心')}
-        sub={t(appliedQuery ? '会话搜索副标题' : '会话列表副标题', { query: appliedQuery, total: sessions.data?.total ?? '…' })}
+        title={t('历史档案')}
+        sub={t(appliedQuery ? '会话搜索副标题' : '检索会话、导出记录、拉取群资料', { query: appliedQuery, total: sessions.data?.total ?? '…' })}
         right={
           <>
             {FILTERS.map((f) => (
@@ -324,7 +324,7 @@ export default function SessionsCenter() {
                 <button className="btn ghost sm whitespace-nowrap" onClick={exportSession} title={t('导出为 Markdown')}>
                   <Download size={13} /> 导出
                 </button>
-                <Link to="/sessions?view=desk" className="btn ghost sm whitespace-nowrap"><Headset size={13} /> {t('协作台')}</Link>
+                <Link to="/sessions?view=workbench" className="btn ghost sm whitespace-nowrap"><Headset size={13} /> {t('协作台')}</Link>
                 {active.status !== 'closed' && (
                   <button className="btn secondary sm" onClick={doClose} disabled={close.isPending}>
                     <X size={13} /> {close.isPending ? '关闭中…' : '关闭会话'}
