@@ -324,7 +324,7 @@ export default function SessionsCenter() {
                 <button className="btn ghost sm whitespace-nowrap" onClick={exportSession} title={t('导出为 Markdown')}>
                   <Download size={13} /> 导出
                 </button>
-                <Link to="/operator" className="btn ghost sm whitespace-nowrap"><Headset size={13} /> {t('协作台')}</Link>
+                <Link to="/sessions?view=desk" className="btn ghost sm whitespace-nowrap"><Headset size={13} /> {t('协作台')}</Link>
                 {active.status !== 'closed' && (
                   <button className="btn secondary sm" onClick={doClose} disabled={close.isPending}>
                     <X size={13} /> {close.isPending ? '关闭中…' : '关闭会话'}

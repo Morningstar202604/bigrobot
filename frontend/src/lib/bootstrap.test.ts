@@ -41,17 +41,28 @@ describe('bootstrapAdminToken', () => {
     expect(useAppStore.getState().adminToken).toBe('boot-token')
   })
 
-  it('已有令牌时不发请求（幂等）', async () => {
-    ;(globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: async () => ({ available: true, token: 'x' }),
-    })
+  it('已有有效令牌时只校验一次，不重复引导', async () => {
+    ;(globalThis.fetch as any).mockResolvedValue({ ok: true })
     const { bootstrapAdminToken } = await import('./queries')
     const { useAppStore } = await import('../store/appStore')
     useAppStore.getState().setAdminToken('existing')
     const got = await bootstrapAdminToken()
     expect(got).toBe(true)
-    expect(globalThis.fetch).not.toHaveBeenCalled()
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    expect(useAppStore.getState().adminToken).toBe('existing')
+  })
+
+  it('已有令牌失效时清掉并重新引导', async () => {
+    ;(globalThis.fetch as any)
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ available: true, token: 'new-token' }) })
+    const { bootstrapAdminToken } = await import('./queries')
+    const { useAppStore } = await import('../store/appStore')
+    useAppStore.getState().setAdminToken('stale')
+    const got = await bootstrapAdminToken()
+    expect(got).toBe(true)
+    expect(useAppStore.getState().adminToken).toBe('new-token')
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
   })
 
   it('接口不可用时安静返回 false，不抛异常', async () => {

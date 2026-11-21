@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Save, RefreshCw, Plus, Pencil, Trash2, X, Wrench, ShieldAlert, ChevronDown, ChevronUp, Zap, Search, Activity, BookOpen } from 'lucide-react'
-import { useKb, useLlmTest, useLlmModels, useTools, useToolMutations, useInjectionRules, useInjectionRuleMutations, useUpdateConfig } from '../lib/queries'
+import { Save, RefreshCw, Plus, Pencil, Trash2, X, Wrench, ShieldAlert, ChevronDown, ChevronUp, Zap, Activity, BookOpen } from 'lucide-react'
+import { useKb, useTools, useToolMutations, useInjectionRules, useInjectionRuleMutations, useUpdateConfig } from '../lib/queries'
 import { useFeedback } from '../components/Feedback'
 import type { AgentConfig, ToolDef, InjectionRule } from '../types/api'
 import { Spinner, ErrorBanner } from '../components/Spinner'
@@ -15,11 +15,6 @@ export function ParamsPanel({ cfg, setDraft, upd }: {
   upd: ReturnType<typeof useUpdateConfig>
 }) {
   const { data: kbMeta } = useKb()
-  const llmTest = useLlmTest()
-  const llmModels = useLlmModels()
-  const [apiKeyInput, setApiKeyInput] = useState('')
-  const modelsRes = llmModels.data
-  const modelsLoaded = !!(modelsRes && modelsRes.ok && modelsRes.models.length > 0)
   const set = (group: keyof AgentConfig, key: string, value: unknown) => {
     setDraft((prev) => {
       const base = structuredClone(prev ?? cfg) as AgentConfig
@@ -52,59 +47,13 @@ export function ParamsPanel({ cfg, setDraft, upd }: {
         </Row>
       </Grp>
 
-      <Grp id="llm" title={tr('模型 / LLM')} note="密钥可在界面配置（存本机库）或由环境变量注入">
-        <Row label={tr('API Key 状态')}>
+      <Grp id="llm" title={tr('模型 / LLM')} note="连接、Key、模型检测统一在「模型厂商」页维护">
+        <Row label={tr('当前模型')}>
           <span className={`badge ${cfg.llm.has_key ? 'ok' : 'muted'}`}>
-            {cfg.llm.has_key ? '已配置 · ' + cfg.llm.model : '未配置'}
+            {cfg.llm.has_key ? cfg.llm.model : '未配置'}
             {cfg.llm.key_source === 'ui' ? ' · 界面' : cfg.llm.key_source === 'env' ? ' · 环境变量' : ''}
           </span>
-        </Row>
-        <Row label="API Key">
-          <div className="flex items-center gap-2 flex-wrap">
-            <input
-              type="password"
-              placeholder={cfg.llm.api_key ? `已配置（${cfg.llm.api_key}）` : 'sk-...'}
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-              style={{ flex: 2, minWidth: 180 }}
-            />
-            <button className="btn sm" onClick={() => { set('llm', 'api_key', apiKeyInput); setApiKeyInput('') }} disabled={!apiKeyInput}>
-              <Save size={13} /> 保存
-            </button>
-          </div>
-        </Row>
-        <Row label="Base URL"><input type="text" value={cfg.llm.base_url} onChange={(e) => set('llm', 'base_url', e.target.value)} /></Row>
-        <Row label="Model">
-          {modelsLoaded ? (
-            <select value={cfg.llm.model} onChange={(e) => set('llm', 'model', e.target.value)} style={{ flex: 2, minWidth: 180, border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', padding: '7px 12px', fontSize: 13, fontFamily: 'var(--font)', background: 'var(--panel)' }}>
-              {modelsRes!.models.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          ) : (
-            <input type="text" value={cfg.llm.model} onChange={(e) => set('llm', 'model', e.target.value)} />
-          )}
-        </Row>
-        <Row label={tr('连通 / 模型列表')}>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button className="btn sm" onClick={() => llmTest.mutate()} disabled={llmTest.isPending}>
-              <Zap size={13} /> {llmTest.isPending ? '测试中…' : '测试连通'}
-            </button>
-            <button className="btn secondary sm" onClick={() => llmModels.mutate()} disabled={llmModels.isPending}>
-              <Search size={13} /> {llmModels.isPending ? '获取中…' : '可用模型'}
-            </button>
-            {llmTest.data && (
-              <span className={`badge ${llmTest.data.ok ? 'ok' : 'danger'}`} title={llmTest.data.reply || ''}>
-                {llmTest.data.ok ? `连通 OK · ${llmTest.data.latency_ms}ms · ${llmTest.data.model}` : (llmTest.data.error || '失败')}
-              </span>
-            )}
-            {llmModels.data && llmModels.data.ok && (
-              <span className="badge info">可用模型 {llmModels.data.count} 个</span>
-            )}
-            {llmModels.data && !llmModels.data.ok && llmModels.data.error && (
-              <span className="badge danger">{llmModels.data.error}</span>
-            )}
-          </div>
+          <span className="text-xs text-muted">{tr('本页只管采样参数；换模型/换 Key 请去「模型厂商」。')}</span>
         </Row>
         <Row label={`Temperature · ${cfg.llm.temperature}`}>
           <input type="range" min="0" max="2" step="0.1" value={cfg.llm.temperature} onChange={(e) => set('llm', 'temperature', parseFloat(e.target.value))} />

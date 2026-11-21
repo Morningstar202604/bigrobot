@@ -1,44 +1,28 @@
-import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
-import { BarChart3, Brain, Activity, KeyRound, ChevronLeft, ChevronRight, ShieldAlert, MessageSquare, FileText, Users, Inbox, BookOpen } from 'lucide-react'
-import { useAdminOverview, useAdminReport, useAdminStats, useAdminSchema, useAdminPurge, useAdminMemory, useAdminInjection } from '../lib/queries'
+import { useState } from 'react'
+import { Brain, KeyRound, ShieldAlert } from 'lucide-react'
+import { useAdminSchema, useAdminPurge, useAdminMemory, useAdminInjection } from '../lib/queries'
 import { usePagination } from '../lib/pagination'
 import { EmptyState } from '../ui'
-import OverviewStats from '../components/OverviewStats'
 import { Spinner, ErrorBanner } from '../components/Spinner'
 import type { MemoryEntry, InjectionLogEntry } from '../types/api'
 import { t as tr } from '../lib/t'
-import { TOOL_LABEL, label } from '../lib/labels'
 import { Check } from 'lucide-react'
-import { RepItem, Pager } from './bits'
+import { Pager } from './bits'
 import { useFeedback } from '../components/Feedback'
 import { useAppStore } from '../store/appStore'
 
 export function DataPanel() {
-  const { data: ov, isLoading } = useAdminOverview()
-  const { data: report } = useAdminReport()
-  const { data: stats } = useAdminStats()
-  const { data: schema } = useAdminSchema()
+  // 运行总览与经营图表只在「实例 · 运行总览」维护一份；本页只做存储与数据清理，
+  // 避免两个页面重复请求 /api/admin/overview、report、stats，也避免同一组数字出现两次。
+  const { data: schema, isLoading: schemaLoading, error, refetch } = useAdminSchema()
   const purge = useAdminPurge()
   const fb = useFeedback()
   const [confirmPurge, setConfirmPurge] = useState(false)
-  if (isLoading || !ov) return <Spinner full label={tr('加载数据…')} />
-
-  const days = report?.daily ?? []
-  // 汇总口径统一走后端 totals：升级率分母是会话数（不是回复数），前后端各算一套必然对不上
-  const totalSessions = report?.totals.sessions ?? 0
-  const totalReplies = report?.totals.agent_replies ?? 0
-  const totalKb = report?.totals.kb_hits ?? 0
-  const totalEsc = report?.totals.escalations ?? 0
-  const kbRate = report?.totals.kb_hit_rate != null ? Math.round(report.totals.kb_hit_rate * 100) : 0
-  const escRate = report?.totals.escalate_rate != null ? Math.round(report.totals.escalate_rate * 100) : 0
-  const dayMax = Math.max(1, ...days.map((x) => Math.max(x.sessions, x.agent_replies)))
-  const toolMax = Math.max(1, ...(stats?.tool_usage ?? []).map((x) => x.count))
+  if (schemaLoading) return <Spinner full label={tr('加载数据…')} />
+  if (error) return <div className="p-4"><ErrorBanner message={(error as Error).message} onRetry={() => refetch()} /></div>
 
   return (
     <>
-      <OverviewStats ov={ov} t={tr} />
-
       {/* 诊断区：DB 版本 / 表容量 / 数据清理（/api/admin/schema + /api/admin/purge） */}
       <div className="grp" style={{ marginTop: 14 }}>
         <div className="grp-head">
@@ -73,75 +57,6 @@ export function DataPanel() {
         </div>
       </div>
 
-      <div className="grp" style={{ marginTop: 14 }}>
-        <div className="grp-head">
-          <h3>{tr('近 7 天经营指标')}</h3>
-          <span className="gh-note">{tr('按日聚合')}</span>
-        </div>
-        <div className="grp-body">
-          <div className="rep-grid">
-            <RepItem label={tr('新增会话')} value={totalSessions} sub={tr('7 天累计')} />
-            <RepItem label={tr('Agent 回复')} value={totalReplies} sub={tr('7 天累计')} />
-            <RepItem
-              label={tr('KB 命中率')}
-              value={`${kbRate}%`}
-              sub={tr('KB引用统计', { n: totalKb })}
-              tone={kbRate >= 60 ? 'ok' : kbRate > 0 ? 'warn' : 'muted'}
-            />
-            <RepItem
-              label={tr('升级率')}
-              value={`${escRate}%`}
-              sub={tr('升级统计', { n: totalEsc })}
-              tone={escRate > 40 ? 'warn' : 'ok'}
-            />
-          </div>
-          {days.length > 0 && (
-            <>
-              <div className="rep-bars">
-                {days.map((d) => (
-                  <div
-                    className="rep-day"
-                    key={d.day}
-                    title={`${d.day}：会话 ${d.sessions} · 回复 ${d.agent_replies} · 升级 ${d.escalations}`}
-                  >
-                    <div className="rep-bar-pair">
-                      <span className="rep-bar sessions" style={{ height: `${(d.sessions / dayMax) * 100}%` }} />
-                      <span className="rep-bar replies" style={{ height: `${(d.agent_replies / dayMax) * 100}%` }} />
-                    </div>
-                    <span className="rep-day-label">{d.day.slice(5)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="rep-legend">
-                <span><i className="dot sessions" /> {tr('新会话')}</span>
-                <span><i className="dot replies" /> {tr('Agent 回复')}</span>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {stats && stats.tool_usage.length > 0 && (
-        <div className="grp" style={{ marginTop: 14 }}>
-          <div className="grp-head">
-            <h3>{tr('工具调用分布')}</h3>
-            <span className="gh-note">{tr('近 24 小时')}</span>
-          </div>
-          <div className="grp-body">
-            <div className="tool-dist">
-              {stats.tool_usage.map((t) => (
-                <div className="tool-dist-row" key={t.tool}>
-                  <span className="tool-dist-name">{TOOL_LABEL[t.tool] || t.tool}</span>
-                  <span className="tool-dist-track">
-                    <span style={{ width: `${(t.count / toolMax) * 100}%` }} />
-                  </span>
-                  <span className="tool-dist-count">{t.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </>
   )
 }

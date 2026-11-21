@@ -10,7 +10,7 @@ import { ProviderPanel, SkillsPanel, HooksPanel, PermissionsPanel } from './Prov
 import { LocalModelsPanel } from './LocalModels'
 import {
   useConfig, useUpdateConfig, useKb, useKbMutations, useKbImport, useKbTest, useKbDocImport, exportKb, useTools, useToolMutations,
-  useInjectionRules, useInjectionRuleMutations, useLlmTest, useLlmModels,
+  useInjectionRules, useInjectionRuleMutations,
   useAdminOverview, useAdminMemory, useAdminInjection, useAdminReport, useAdminStats,
   useProfiles, useProfileMutations, useLexicon, useLexiconMutations,
   useAdminSchema, useAdminPurge,
@@ -69,7 +69,7 @@ const TAB_GROUPS: { group: string; items: { key: string; icon: React.ReactNode; 
   {
     group: '数据与运维',
     items: [
-      { key: 'data', icon: <BarChart3 size={15} />, label: '数据概览', sub: '运营统计 / 存储维护' },
+      { key: 'data', icon: <BarChart3 size={15} />, label: '存储维护', sub: '数据库容量 / 180 天数据清理' },
       { key: 'token', icon: <KeyRound size={15} />, label: '访问令牌', sub: '控制台登录凭据' },
     ],
   },
@@ -135,12 +135,16 @@ export default function Settings({ scope }: { scope?: keyof typeof SCOPE_TABS } 
   if (!cfg) return <TokenGate onAuthed={() => refetch()} />
 
   const active = tabs.find((t) => t.key === tab)!
+  // scope 页面本身就是一级入口：侧栏再叫「管理中心」会和「设置」混淆，
+  // 改成对应子项名，明确它只是当前页的二级导航。
+  const sideTitle = scope === 'capabilities' ? tr('能力子项') : scope === 'policy' ? tr('规则子项') : tr('管理中心')
+  const sideSub = scope === 'capabilities' ? tr('工具、角色、知识与记忆') : scope === 'policy' ? tr('权限、护栏与钩子') : tr('Agent 运行时配置 · 即时生效')
 
   return (
     <div className={`set-app ${mobile ? 'set-app-mobile' : ''}`}>
       <aside className="set-side">
-        <div className="ss-title">{tr('管理中心')}</div>
-        <div className="ss-sub">{tr('Agent 运行时配置 · 即时生效')}</div>
+        <div className="ss-title">{sideTitle}</div>
+        <div className="ss-sub">{sideSub}</div>
         {groups.map((g) => (
           <div key={g.group} className="set-group">
             <div className="set-group-label">{tr(g.group)}</div>

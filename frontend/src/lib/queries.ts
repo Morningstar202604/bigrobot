@@ -782,7 +782,27 @@ export function useEmoteDelete() {
  */
 export async function bootstrapAdminToken(): Promise<boolean> {
   const store = useAppStore.getState()
-  if (store.adminToken) return true
+  if (store.adminToken) {
+    // 服务端 ADMIN_TOKEN 可以换（重启/部署都会）。旧令牌留在 localStorage
+    // 会让 bootstrap 直接 return true，随后所有管理请求 401，页面卡在「加载中」。
+    // 先验证一次；401/403 才清掉并重新向本机引导接口取令牌。
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 3000)
+    try {
+      const r = await fetch('/api/agent/health', {
+        headers: { 'X-Admin-Token': store.adminToken },
+        signal: ctrl.signal,
+      })
+      if (r.ok) return true
+      if (r.status === 401 || r.status === 403) store.setAdminToken('')
+      else return true
+    } catch {
+      // 网络暂时不可达不等于令牌失效，保留旧令牌，避免把用户踢回 TokenGate
+      return true
+    } finally {
+      clearTimeout(timer)
+    }
+  }
   // 必须有超时：这个 Promise 在 main.jsx 里用 .finally() 挂载 React 根节点，
   // 一旦 fetch 永远不 settle（服务端半开连接、代理挂起、浏览器节流后台标签），
   // .finally() 永不执行 → 整页白屏，连 TokenGate 都渲染不出来。

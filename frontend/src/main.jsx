@@ -53,10 +53,10 @@ export default function App() {
                 <Route path="/policy" element={<Policy />} />
                 <Route path="/observe" element={<Observe />} />
                 <Route path="/reminders" element={<Reminders />} />
+                {/* 旧入口一版重定向：必须放在 /settings/:tab 之前，否则会被动态段吞掉 */}
+                <Route path="/settings/kb" element={<Navigate to="/capabilities/kb" replace />} />
                 <Route path="/settings/:tab" element={<Settings scope="settings" />} />
                 <Route path="/settings" element={<Settings scope="settings" />} />
-                {/* 旧入口一版重定向：书签不失效，也不再多一层信息架构 */}
-                <Route path="/settings/kb" element={<Navigate to="/capabilities/kb" replace />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               </ErrorBoundary>

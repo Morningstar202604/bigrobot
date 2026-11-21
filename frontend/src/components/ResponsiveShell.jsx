@@ -87,9 +87,9 @@ function Brand({ onToggleTheme, theme }) {
   const lang = i18n.language === 'en' ? 'en' : 'zh'
   return (
     <div className="shell-brand">
-      <div className="shell-brand-main">
+      <Link to="/" className="shell-brand-main" title={t('回到对话')} aria-label={t('回到对话')}>
         <Logo size={30} onDark withText name={t('BigRobot')} subtitle={t('账号控制台')} />
-      </div>
+      </Link>
       <div className="shell-brand-actions">
         <select
           className="lang-toggle"
@@ -138,7 +138,7 @@ export default function ResponsiveShell({ children }) {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const loc = useLocation()
   const { t } = useTranslation()
-  const isApp = ['/', '/operator', '/persona', '/annotations', '/settings'].includes(loc.pathname) || loc.pathname.startsWith('/settings/')
+  const isApp = ['/', '/settings'].includes(loc.pathname) || loc.pathname.startsWith('/settings/')
 
   // Ctrl/Cmd + K 打开命令面板（Codex 对标）
   React.useEffect(() => {

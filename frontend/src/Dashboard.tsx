@@ -241,7 +241,7 @@ export default function Dashboard() {
       </div>
 
       {ov && ov.pending > 0 && (
-        <Link to="/operator" className="block bg-warn-soft border border-warn rounded-xl p-4 flex items-center gap-3 hover:opacity-90 transition">
+        <Link to="/sessions?view=desk" className="block bg-warn-soft border border-warn rounded-xl p-4 flex items-center gap-3 hover:opacity-90 transition">
           <AlertTriangle size={18} className="text-warn" />
           <span className="text-sm font-medium">{t('有')} {ov.pending} {t('个会话等待接续')}</span>
           <span className="btn sm ml-auto"><Headset size={13} /> {t('前往协作台')}</span>
