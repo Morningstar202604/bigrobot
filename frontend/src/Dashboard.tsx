@@ -237,14 +237,14 @@ export default function Dashboard() {
         {/* 语音转写：没有它收语音消息只能回「听不了」，运维要能一眼看到 */}
         <HealthChip ok={h?.asr?.available !== false}
           on={h?.asr?.available === false ? t('语音转写未启用') : t('语音转写已启用')} />
-        <Link to="/settings/params" className="text-xs text-brand hover:underline ml-auto">{t('进入管理中心 →')}</Link>
+        <Link to="/settings/model?model=params" className="text-xs text-brand hover:underline ml-auto">{t('模型设置 →')}</Link>
       </div>
 
       {ov && ov.pending > 0 && (
         <Link to="/sessions?view=workbench&status=pending_agent" className="block bg-warn-soft border border-warn rounded-xl p-4 flex items-center gap-3 hover:opacity-90 transition">
           <AlertTriangle size={18} className="text-warn" />
           <span className="text-sm font-medium">{t('有')} {ov.pending} {t('个会话等待接续')}</span>
-          <span className="btn sm ml-auto"><Headset size={13} /> {t('前往协作台')}</span>
+          <span className="btn sm ml-auto"><Headset size={13} /> {t('前往会话工作台')}</span>
         </Link>
       )}
 
@@ -275,7 +275,7 @@ export default function Dashboard() {
             </p>
             <div className="flex gap-2">
               <Link to="/" className="btn sm">{t('打开对话页')}</Link>
-              <Link to="/settings/params" className="btn secondary sm">{t('配置模型')}</Link>
+              <Link to="/settings/model" className="btn secondary sm">{t('配置模型')}</Link>
             </div>
           </div>
           <ChartCard title={t('渠道连接')} icon={<Radio size={15} />}>

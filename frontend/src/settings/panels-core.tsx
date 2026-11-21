@@ -191,7 +191,7 @@ export function ParamsPanel({ cfg, setDraft, upd }: {
           <input type="range" min="1" max="8" value={cfg.escalation.react_steps} onChange={(e) => set('escalation', 'react_steps', parseInt(e.target.value, 10))} />
         </Row>
         <div className="f-row">
-          <span className="f-lb" title={tr('关：纯机器人，对客说「转人工」时如实告知没有真人；开：会话进入待接管队列，需有人在协作台值守')}>{tr('真人接管')}</span>
+          <span className="f-lb" title={tr('关：纯机器人，对客说「转人工」时如实告知没有真人；开：会话进入待接管队列，需有人在会话工作台值守')}>{tr('真人接管')}</span>
           <input type="checkbox" checked={!!cfg.escalation.handoff}
             onChange={(e) => set('escalation', 'handoff', e.target.checked)} />
         </div>

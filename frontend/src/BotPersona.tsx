@@ -486,9 +486,9 @@ export default function BotPersona() {
             <span>{t('温度、Top-p、回复上限、ReAct 步数与引擎模式统一在设置维护')}</span>
           </div>
           <p className="bp-hint">
-            这里只保留角色本身：预设、提示词、角色库与试问。换模型、调采样参数请去「设置 → 能力参数」，避免同一个数值在两处被改成不同版本。
+            这里只保留角色本身：预设、提示词、角色库与试问。换模型、调采样参数请去「设置 → 模型 → 能力参数」，避免同一个数值在两处被改成不同版本。
           </p>
-          <Link className="btn secondary sm" to="/settings/params">{t('去设置调整')}</Link>
+          <Link className="btn secondary sm" to="/settings/model?model=params">{t('去设置调整')}</Link>
         </section>
 
         {/* 即时试问 */}

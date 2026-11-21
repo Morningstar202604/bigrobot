@@ -578,6 +578,11 @@ export function HooksPanel() {
         <span>{t('在管线固定位置强制执行的确定性规则：不依赖模型配合，每轮必然生效')}</span>
       </div>
       <div className="space-y-2">
+        {items.length === 0 && (
+          <div className="bp-hint">
+            {t('还没有钩子规则。需要“群里出现某词就固定回复 / 改写”这类确定性规则时，点下方「新增钩子」。')}
+          </div>
+        )}
         {items.map((h) => (
           <div key={h.id} className="rounded-lg border px-3 py-2 space-y-2" style={{ borderColor: 'var(--line)' }}>
             <div className="flex flex-wrap items-center gap-2">
