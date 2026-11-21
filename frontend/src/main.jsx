@@ -67,6 +67,9 @@ export default function App() {
                 <Route path="/settings/kb" element={<Navigate to="/capabilities/kb" replace />} />
                 <Route path="/settings/cards" element={<Navigate to="/capabilities?view=persona&role=cards" replace />} />
                 <Route path="/settings/persona-caps" element={<Navigate to="/capabilities?view=persona&role=caps" replace />} />
+                <Route path="/settings/providers" element={<Navigate to="/settings/model" replace />} />
+                <Route path="/settings/local" element={<Navigate to="/settings/model?model=local" replace />} />
+                <Route path="/settings/params" element={<Navigate to="/settings/model?model=params" replace />} />
                 <Route path="/operator" element={<Navigate to="/sessions?view=workbench" replace />} />
                 <Route path="/persona" element={<Navigate to="/capabilities?view=persona" replace />} />
                 <Route path="/annotations" element={<Navigate to="/sessions?view=annotate" replace />} />

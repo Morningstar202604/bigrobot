@@ -1,35 +1,26 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  SlidersHorizontal, BookOpen, BarChart3, Brain,
-  Save, Plus, Pencil, Trash2, X, Inbox, MessageSquare,
-  FileText, Users, Search, Wrench, Zap, ChevronDown, ChevronUp,
-  ChevronLeft, ChevronRight, Upload, Download, KeyRound, Check,
-  Plug, Wand2, MessagesSquare, Cpu } from 'lucide-react'
-import { ProviderPanel, SkillsPanel } from './ProviderCenter'
-import { LocalModelsPanel } from './LocalModels'
+  BookOpen, BarChart3, Brain, Save, Users, Wrench, KeyRound,
+  Wand2, MessagesSquare, Cpu } from 'lucide-react'
+import { SkillsPanel } from './ProviderCenter'
 import {
-  useConfig, useUpdateConfig, useKb, useKbMutations, useKbImport, useKbTest, useKbDocImport, exportKb, useTools, useToolMutations,
-  useInjectionRules, useInjectionRuleMutations,
-  useAdminOverview, useAdminMemory, useAdminInjection, useAdminReport, useAdminStats,
+  useConfig, useUpdateConfig,
   useProfiles, useProfileMutations, useLexicon, useLexiconMutations,
-  useAdminSchema, useAdminPurge,
 } from './lib/queries'
-import { StatCard, EmptyState } from './ui'
+import { EmptyState } from './ui'
 import type { Profile, LexiconEntry } from './lib/queries'
 import { useShell } from './components/ResponsiveShell'
 import { Spinner, ErrorBanner } from './components/Spinner'
-import type { AgentConfig, KbEntry, ToolDef, InjectionRule, MemoryEntry, InjectionLogEntry } from './types/api'
+import type { AgentConfig } from './types/api'
 import { usePagination } from './lib/pagination'
-import { Grp, Row, Pager } from './settings/bits'
-import { ParamsPanel } from './settings/panels-core'
+import { Pager } from './settings/bits'
 import { ToolsPanel } from './settings/panels-core'
+import ModelWorkbench from './settings/panels-model'
 import { KbPanel } from './settings/panels-kb'
 import { DataPanel, MemPanel, TokenPanel } from './settings/panels-data'
 import { isAuthError } from './lib/queries'
-import { TOOL_LABEL } from './lib/labels'
 import TokenGate from './components/TokenGate'
-import { useAppStore } from './store/appStore'
 import { useFeedback } from './components/Feedback'
 import './pages2.css'
 import { t as tr } from './lib/t'
@@ -38,9 +29,7 @@ const TAB_GROUPS: { group: string; items: { key: string; icon: React.ReactNode; 
   {
     group: '模型与推理',
     items: [
-      { key: 'providers', icon: <Plug size={15} />, label: '模型厂商', sub: '地址 + Key 自动检测模型与能力 · 三协议' },
-      { key: 'local', icon: <Cpu size={15} />, label: '本地模型', sub: '目录 / 下载 / 一键启用 · 用户自选' },
-      { key: 'params', icon: <SlidersHorizontal size={15} />, label: '能力参数', sub: '模型 / 检索 / 上下文 / 记忆 / 引擎' },
+      { key: 'model', icon: <Cpu size={15} />, label: '模型', sub: '厂商 / 本地模型 / 能力参数' },
     ],
   },
   {
@@ -75,9 +64,9 @@ const SCOPE_TABS: Record<string, { groups: string[]; keys: string[]; base: strin
   },
   settings: {
     groups: ['模型与推理', '数据与运维'],
-    keys: ['providers', 'local', 'params', 'data', 'token'],
+    keys: ['model', 'data', 'token'],
     base: '/settings',
-    fallback: 'params',
+    fallback: 'model',
   },
 }
 
@@ -145,7 +134,7 @@ export default function Settings({ scope }: { scope?: keyof typeof SCOPE_TABS } 
             <h1>{tr(active.label)}</h1>
             <p>{tr(active.sub)}</p>
           </div>
-          {(tab === 'params' || tab === 'providers') && (
+          {tab === 'model' && (
             <button className="btn" onClick={() => shown && upd.mutate(shown)}
                     disabled={upd.isPending || !shown}>
               <Save size={14} />
@@ -154,17 +143,20 @@ export default function Settings({ scope }: { scope?: keyof typeof SCOPE_TABS } 
           )}
         </div>
 
-        {tab === 'params' && upd.isError && (
+        {tab === 'model' && upd.isError && (
           <div className="mb-3">
             <ErrorBanner message={(upd.error as Error).message} onRetry={() => upd.mutate(shown!)} />
           </div>
         )}
-        {tab === 'providers' && shown && (
-          <ProviderPanel cfg={shown} setCfg={(next) => setDraft(next)} persist={(next) => upd.mutate(next)} />
+        {tab === 'model' && shown && (
+          <ModelWorkbench
+            cfg={shown}
+            setDraft={setDraft}
+            upd={upd}
+            onLocalActivated={() => void refetch()}
+          />
         )}
-        {tab === 'local' && <LocalModelsPanel onActivated={() => void refetch()} />}
         {tab === 'skills' && <SkillsPanel />}
-        {tab === 'params' && shown && <ParamsPanel cfg={shown} setDraft={setDraft} upd={upd} />}
         {tab === 'tools' && <ToolsPanel />}
         {tab === 'kb' && <KbPanel />}
         {tab === 'data' && <DataPanel />}

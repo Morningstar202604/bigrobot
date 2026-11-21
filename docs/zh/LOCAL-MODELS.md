@@ -21,7 +21,7 @@ BigRobot 可以直接下载小体积 GGUF 模型，用 `llama.cpp` 在本机跑�
 
 ## 下载与运行
 
-1. 打开 **设置 → 本地模型**。
+1. 打开 **设置 → 模型 → 本地模型**。
 2. 点 **下载**。文件落在 `data/models/<id>/`，半截文件保留为 `.part`，下次续传。
 3. 下载完成后点 **启用**。BigRobot 会在空闲本地端口启动 `llama_cpp.server`，探测 `/v1/models`，然后把 `llm.base_url`、`llm.model` 和真实 `n_ctx` 写入当前配置。
 
