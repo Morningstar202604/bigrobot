@@ -14,6 +14,7 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 from core import paths, url_guard
 
@@ -127,7 +128,7 @@ async def _ensure_browser():
         await _close_browser()
         try:
             _pw = await async_playwright().start()
-            launch_kwargs = {
+            launch_kwargs: dict[str, Any] = {
                 "headless": True,
                 "args": ["--no-sandbox", "--disable-dev-shm-usage", "--lang=zh-CN"],
             }

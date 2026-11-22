@@ -78,13 +78,13 @@ def extract_text(filename: str, data: bytes) -> str:
             raise RuntimeError(f"Excel 解析失败：{type(e).__name__}: {str(e)[:80]}") from e
         chunks = []
         for ws in wb.worksheets:
-            rows = []
+            sheet_rows: list[str] = []
             for row in ws.iter_rows(values_only=True):
                 cells = [str(c).strip() for c in row if c is not None and str(c).strip()]
                 if cells:
-                    rows.append(" | ".join(cells))
-            if rows:
-                chunks.append(f"## {ws.title}\n\n" + "\n".join(rows))
+                    sheet_rows.append(" | ".join(cells))
+            if sheet_rows:
+                chunks.append(f"## {ws.title}\n\n" + "\n".join(sheet_rows))
         try:
             wb.close()
         except Exception:

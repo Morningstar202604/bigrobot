@@ -211,13 +211,15 @@ def critique(text: str, query: str = "", *, channel: str = "", persona: str = ""
         out.append({"code": "incivility", "severity": SEV_HIGH,
                     "detail": "骂用户/叫人闭嘴：" + "；".join(hits[:2])})
 
-    if _JOKE_Q_RE.search(q) and _REAL_TRAGEDY_RE.search(t):
+    tragedy_hit = _REAL_TRAGEDY_RE.search(t)
+    if _JOKE_Q_RE.search(q) and tragedy_hit:
         out.append({"code": "real_tragedy_joke", "severity": SEV_HIGH,
-                    "detail": "拿真实事故/病亡/受害者开笑：" + _REAL_TRAGEDY_RE.search(t).group(0)})
+                    "detail": "拿真实事故/病亡/受害者开笑：" + tragedy_hit.group(0)})
 
-    if _SEXUAL_JOKE_Q_RE.search(q) and _SEXUAL_TERMS_RE.search(t):
+    sexual_hit = _SEXUAL_TERMS_RE.search(t)
+    if _SEXUAL_JOKE_Q_RE.search(q) and sexual_hit:
         out.append({"code": "sexual_joke", "severity": SEV_HIGH,
-                    "detail": "接黄段子/性暗示：" + _SEXUAL_TERMS_RE.search(t).group(0)})
+                    "detail": "接黄段子/性暗示：" + sexual_hit.group(0)})
 
     if _MARKDOWN_RE.search(t):
         out.append({"code": "markdown", "severity": SEV_MID, "detail": "出现 markdown 符号"})

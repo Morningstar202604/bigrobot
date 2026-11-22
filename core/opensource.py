@@ -116,4 +116,9 @@ def status() -> dict:
             "detail": "stdio 方式接入；Memory 标为 write，其余只读。",
         },
     ]
-    return {"items": items, "total": sum(int(x["count"]) for x in items)}
+    total = 0
+    for x in items:
+        count = x["count"]
+        if isinstance(count, int):
+            total += count
+    return {"items": items, "total": total}

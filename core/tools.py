@@ -618,13 +618,13 @@ async def tool_describe_image(ctx: ToolContext, source: str = "", question: str 
     payload = {"model": vision_model, "messages": messages,
                "max_tokens": 512, "temperature": 0.2}
     try:
-        text = await llm._post_chat((cfg["llm"]["base_url"]).rstrip("/"),
-                                    cfg["llm"]["api_key"], payload)
+        answer = await llm._post_chat((cfg["llm"]["base_url"]).rstrip("/"),
+                                      cfg["llm"]["api_key"], payload)
     except Exception as e:
         return miss_result("describe_image", f"看图失败了（{type(e).__name__}）。")
-    if not text:
+    if not answer:
         return miss_result("describe_image", "图看不太清，说不出内容。")
-    return ok_result("describe_image", text, model=vision_model)
+    return ok_result("describe_image", answer, model=vision_model)
 
 
 def _ocr_available_langs(wanted: str) -> str:
