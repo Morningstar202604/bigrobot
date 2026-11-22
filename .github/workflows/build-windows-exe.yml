@@ -33,19 +33,27 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[build]"
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $ver = (Get-Content VERSION -Raw).Trim()
+          "ver=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - name: Build and smoke-test exe
         run: python scripts/build_exe.py --clean
       - name: Name release artifact
         shell: pwsh
         run: |
-          Copy-Item dist-exe/bigrobot.exe dist-exe/bigrobot-2.0.1-win64.exe
-          Get-FileHash dist-exe/bigrobot-2.0.1-win64.exe -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  bigrobot-2.0.1-win64.exe" } |
+          $ver = "${{ steps.version.outputs.ver }}"
+          $name = "bigrobot-$ver-win64.exe"
+          Copy-Item dist-exe/bigrobot.exe "dist-exe/$name"
+          Get-FileHash "dist-exe/$name" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $name" } |
             Set-Content dist-exe/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: bigrobot-2.0.1-win64
+          name: bigrobot-${{ steps.version.outputs.ver }}-win64
           path: |
-            dist-exe/bigrobot-2.0.1-win64.exe
+            dist-exe/bigrobot-${{ steps.version.outputs.ver }}-win64.exe
             dist-exe/SHA256SUMS.txt
           if-no-files-found: error

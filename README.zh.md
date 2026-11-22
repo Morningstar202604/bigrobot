@@ -14,6 +14,8 @@ BigRobot 把你自己已有的聊天账号接管成一个自托管 AI 工作台�
 
 ![手机远程控制](docs/screenshots/readme-remote.png)
 
+<sub>界面示意；截图里的二维码已失效，实际使用时在电脑端重新生成。</sub>
+
 **按会话隔离的浏览器。** 每个会话独立 Cookie 和 localStorage，侧栏里能直接看页面、截图、刷新。
 
 ![浏览器面板](docs/screenshots/readme-browser.png)
@@ -24,9 +26,9 @@ BigRobot 把你自己已有的聊天账号接管成一个自托管 AI 工作台�
 
 ## 下载
 
-Windows 免安装单文件：`releases/2.0.1/bigrobot-2.0.1-win64.exe`（不需要装 Python）。GitHub Releases 提供同一个包与 `SHA256SUMS.txt`，Gitee 也有 Release。GitCode 的 Release 只出源码包，exe 放在仓库的 `releases/2.0.1/` 目录里。
+Windows 免安装单文件：`releases/2.0.2/bigrobot-2.0.2-win64.exe`（不需要装 Python）。GitHub Releases 提供同一个包与 `SHA256SUMS.txt`，Gitee 也有 Release。GitCode 的 Release 只出源码包，exe 放在仓库的 `releases/2.0.2/` 目录里。
 
-包没有代码签名，Windows 可能弹 SmartScreen；首次运行会在用户数据目录创建 `bigrobot-data/`。校验值在 `releases/2.0.1/SHA256SUMS.txt`。
+包没有代码签名，Windows 可能弹 SmartScreen；首次运行会在用户数据目录创建 `bigrobot-data/`。校验值在 `releases/2.0.2/SHA256SUMS.txt`。
 
 ## 能做什么
 

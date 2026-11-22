@@ -14,6 +14,8 @@ BigRobot turns a chat account you already own into a self-hosted AI workspace. I
 
 ![Phone remote control](docs/screenshots/readme-remote.png)
 
+<sub>UI reference only; the QR code in this screenshot has expired. Generate a fresh one on the desktop.</sub>
+
 **Per-session browser.** Each session gets its own cookies and localStorage; the sidebar shows the page, screenshots and refresh controls.
 
 ![Browser panel](docs/screenshots/readme-browser.png)
@@ -24,9 +26,9 @@ Most bots wait for messages. BigRobot starts by taking over an existing account 
 
 ## Download
 
-Windows single-file build: `releases/2.0.1/bigrobot-2.0.1-win64.exe` (no Python required). GitHub Releases carries the same file plus `SHA256SUMS.txt`, and Gitee has a Release too. GitCode's Release only exposes source archives, so the installer lives in the repository's `releases/2.0.1/` directory.
+Windows single-file build: `releases/2.0.2/bigrobot-2.0.2-win64.exe` (no Python required). GitHub Releases carries the same file plus `SHA256SUMS.txt`, and Gitee has a Release too. GitCode's Release only exposes source archives, so the installer lives in the repository's `releases/2.0.2/` directory.
 
-The binary is unsigned, so Windows may show SmartScreen. First run creates `bigrobot-data/` in the user data directory. Checksums are in `releases/2.0.1/SHA256SUMS.txt`.
+The binary is unsigned, so Windows may show SmartScreen. First run creates `bigrobot-data/` in the user data directory. Checksums are in `releases/2.0.2/SHA256SUMS.txt`.
 
 ## What it does
 
