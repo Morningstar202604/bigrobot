@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import Logo from './Logo'
 import BrowserDock from './BrowserDock'
+import RemoteControl from './RemoteControl'
 import { LANGS, setLang } from '../i18n'
 import { K, read, write } from '../lib/storage'
 
@@ -181,6 +182,7 @@ export default function ResponsiveShell({ children }) {
                 <Brand onToggleTheme={toggleTheme} theme={theme} />
                 <SideNav onNav={() => setDrawerOpen(false)} />
                 <BrowserDock open={browserOpen} onToggle={setBrowserOpen} />
+                <RemoteControl />
                 <div className="shell-foot">{t('BigRobot · MIT 开源')}</div>
               </div>
             </>
@@ -199,6 +201,7 @@ export default function ResponsiveShell({ children }) {
           <Brand onToggleTheme={toggleTheme} theme={theme} />
           <SideNav />
           <BrowserDock open={browserOpen} onToggle={setBrowserOpen} />
+          <RemoteControl />
           <button className="palette-hint" onClick={() => setPaletteOpen(true)} title="命令面板">
             <Command size={12} /> <span>K</span>
           </button>

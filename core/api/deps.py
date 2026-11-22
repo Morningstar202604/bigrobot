@@ -64,8 +64,15 @@ def require_admin(x_admin_token: str | None = Header(default=None, alias="X-Admi
             503,
             "ADMIN_TOKEN 未配置：管理接口已禁用。请在环境变量设置强随机令牌（openssl rand -hex 32）后重启。",
         )
-    if not security.constant_time_equals(x_admin_token, token):
-        raise HTTPException(401, "需要管理员令牌")
+    if security.constant_time_equals(x_admin_token, token):
+        return
+    try:
+        from core import remote
+        if remote.validate(x_admin_token or ""):
+            return
+    except Exception:
+        pass
+    raise HTTPException(401, "需要管理员令牌")
 
 
 def require_channel(x_channel_token: str | None = Header(default=None, alias="X-Channel-Token")):
@@ -93,6 +100,12 @@ def require_admin_or_session(
     x_session_secret: str | None = Header(default=None, alias="X-Session-Secret"),
 ):
     """只读会话内容的双重授权：管理员令牌或访客自己的 secret。"""
+    try:
+        from core import remote
+        if remote.validate(x_admin_token or ""):
+            return
+    except Exception:
+        pass
     token = security.admin_token()
     if token and security.constant_time_equals(x_admin_token, token):
         return

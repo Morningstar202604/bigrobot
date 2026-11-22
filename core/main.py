@@ -87,13 +87,27 @@ def require_admin(x_admin_token: str | None = Header(default=None, alias="X-Admi
             503,
             "ADMIN_TOKEN 未配置：管理接口已禁用。请在环境变量设置强随机令牌（openssl rand -hex 32）后重启。",
         )
-    if not security.constant_time_equals(x_admin_token, token):
-        raise HTTPException(401, "需要管理员令牌")
+    if security.constant_time_equals(x_admin_token, token):
+        return
+    try:
+        from core import remote
+        if remote.validate(x_admin_token or ""):
+            return
+    except Exception:
+        pass
+    raise HTTPException(401, "需要管理员令牌")
 
 
 def _is_admin_token(raw: str | None) -> bool:
     tok = security.admin_token()
-    return bool(tok) and security.constant_time_equals(raw or "", tok)
+    if bool(tok) and security.constant_time_equals(raw or "", tok):
+        return True
+    # 手机远控换来的临时令牌也按管理员处理；停止/过期后立即失效
+    try:
+        from core import remote
+        return remote.validate(raw or "")
+    except Exception:
+        return False
 
 
 def require_channel(x_channel_token: str | None = Header(default=None, alias="X-Channel-Token")):
@@ -124,8 +138,7 @@ def _require_admin_or_session(
     渠道会话（QQ）创建时没有 secret，坐席台必须靠管理员令牌才能回放对话；
     写操作（发消息/升级/反馈）仍只认 secret，避免拿管理员令牌代替访客身份。
     """
-    token = security.admin_token()
-    if token and security.constant_time_equals(x_admin_token, token):
+    if _is_admin_token(x_admin_token):
         return
     if not store.check_session_secret(sid, x_session_secret or ""):
         raise HTTPException(401, "会话无效或需要管理员令牌")
@@ -318,6 +331,13 @@ def create_app() -> FastAPI:
         url: str
         wait_until: str = "domcontentloaded"
         timeout: str = "20"
+
+    class RemoteStartIn(BaseModel):
+        mode: str = "auto"
+
+    class RemotePairIn(BaseModel):
+        token: str
+        device_name: str = "手机"
 
     class FeedbackIn(BaseModel):
         message_id: int | None = None
@@ -937,6 +957,55 @@ def create_app() -> FastAPI:
     @app.get("/api/sessions/{sid}/messages")
     def get_messages(sid: str, _=Depends(_require_admin_or_session)):
         return {"messages": store.get_messages(sid)}
+
+    def _remote_base(request: Request) -> tuple[str, str, int]:
+        proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "http").split(",")[0].strip()
+        host = (request.headers.get("x-forwarded-host") or request.headers.get("host")
+                or request.url.netloc or "127.0.0.1").split(",")[0].strip()
+        base = f"{proto}://{host}".rstrip("/")
+        port = request.url.port or int(os.environ.get("PORT", "8010"))
+        return base, host, port
+
+    @app.post("/api/remote/start")
+    async def remote_start(body: RemoteStartIn, request: Request,
+                           x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+        if not _is_admin_token(x_admin_token):
+            raise HTTPException(403, "生成远程连接需要管理员身份")
+        from core import remote
+        base, host, port = _remote_base(request)
+        try:
+            res = await asyncio.to_thread(remote.start, base, host, port, body.mode)
+        except Exception as e:
+            raise HTTPException(400, f"远程隧道启动失败：{e}")
+        return JSONResponse(res, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/remote/status")
+    def remote_status(x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+        if not _is_admin_token(x_admin_token):
+            raise HTTPException(403, "需要管理员身份")
+        from core import remote
+        return JSONResponse(remote.status(), headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/remote/pair")
+    async def remote_pair(body: RemotePairIn, request: Request):
+        """公开配对端点：只认一次性配对串，换 12 小时临时令牌。"""
+        ip = request.client.host if request.client else "unknown"
+        limiter: security.RateLimiter = app.state.limiter
+        if not limiter.allow(f"remote-pair:{ip}", window_s=60, max_n=10):
+            raise HTTPException(429, "配对尝试过多，稍后再试")
+        from core import remote
+        token, base = remote.pair(body.token, body.device_name or "手机", ip)
+        if not token:
+            raise HTTPException(400, base)
+        return JSONResponse({"token": token, "expires_in": remote.SESSION_TTL, "base_url": base},
+                            headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/remote/stop")
+    def remote_stop(x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+        if not _is_admin_token(x_admin_token):
+            raise HTTPException(403, "需要管理员身份")
+        from core import remote
+        return remote.stop()
 
     def _browser_admin(x_admin_token: str | None) -> None:
         if not _is_admin_token(x_admin_token):
@@ -1859,8 +1928,7 @@ def create_app() -> FastAPI:
         为什么不能直接用 body.principal：那样任何匿名请求写
         `{"principal":"admin"}` 就能拿到管理员权限（已复现）。
         """
-        token = security.admin_token()
-        is_admin = bool(token) and security.constant_time_equals(x_admin_token, token)
+        is_admin = _is_admin_token(x_admin_token)
 
         agent_token = os.environ.get("AGENT_TOKEN", "").strip()
         is_agent = bool(agent_token) and security.constant_time_equals(x_agent_token, agent_token)
@@ -1904,8 +1972,7 @@ def create_app() -> FastAPI:
         """
         channel_token = os.environ.get("CHANNEL_TOKEN", "").strip()
         trusted = (
-            (bool(security.admin_token()) and security.constant_time_equals(
-                x_admin_token, security.admin_token()))
+            _is_admin_token(x_admin_token)
             or (bool(os.environ.get("AGENT_TOKEN", "").strip()) and security.constant_time_equals(
                 x_agent_token, os.environ.get("AGENT_TOKEN", "").strip()))
             or (bool(channel_token) and security.constant_time_equals(x_channel_token, channel_token))
@@ -2080,7 +2147,7 @@ def create_app() -> FastAPI:
 
         from fastapi.responses import FileResponse
 
-        if not security.constant_time_equals(x_admin_token, security.admin_token()):
+        if not _is_admin_token(x_admin_token):
             raise HTTPException(401, "需要管理员令牌")
         emote_dir = (_pathlib.Path(os.environ.get("GATEWAY_EMOTE_DIR")
                                    or (_pathlib.Path.home() / "napcat" / "emotes"))).resolve()
@@ -2168,8 +2235,7 @@ def create_app() -> FastAPI:
                            "get_group_file_list", "fs.list", "fs.read"}
                          if _local_agent else None)
         trusted = (
-            (bool(security.admin_token()) and security.constant_time_equals(
-                x_admin_token, security.admin_token()))
+            _is_admin_token(x_admin_token)
             or (bool(agent_token) and security.constant_time_equals(x_agent_token, agent_token))
         )
         if not trusted:
@@ -2303,8 +2369,14 @@ def create_app() -> FastAPI:
         # 约定 ["bigrobot-admin", "<token>"]
         client_token = parts[1] if len(parts) >= 2 else ""
         if not security.constant_time_equals(client_token, token):
-            await ws.close(code=4401)
-            return
+            try:
+                from core import remote
+                if not remote.validate(client_token):
+                    await ws.close(code=4401)
+                    return
+            except Exception:
+                await ws.close(code=4401)
+                return
         # 握手时必须回选 subprotocol，否则浏览器认为握手失败
         await ws.accept(subprotocol="bigrobot-admin")
         await hub.connect_operator(ws, already_accepted=True)

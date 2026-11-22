@@ -18,6 +18,7 @@
 | [channel-events.md](channel-events.md) | 通知、请求与撤回软删除 |
 | [multi-account.md](multi-account.md) | 按机器人账号隔离会话、记忆与动作 |
 | [persona-capabilities.md](persona-capabilities.md) | 角色工具/技能/MCP/扩展边界 |
+| [remote-control.md](remote-control.md) | 手机扫码接管控制台：配对、安全模型与限制 |
 
 ## 存档
 

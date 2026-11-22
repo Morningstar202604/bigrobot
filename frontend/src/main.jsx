@@ -16,6 +16,7 @@ import { bootstrapAdminToken } from './lib/queries'
 
 // 路由级代码分割（React.lazy + Suspense）
 const VisitorChat = lazy(() => import('./VisitorChat'))
+const RemoteGate = lazy(() => import('./RemoteGate'))
 const Settings = lazy(() => import('./Settings'))
 const Instances = lazy(() => import('./pages/Instances'))
 const Sessions = lazy(() => import('./pages/Sessions'))
@@ -44,6 +45,7 @@ export default function App() {
             <Suspense fallback={<Spinner full />}>
               <ErrorBoundary>
               <Routes>
+                <Route path="/remote" element={<RemoteGate />} />
                 <Route path="/" element={<VisitorChat />} />
                 {/* 角色三入口合并后的兼容：旧子路由回到角色工作台的对应子页 */}
                 <Route path="/capabilities/persona-caps" element={<Navigate to="/capabilities?view=persona&role=caps" replace />} />

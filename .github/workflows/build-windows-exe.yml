@@ -1,0 +1,48 @@
+name: Build Windows exe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[build]"
+      - name: Build and smoke-test exe
+        run: python scripts/build_exe.py --clean
+      - name: Name release artifact
+        shell: pwsh
+        run: |
+          Copy-Item dist-exe/bigrobot.exe dist-exe/bigrobot-2.0.1-win64.exe
+          Get-FileHash dist-exe/bigrobot-2.0.1-win64.exe -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  bigrobot-2.0.1-win64.exe" } |
+            Set-Content dist-exe/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bigrobot-2.0.1-win64
+          path: |
+            dist-exe/bigrobot-2.0.1-win64.exe
+            dist-exe/SHA256SUMS.txt
+          if-no-files-found: error

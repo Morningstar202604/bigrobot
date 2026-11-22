@@ -8,6 +8,12 @@ BigRobot turns a chat account you already own into a self-hosted AI workspace. I
 
 Most bots wait for messages. BigRobot starts by taking over an existing account and showing what is actually in it. QQ is the first channel because QQ has no usable backend: you log in and see nothing. Here you see the groups, the members, the files and the history, then put an agent on top.
 
+## Download
+
+Windows single-file build: `releases/2.0.1/bigrobot-2.0.1-win64.exe` (no Python required). GitHub Releases carries the same file plus `SHA256SUMS.txt`; Gitee and GitCode have no Release section, so the installer lives in the repository's `releases/2.0.1/` directory.
+
+The binary is unsigned, so Windows may show SmartScreen. First run creates `bigrobot-data/` in the user data directory. Checksums are in `releases/2.0.1/SHA256SUMS.txt`.
+
 ## What it does
 
 - **Account takeover** — start the protocol, scan a QR code, keep it alive with a watchdog and restart backoff.

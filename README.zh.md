@@ -8,6 +8,12 @@ BigRobot 把你自己已有的聊天账号接管成一个自托管 AI 工作台�
 
 大多数机器人等着回复消息。BigRobot 先把一个现成账号接过来，让你看清里面真实存在的东西。第一个渠道是 QQ——QQ 没有可用的后台，登录之后什么都看不见。这里能看到群、成员、文件和历史，再在上面放一个 Agent。
 
+## 下载
+
+Windows 免安装单文件：`releases/2.0.1/bigrobot-2.0.1-win64.exe`（不需要装 Python）。GitHub Releases 提供同一个包与 `SHA256SUMS.txt`；Gitee、GitCode 没有 Release 区，安装包直接放在仓库的 `releases/2.0.1/` 目录里。
+
+包没有代码签名，Windows 可能弹 SmartScreen；首次运行会在用户数据目录创建 `bigrobot-data/`。校验值在 `releases/2.0.1/SHA256SUMS.txt`。
+
 ## 能做什么
 
 - **接管账号**：启动协议端、扫码登录，用看门狗和退避重启维持在线。

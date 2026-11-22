@@ -857,3 +857,192 @@ body {
 }
 .spin { animation: browser-spin 0.9s linear infinite; }
 @keyframes browser-spin { to { transform: rotate(360deg); } }
+
+/* ============ 手机远程控制（ZCode 式配对弹窗） ============ */
+.remote-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--side-line);
+}
+.remote-toggle {
+  width: 100%; border: 0; background: transparent; cursor: pointer;
+  font-family: inherit; text-align: left;
+}
+.remote-toggle:hover { background: var(--side-hover); color: var(--side-ink-strong); }
+.remote-toggle .browser-dot { margin-left: auto; }
+
+.remote-modal-mask {
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(12, 18, 17, 0.52);
+  display: grid; place-items: center; padding: 18px;
+  backdrop-filter: blur(3px);
+}
+.remote-modal {
+  width: min(880px, 96vw);
+  max-height: min(88dvh, 760px);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  padding: 20px;
+}
+.remote-modal-head {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding-bottom: 14px; border-bottom: 1px solid var(--line-2);
+}
+.remote-modal-head h3 {
+  margin: 0; display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display); font-size: 20px; color: var(--ink);
+}
+.remote-modal-head p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
+.remote-modal-head .browser-icon-btn { flex-shrink: 0; }
+
+.remote-grid {
+  display: grid; grid-template-columns: 320px minmax(0, 1fr);
+  gap: 20px; padding-top: 16px;
+}
+.remote-qr-col {
+  border-right: 1px solid var(--line-2);
+  padding-right: 20px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.remote-qr {
+  width: 252px; height: 252px; display: block;
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px; background: #fff;
+}
+.remote-qr-empty, .remote-connected-card {
+  width: 100%; min-height: 252px; border: 1px dashed var(--line);
+  border-radius: 12px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 9px;
+  text-align: center; color: var(--muted); padding: 18px;
+}
+.remote-connected-card {
+  border-style: solid; border-color: rgba(14, 92, 85, 0.25);
+  background: var(--brand-soft); color: var(--brand);
+}
+.remote-connected-card strong { font-size: 16px; color: var(--ink); }
+.remote-connected-card span { font-size: 13px; color: var(--brand); }
+.remote-connected-card small { font-size: 11px; color: var(--muted); line-height: 1.6; }
+.remote-countdown {
+  margin-top: 9px; font-size: 11.5px; color: var(--muted);
+  font-family: var(--mono);
+}
+.remote-countdown.expired { color: var(--danger); }
+
+.remote-side { min-width: 0; }
+.remote-mode-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.remote-mode-row label { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+.remote-mode-row select {
+  flex: 1; min-width: 0; height: 32px; border: 1px solid var(--line);
+  border-radius: 7px; background: #fff; color: var(--ink); font-size: 12px; padding: 0 8px;
+}
+.remote-link-box {
+  background: var(--panel-2); border: 1px solid var(--line-2);
+  border-radius: 10px; padding: 10px 11px; margin-bottom: 10px;
+}
+.remote-link-label { font-size: 10.5px; color: var(--muted); margin-bottom: 4px; }
+.remote-link-box code {
+  display: block; font-size: 11px; color: var(--ink-2); line-height: 1.5;
+  word-break: break-all; max-height: 54px; overflow: auto;
+  font-family: var(--mono);
+}
+.remote-link-actions { display: flex; gap: 7px; margin-top: 8px; }
+.remote-link-actions button {
+  height: 27px; border: 1px solid var(--line); border-radius: 6px;
+  background: #fff; color: var(--ink-2); font-size: 11px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px; padding: 0 9px;
+}
+.remote-link-actions button:hover { border-color: var(--brand-2); color: var(--brand); }
+.remote-link-actions button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.remote-state-card {
+  border: 1px solid var(--line-2); border-radius: 9px;
+  padding: 9px 11px; margin-bottom: 9px; background: #fff;
+}
+.remote-state-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; font-size: 11.5px; color: var(--muted); padding: 2px 0;
+}
+.remote-state-row strong { color: var(--ok); }
+.remote-state-row em {
+  font-style: normal; font-family: var(--mono); font-size: 10.5px; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.remote-state-url {
+  margin-top: 4px; padding-top: 5px; border-top: 1px dashed var(--line-2);
+  font-family: var(--mono); font-size: 10.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.remote-tunnel-tag {
+  display: inline-flex; margin-top: 6px; padding: 1px 6px;
+  border-radius: 4px; background: var(--warn-soft); color: #8a5a12;
+  font-size: 10px;
+}
+.remote-warning {
+  display: flex; gap: 6px; align-items: flex-start;
+  background: var(--warn-soft); color: #805014; border-radius: 8px;
+  padding: 8px 9px; font-size: 11px; line-height: 1.55; margin-bottom: 9px;
+}
+.remote-error {
+  background: var(--danger-soft); color: var(--danger); border-radius: 7px;
+  padding: 7px 9px; font-size: 11px; line-height: 1.5; margin-bottom: 9px;
+  word-break: break-word;
+}
+.remote-buttons { display: flex; gap: 8px; margin-top: 4px; }
+.remote-buttons button {
+  height: 34px; border-radius: 8px; border: 1px solid var(--line);
+  background: #fff; color: var(--ink-2); font-size: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 14px;
+}
+.remote-buttons button.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+.remote-buttons button.primary:hover { background: var(--brand-2); }
+.remote-buttons button.danger { color: var(--danger); border-color: rgba(220, 38, 38, 0.25); }
+.remote-buttons button.danger:hover { background: var(--danger-soft); }
+.remote-buttons button:disabled { opacity: 0.5; cursor: not-allowed; }
+.remote-tips { margin-top: 12px; color: var(--muted); font-size: 10.5px; line-height: 1.65; }
+.remote-tips p { margin: 0 0 4px; }
+.remote-auth-empty {
+  padding: 45px 20px; display: flex; flex-direction: column;
+  align-items: center; gap: 10px; color: var(--muted); text-align: center;
+}
+.remote-auth-empty p { max-width: 420px; font-size: 12px; line-height: 1.7; margin: 0; }
+
+.remote-gate {
+  position: fixed; inset: 0; z-index: 200;
+  display: grid; place-items: center; padding: 18px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(23, 120, 108, 0.22), transparent 48%),
+    radial-gradient(circle at 80% 80%, rgba(194, 69, 45, 0.14), transparent 45%),
+    #101817;
+}
+.remote-gate-card {
+  width: min(430px, 94vw); background: #f7f8f9;
+  border-radius: 18px; padding: 26px 24px 20px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+.remote-gate-card .shell-brand { color: var(--ink); padding: 0 0 18px; }
+.remote-gate-status {
+  min-height: 210px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 9px; text-align: center;
+  color: var(--brand);
+}
+.remote-gate-status h2 { margin: 2px 0 0; font-family: var(--font-display); font-size: 20px; color: var(--ink); }
+.remote-gate-status p { margin: 0; max-width: 340px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.remote-gate-status .btn { margin-top: 8px; }
+.remote-gate-foot {
+  display: flex; gap: 6px; align-items: flex-start;
+  border-top: 1px solid var(--line-2); padding-top: 12px;
+  color: var(--muted); font-size: 10.5px; line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .remote-modal { padding: 16px; max-height: 92dvh; }
+  .remote-grid { grid-template-columns: 1fr; gap: 14px; }
+  .remote-qr-col { border-right: 0; border-bottom: 1px solid var(--line-2); padding: 0 0 16px; }
+  .remote-qr, .remote-qr-empty, .remote-connected-card { max-width: 240px; }
+  .remote-modal-head h3 { font-size: 18px; }
+  .remote-modal-head p { font-size: 11px; }
+}

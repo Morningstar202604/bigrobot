@@ -21,6 +21,7 @@ Update these when the code changes.
 | [multi-account.md](multi-account.md) | Session, memory and action isolation per bot account |
 | [persona-capabilities.md](persona-capabilities.md) | Per-persona tool, skill, MCP and extension scope |
 | [LOCAL-MODELS.md](LOCAL-MODELS.md) | Download, run and switch to a sub-2B local model |
+| [remote-control.md](remote-control.md) | Phone remote control: pairing, security model and limits |
 
 ## Archive
 
