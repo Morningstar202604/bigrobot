@@ -1426,6 +1426,8 @@ WRITE_TOOLS = frozenset({"remember", "remind", "future_task", "cancel_future_tas
 PRIVILEGED_TOOLS = frozenset({
     "list_files", "read_file", "write_file", "parse_document",
     "qq_send", "send_image", "send_voice",
+    "browser_open", "browser_read", "browser_click", "browser_type",
+    "browser_screenshot", "browser_close",
 })
 
 
@@ -1523,6 +1525,11 @@ def _merge_general_tools() -> None:
 
     _SYNC_IMPLS.update(cast(dict, os_tools.SYNC_TOOLS))
     TOOL_META.update(os_tools.TOOL_META_EXTRA)
+    # 内置 Playwright 浏览器自动化（异步工具，页面会话在 core/browser.py）
+    from core import tools_browser as bw_tools
+
+    _ASYNC_IMPLS.update(cast(dict, bw_tools.ASYNC_TOOLS))
+    TOOL_META.update(bw_tools.TOOL_META_EXTRA)
 
 
 _merge_general_tools()

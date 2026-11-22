@@ -196,6 +196,8 @@ class ChannelMessage:
     persona_id: str = ""
     # 这条消息属于哪个机器人账号（QQ self_id 归一后的 qq:10001）
     account_id: str = ""
+    # 网页控制台带管理员令牌发来的请求：浏览器自动化等管理员工具才可用
+    is_admin: bool = False
 
 
 @dataclass
@@ -713,6 +715,15 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
             pass
 
     name, args = None, None
+    # 浏览器自动化：明确说「用浏览器打开/访问网站」才走 Playwright，
+    # 普通链接总结仍走 read_source，避免把轻任务塞进整台 Chromium。
+    if "browser_open" in ctx["tools"]:
+        um = re.search(r"https?://[^\s，。！？]+", q)
+        if um and re.search(r"浏览器|打开网页|打开网站|访问网站|打开这个网页|网页打开", q):
+            name, args = "browser_open", {"url": um.group(0)}
+    if not name and "browser_screenshot" in ctx["tools"] and re.search(
+            r"(网页|页面|浏览器).{0,6}(截图|截个图|截屏)|(截图|截个图|截屏).{0,6}(网页|页面|浏览器)", q):
+        name, args = "browser_screenshot", {}
     # 搜索交给 _llm_answer 的 ReAct 链路：那里会在工具返回后再让本地模型
     # 用两三句归纳；_direct_tool 直接返回 note 会把标题、摘要、URL 原样倒给用户。
     if "recall_memory" in ctx["tools"] and tctx.visitor_id:
@@ -1548,10 +1559,11 @@ async def _prepare(message: ChannelMessage, history: list[dict], visitor_key: st
         # channel_type 实际取值是 qq_group / qq_private（不是 "qq"）：旧判断用
         # in ("qq","onebot") 恒为假，于是主人账号被当成 visitor，
         # 所有特权工具一律拒绝——「主人账号说话机器人不听」的根因之一。
-        principal=(f"qq:{message.channel_user_id}"
-                   if str(message.channel_type or "").startswith("qq")
-                   or message.channel_type == "onebot"
-                   else f"visitor:{visitor_key or 'anonymous'}"),
+        principal=("admin" if getattr(message, "is_admin", False) else
+                   (f"qq:{message.channel_user_id}"
+                    if str(message.channel_type or "").startswith("qq")
+                    or message.channel_type == "onebot"
+                    else f"visitor:{visitor_key or 'anonymous'}")),
         persona_id=ctx.get("persona_id", ""),
         account_id=getattr(message, "account_id", "") or "",
     )

@@ -91,6 +91,11 @@ def require_admin(x_admin_token: str | None = Header(default=None, alias="X-Admi
         raise HTTPException(401, "需要管理员令牌")
 
 
+def _is_admin_token(raw: str | None) -> bool:
+    tok = security.admin_token()
+    return bool(tok) and security.constant_time_equals(raw or "", tok)
+
+
 def require_channel(x_channel_token: str | None = Header(default=None, alias="X-Channel-Token")):
     """渠道端点共享密钥：未设置 CHANNEL_TOKEN 时直接 503，防公网伪造消息/刷 LLM 成本。"""
     token = os.environ.get("CHANNEL_TOKEN", "").strip()
@@ -508,7 +513,7 @@ def create_app() -> FastAPI:
                               ambient: list[str] | None = None, group_name: str = "",
                               channel_type: str = "", channel_user_id: str = "",
                               group_id: str | None = None, message_id: str = "",
-                              account_id: str = ""):
+                              account_id: str = "", is_admin: bool = False):
         _preflight(sid, text, visitor_key)
         ev.info(f"ingest visitor={visitor_key} text={text[:60]}")
         # 管线只需要最近若干轮：全量读取会让长会话的上下文构建从 18ms 涨到 37ms。
@@ -534,7 +539,8 @@ def create_app() -> FastAPI:
                                         channel_type=channel_type or "webchat",
                                         channel_user_id=channel_user_id or visitor_key,
                                         group_id=group_id, message_id=message_id,
-                                        session_id=sid, account_id=account_id),
+                                        session_id=sid, account_id=account_id,
+                                        is_admin=is_admin),
                 history,
                 visitor_key,
             )
@@ -572,7 +578,8 @@ def create_app() -> FastAPI:
 
     async def _regenerate_inbound(sid: str, text: str, image: str | None, visitor_key: str,
                                   history_limit: int = 60, web_search: bool = False,
-                                  file_name: str = "", file_data: str | None = None):
+                                  file_name: str = "", file_data: str | None = None,
+                                  is_admin: bool = False):
         """重新生成：只追加新的 Agent 回答，不重复落访客消息。"""
         history = store.get_messages(sid, limit=history_limit, include_deleted=False)
         # 问题以会话记录为准，忽略客户端传入的 content（防伪造提问）
@@ -582,7 +589,8 @@ def create_app() -> FastAPI:
         if history and history[-1].get("role") == "agent":
             history = history[:-1]
         reply = await pipeline.run(
-            pipeline.ChannelMessage(text=text, image_b64=image or "", web_search=web_search),
+            pipeline.ChannelMessage(text=text, image_b64=image or "", web_search=web_search,
+                                    is_admin=is_admin),
             history,
             visitor_key,
         )
@@ -937,7 +945,9 @@ def create_app() -> FastAPI:
         return {"ok": True, "message_id": message_id}
 
     @app.post("/api/sessions/{sid}/messages")
-    async def post_message(sid: str, body: MessageIn, request: Request, _=Depends(_require_session_secret)):
+    async def post_message(sid: str, body: MessageIn, request: Request,
+                           x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+                           _=Depends(_require_session_secret)):
         content = (body.content or "").strip()
         if not content and not body.image and not body.file_data:
             raise HTTPException(400, "消息内容不能为空")
@@ -946,6 +956,7 @@ def create_app() -> FastAPI:
         if sess and sess["status"] == "closed":
             raise HTTPException(409, "会话已关闭，请开始新会话")
         visitor_id = (sess or {}).get("visitor_id", "anonymous")
+        is_admin = _is_admin_token(x_admin_token)
         limiter: security.RateLimiter = app.state.limiter
         # 限流 key 用客户端 IP（不再用可伪造的 visitor_id），防一人刷爆全匿名桶
         ip_key = f"ip:{request.client.host if request.client else 'unknown'}"
@@ -961,7 +972,8 @@ def create_app() -> FastAPI:
         if body.regenerate:
             reply, msg_id, ticket_id = await _regenerate_inbound(
                 sid, content, body.image, visitor_id, history_limit=60,
-                web_search=body.web_search, file_name=body.file_name, file_data=body.file_data)
+                web_search=body.web_search, file_name=body.file_name, file_data=body.file_data,
+                is_admin=is_admin)
             return {"role": "agent", "text": reply.text, "citations": reply.citations,
                     "confidence": reply.confidence, "escalate": reply.escalate,
                     "escalate_reason": reply.escalate_reason, "ticket_id": ticket_id,
@@ -971,7 +983,7 @@ def create_app() -> FastAPI:
                     "message_id": msg_id, "visitor_message_id": None}
         reply, msg_id, ticket_id, visitor_msg_id = await _handle_inbound(
             sid, content, body.image, visitor_id, web_search=body.web_search,
-            file_name=body.file_name, file_data=body.file_data)
+            file_name=body.file_name, file_data=body.file_data, is_admin=is_admin)
         return {
             "role": "agent",
             "text": reply.text,
@@ -994,7 +1006,9 @@ def create_app() -> FastAPI:
         return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
     @app.post("/api/sessions/{sid}/chat/stream")
-    async def chat_stream(sid: str, body: MessageIn, request: Request, _=Depends(_require_session_secret)):
+    async def chat_stream(sid: str, body: MessageIn, request: Request,
+                          x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+                          _=Depends(_require_session_secret)):
         """访客流式问答（SSE 范式：delta 增量打字机 → done 权威终态，终态 text 为准）。"""
         content = (body.content or "").strip()
         if not content and not body.image and not body.file_data:
@@ -1002,6 +1016,7 @@ def create_app() -> FastAPI:
         _check_payload(content, body.image, body.file_data, body.file_name)
         sess = store.get_session(sid)
         visitor_id = (sess or {}).get("visitor_id", "anonymous")
+        is_admin = _is_admin_token(x_admin_token)
         limiter: security.RateLimiter = app.state.limiter
         ip_key = f"ip:{request.client.host if request.client else 'unknown'}"
         if not limiter.allow(ip_key):
@@ -1050,7 +1065,7 @@ def create_app() -> FastAPI:
                 async for kind, payload in pipeline.run_stream(
                     pipeline.ChannelMessage(text=regen_text, image_b64=body.image or "",
                                             file_name=body.file_name, file_data=body.file_data or "",
-                                            web_search=body.web_search),
+                                            web_search=body.web_search, is_admin=is_admin),
                     history,
                     visitor_id,
                 ):

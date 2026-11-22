@@ -1,4 +1,4 @@
-"""工具合并（B2：54 → 26，加 OCR 后 27，再加 8 个开源纯函数工具后 35）的护栏。
+"""工具合并（B2：54 → 26，加 OCR 后 27，再加 8 个开源纯函数工具、6 个浏览器工具后 41）的护栏。
 
 三件事必须同时成立，否则"合并"就是降级：
 1. 模型清单只剩 26 个基础工具 + 1 个 OCR + 8 个开源工具，但被吸收的旧名仍然可调度（不打断已有脚本与审批记录）；
@@ -14,8 +14,8 @@ from core import tools as tools_mod
 from core.tool_context import EMPTY
 
 
-def test_tool_count_is_35_with_ocr_and_opensource():
-    assert len(tools_mod.TOOL_META) == 35
+def test_tool_count_is_41_with_ocr_opensource_and_browser():
+    assert len(tools_mod.TOOL_META) == 41
 
 
 def test_retired_tools_stay_dispatchable():

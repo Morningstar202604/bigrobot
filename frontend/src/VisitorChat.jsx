@@ -474,6 +474,7 @@ export default function VisitorChat() {
     setLoading(true)
     try {
       const sec = useAppStore.getState().getSessionSecret(sid)
+      const admin = useAppStore.getState().adminToken
       const controller = new AbortController()
       abortRef.current = controller
       const resp = await fetch(`/api/sessions/${sid}/chat/stream`, {
@@ -482,6 +483,7 @@ export default function VisitorChat() {
         headers: {
           'Content-Type': 'application/json',
           ...(sec ? { 'X-Session-Secret': sec } : {}),
+          ...(admin ? { 'X-Admin-Token': admin } : {}),
         },
         body: JSON.stringify({ content, image: img || null, file_name: fileName,
                                file_data: fileData, web_search: webSearch && webAvailable, regenerate }),

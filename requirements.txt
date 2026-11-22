@@ -25,3 +25,6 @@ trafilatura~=2.0
 ddgs~=9.0
 # 二维码本地生成（通用工具 qr_code）：绝不用在线服务，避免内容外泄
 qrcode[pil]~=8.2
+
+# 内置浏览器自动化：Playwright + 本机 Chromium（部署机跑 playwright install chromium）
+playwright~=1.53
