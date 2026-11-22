@@ -36,7 +36,8 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
         r"|介绍一下(你自己|自己)|自我介绍|你的(身份|设定|人设)|你是不是(猫|人|机器人|AI)", re.I)),
     (INTENT_EMOTE, re.compile(
         r"(发|来|甩|整|给).{0,4}(个|张|套)?\s*(表情包|表情|梗图|动图|斗图)"
-        r"|表情包(来|走)?(一|几)?(个|张)|斗图|贴个图", re.I)),
+        r"|表情包(来|走)?(一|几)?(个|张)|斗图|贴个图"
+        r"|(发|来|甩|整|给|要).{0,4}(?:个|张|套)\s*(贴吧|黑化|滑稽|狗头|绷不住|破防了|啊对对对|已老实|什么档次|就这)", re.I)),
     (INTENT_VOICE, re.compile(
         r"(发|来|说|录).{0,3}(条|句|段)?\s*(语音|声音)|语音(说|回|来)|用语音", re.I)),
     (INTENT_INSULT, re.compile(
@@ -123,4 +124,15 @@ def emote_keyword(text: str) -> str:
         if 0 < len(kw) <= 8:
             return kw
     m2 = re.search(r"(?:猫|狗|熊猫|奶娃|二次元|打工人|摸鱼|笑哭|无语|委屈|得意|嘲讽|害羞|晚安|加油)", q)
-    return m2.group(0) if m2 else ""
+    if m2:
+        return m2.group(0)
+    # 「发个贴吧滑稽」「来张黑化冷笑」——没有“表情包”三个字也要认。
+    m3 = re.search(
+        r"(贴吧)?\s*(滑稽|狗头|抠鼻|翻白眼|绷不住|破防了|啊对对对|已老实|什么档次|就这"
+        r"|黑化[冷凝狂破无点喝退][笑视笑防语赞茶场])", q)
+    if m3:
+        kw = " ".join(x for x in m3.groups() if x)
+        if kw.startswith("黑化") and len(kw) > 2:
+            kw = "黑化 " + kw[2:]
+        return kw
+    return ""

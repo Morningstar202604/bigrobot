@@ -42,7 +42,8 @@ def _emote_count() -> int:
         items = data.get("items") if isinstance(data, dict) else data
         if not isinstance(items, list):
             return 0
-        return sum(1 for i in items if isinstance(i, dict) and i.get("group") == "opensource-noto")
+        return sum(1 for i in items if isinstance(i, dict)
+                   and str(i.get("group") or "").startswith("opensource"))
     except (OSError, ValueError):
         return 0
 
@@ -88,10 +89,10 @@ def status() -> dict:
         },
         {
             "id": "emotes", "name": "表情库", "count": _emote_count(),
-            "summary": "Noto Emoji 42 张 + 原有 11 张，共 53 张",
-            "source": "https://github.com/googlefonts/noto-emoji",
-            "license": "Apache-2.0（图像资源）",
-            "detail": "按中文标签入库；没命中不会随机拿错脸。",
+            "summary": "Noto 42 张 + 贴吧经典 54 张 + 黑化/网络梗 14 张",
+            "source": "https://github.com/googlefonts/noto-emoji / https://github.com/walinejs/emojis / 本地生成",
+            "license": "Noto Apache-2.0；贴吧 GPL-3.0-or-later（原图版权归百度）；黑化/梗图原创",
+            "detail": "分组 opensource-noto / opensource-tieba / opensource-meme；标签在 napcat/emotes/tags.json。",
         },
         {
             "id": "kb", "name": "知识库", "count": _kb_count(),

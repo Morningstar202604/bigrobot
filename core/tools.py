@@ -782,6 +782,18 @@ def tool_search_emote(ctx: ToolContext, keyword: str = "", **_kw) -> dict:
         pass
     hits = [i for i in items if kws and any(
         k in label(i) or k in str(i.get("summary") or "") for k in kws)]
+    # 「黑化 冷笑」不能挑到只带“黑化”的疯狂脸；先按命中词数排序，
+    # 全词命中和摘要直接命中再加权，避免多标签图把精确图挤下去。
+    if hits:
+        def _score(it: dict) -> tuple[int, int]:
+            lab = label(it)
+            summ = str(it.get("summary") or "")
+            n = sum(1 for k in kws if k in lab)
+            exact = 2 if kws and all(k in lab for k in kws) else 0
+            sm = 1 if any(k in summ for k in kws) else 0
+            phrase = 1 if kw and kw in lab else 0
+            return (n + exact + sm + phrase, n)
+        hits.sort(key=lambda it: _score(it), reverse=True)
     if not kws:
         hits = items[-10:]
     elif not hits:

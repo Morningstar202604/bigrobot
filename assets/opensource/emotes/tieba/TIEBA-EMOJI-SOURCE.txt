@@ -1,0 +1,7 @@
+贴吧经典表情（54 张）
+
+来源：https://github.com/walinejs/emojis
+npm 包：@waline/emojis 1.4.0（GPL-3.0-or-later）
+表情原始版权：百度贴吧
+说明：此处仅作本地演示与学习用途；商用/公开分发请自行取得百度授权。
+文件命名：tieba_<英文名>.png，中文标签写在 tags.json。

@@ -92,3 +92,14 @@ def test_extension_formatters_use_latest_and_license_expression():
     from core.extensions import _fmt_npm, _fmt_pypi
     assert "19.3.1" in _fmt_npm({"version": "19.3.1", "license": "MIT"})
     assert "MIT" in _fmt_pypi({"info": {"version": "1.0", "license_expression": "MIT"}})
+
+
+def test_tieba_and_dark_emote_routing():
+    from core import intent
+    from core.tools import tool_search_emote
+    from core.tool_context import EMPTY
+    assert intent.classify("发个贴吧滑稽").name == intent.INTENT_EMOTE
+    assert intent.emote_keyword("发个贴吧滑稽") == "贴吧 滑稽"
+    assert intent.emote_keyword("发个黑化冷笑") == "黑化 冷笑"
+    res = tool_search_emote(EMPTY, keyword="黑化 冷笑")
+    assert res.get("sample_path", "").endswith("dark_heihua_lengxiao.png")

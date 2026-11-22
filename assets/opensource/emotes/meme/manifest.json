@@ -1,0 +1,130 @@
+{
+  "id": "meme-dark",
+  "name": "黑化与网络梗图",
+  "count": 14,
+  "source": "豆包 Seedream 5.5 本地生成",
+  "license": "原创素材，随本项目使用",
+  "items": [
+    {
+      "file": "dark_heihua_lengxiao.png",
+      "label": "黑化冷笑",
+      "tags": [
+        "黑化",
+        "冷笑",
+        "阴冷",
+        "反派"
+      ]
+    },
+    {
+      "file": "dark_heihua_ningshi.png",
+      "label": "黑化凝视",
+      "tags": [
+        "黑化",
+        "凝视",
+        "压迫感"
+      ]
+    },
+    {
+      "file": "dark_heihua_kuangxiao.png",
+      "label": "黑化狂笑",
+      "tags": [
+        "黑化",
+        "狂笑",
+        "发疯"
+      ]
+    },
+    {
+      "file": "dark_heihua_pofang.png",
+      "label": "黑化破防",
+      "tags": [
+        "黑化",
+        "破防",
+        "崩溃"
+      ]
+    },
+    {
+      "file": "dark_heihua_wuyu.png",
+      "label": "黑化无语",
+      "tags": [
+        "黑化",
+        "无语",
+        "冷漠"
+      ]
+    },
+    {
+      "file": "dark_heihua_dianzan.png",
+      "label": "黑化点赞",
+      "tags": [
+        "黑化",
+        "点赞",
+        "反讽"
+      ]
+    },
+    {
+      "file": "dark_heihua_hecha.png",
+      "label": "黑化喝茶",
+      "tags": [
+        "黑化",
+        "喝茶",
+        "看戏"
+      ]
+    },
+    {
+      "file": "dark_heihua_tuichang.png",
+      "label": "黑化退场",
+      "tags": [
+        "黑化",
+        "退场",
+        "溜了"
+      ]
+    },
+    {
+      "file": "meme_bengbuzhule.png",
+      "label": "绷不住了",
+      "tags": [
+        "绷不住",
+        "笑死"
+      ]
+    },
+    {
+      "file": "meme_pofangle.png",
+      "label": "破防了",
+      "tags": [
+        "破防",
+        "崩溃"
+      ]
+    },
+    {
+      "file": "meme_aduidu.png",
+      "label": "啊对对对",
+      "tags": [
+        "敷衍",
+        "阴阳"
+      ]
+    },
+    {
+      "file": "meme_yilaoshi.png",
+      "label": "已老实",
+      "tags": [
+        "认怂",
+        "蔫"
+      ]
+    },
+    {
+      "file": "meme_shenmedangci.png",
+      "label": "什么档次",
+      "tags": [
+        "审视",
+        "鄙视"
+      ]
+    },
+    {
+      "file": "meme_jiuzhe.png",
+      "label": "就这",
+      "tags": [
+        "不屑",
+        "摊手"
+      ]
+    }
+  ]
+}

@@ -29,13 +29,18 @@ function EmoteThumb({ path }: { path: string }) {
 export default function EmoteCenter() {
   const fb = useFeedback()
   const [q, setQ] = useState('')
-  const emotes = useEmotes(q)
+  const [group, setGroup] = useState('')
+  // 121 张之后默认 60 会只显示一半；这里一次取完，靠分组和搜索收窄。
+  const emotes = useEmotes(q, 300)
   const del = useEmoteDelete()
   // TS 收窄：早退之后 emotes.error 恒为 falsy，JSX 里再判会变 never。
   // 先解构出来再判。
   const emoteError = emotes.error
   const refetchEmotes = emotes.refetch
-  const items: EmoteItem[] = emotes.data?.items ?? []
+  const allItems: EmoteItem[] = emotes.data?.items ?? []
+  const groupCounts: Record<string, number> = {}
+  for (const it of allItems) groupCounts[it.group] = (groupCounts[it.group] || 0) + 1
+  const items = group ? allItems.filter((it) => it.group === group) : allItems
   const [confirmTs, setConfirmTs] = useState<number | null>(null)
 
   if (emotes.error && isAuthError(emotes.error)) return <TokenGate error={emotes.error} onAuthed={() => emotes.refetch()} />
@@ -57,10 +62,25 @@ export default function EmoteCenter() {
                 aria-label={t('搜索表情包')}
               />
             </div>
-            <span className="badge muted">{emotes.data?.total ?? '…'}</span>
+            <span className="badge muted">{group ? `${items.length}/${emotes.data?.total ?? 0}` : (emotes.data?.total ?? '…')}</span>
           </>
         }
       />
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          ['', '全部', allItems.length],
+          ['opensource-tieba', '贴吧', groupCounts['opensource-tieba'] || 0],
+          ['opensource-meme', '黑化 / 梗图', groupCounts['opensource-meme'] || 0],
+          ['opensource-noto', 'Noto', groupCounts['opensource-noto'] || 0],
+          ['builtin', '内置', groupCounts['builtin'] || 0],
+        ].map(([key, label, n]) => (
+          <button key={String(key)} className={`btn sm ${group === key ? '' : 'ghost'}`}
+            onClick={() => setGroup(String(key))}>
+            {t(String(label))} {n}
+          </button>
+        ))}
+      </div>
 
       {emotes.isLoading && <Spinner full label={t('加载表情包…')} />}
       {emoteError && !isAuthError(emoteError) && (
