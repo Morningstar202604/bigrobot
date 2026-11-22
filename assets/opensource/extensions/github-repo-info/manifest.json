@@ -1,0 +1,45 @@
+{
+ "id": "github-repo-info",
+ "name": "GitHub 仓库信息",
+ "version": "0.0.1",
+ "base_url": "https://api.github.com",
+ "description": "GitHub REST API（公开仓库只读，无需 Key；受匿名速率限制）。",
+ "tools": [
+  {
+   "name": "github_repo_info",
+   "description": "读取公开仓库的 stars、语言、许可证和描述。",
+   "method": "GET",
+   "path": "/repos/{owner}/{repo}",
+   "risk": "read",
+   "params": {
+    "owner": {
+     "type": "string",
+     "required": true,
+     "in": "path",
+     "description": "GitHub 用户名/组织"
+    },
+    "repo": {
+     "type": "string",
+     "required": true,
+     "in": "path",
+     "description": "仓库名"
+    }
+   },
+   "headers": {
+    "Accept": "application/vnd.github+json",
+    "User-Agent": "BigRobot",
+    "Authorization": "Bearer ${ENV:GITHUB_TOKEN}"
+   },
+   "format": "github"
+  }
+ ],
+ "skills": [
+  {
+   "name": "开源项目尽调",
+   "description": "查仓库元数据再判断热度与许可证",
+   "file": "skills/github.md"
+  }
+ ],
+ "allow_private": true,
+ "allow_untrusted": true
+}

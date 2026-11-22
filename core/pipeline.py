@@ -724,6 +724,17 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
             key = re.sub(r"^(?:的)", "", mm.group(1).strip()).strip()
             if key and key in (store.get_memory(tctx.visitor_id) or {}):
                 name, args = "recall_memory", {"key": key}
+    # UUID 是纯确定性输出，交给小模型选工具经常答成“只看到半句”。
+    # 这里按「生成/来/给 + 数量 + UUID」直接命中。
+    if "uuid_gen" in ctx["tools"] and re.search(r"uuid", q, re.I) \
+            and re.search(r"生成|来|给|出|整|弄", q) \
+            and not re.search(r"是什么|怎么|原理|区别|校验", q):
+        um = re.search(r"(?:生成|来|给|出|整|弄)\s*([0-9]+|[一二两三四五六七八九十])\s*个?\s*(?:UUID|uuid)", q)
+        n = 1
+        if um:
+            raw = um.group(1)
+            n = int(raw) if raw.isdigit() else {"一": 1, "二": 2, "两": 2}.get(raw, 1)
+        name, args = "uuid_gen", {"count": str(max(1, min(20, n)))}
     if not name:
         name, args = tools_mod.detect_tool(q, ctx["tools"])
     # 显式「搜一下/新闻/最新」交给 web_search 直接执行。此前把 web_search
@@ -744,6 +755,8 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
     note = res.get("note") or ""
     if not note:
         return None
+    # 开源扩展/API 返回的是原始 JSON；直接倒给用户很难看，先压成一句人话。
+    note = _format_plugin_note(name, note)
     missed = res.get("found") is False or res.get("connected") is False
     # need_context（追问参数）与 empty（没待办/没记录）都是正常回合，不升级。
     # 这里曾只判 need_context，导致「列一下我的待办」在空列表时开出一张工单。
@@ -785,6 +798,84 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
             _logging.getLogger("cs.events").warning(
                 "工具结果润色失败，降级为工具原文: %s: %s", type(exc).__name__, str(exc)[:200])
     return reply
+
+
+def _format_plugin_note(name: str, note: str) -> str:
+    """把开源 API 插件的 JSON 结果压成中文短句；结果被截断也能提取关键字段。"""
+    if name not in {"pypi_package_info", "npm_package_info", "github_repo_info", "openmeteo_weather"}:
+        return note
+    if not isinstance(note, str):
+        try:
+            note = json.dumps(note, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return str(note)
+    if not note.lstrip().startswith("{"):
+        return note
+    try:
+        data = json.loads(note)
+    except (TypeError, ValueError):
+        data = {}
+
+    def grab(pattern: str) -> str:
+        m = re.search(pattern, note)
+        return m.group(1) if m else ""
+
+    try:
+        if name == "pypi_package_info":
+            info = data.get("info") or {}
+            version = info.get("version") or grab(r'"version"\s*:\s*"([^"]+)"')
+            lic = info.get("license") or grab(r'"license"\s*:\s*"([^"]{1,80})"')
+            py = info.get("requires_python") or grab(r'"requires_python"\s*:\s*"([^"]+)"')
+            summary = info.get("summary") or grab(r'"summary"\s*:\s*"([^"]{1,200})"')
+            bits = [f"PyPI 最新版 {version or '未知'}"]
+            if lic:
+                bits.append(f"许可证：{lic[:80]}")
+            if py:
+                bits.append(f"Python {py}")
+            if summary:
+                bits.append(summary[:180])
+            return "；".join(bits) + "。"
+        if name == "npm_package_info":
+            tags = data.get("dist-tags") or {}
+            latest = tags.get("latest") or grab(r'"latest"\s*:\s*"([^"]+)"')
+            lic = data.get("license") or grab(r'"license"\s*:\s*"([^"]+)"')
+            desc = data.get("description") or grab(r'"description"\s*:\s*"([^"]{1,200})"')
+            bits = [f"npm 最新版 {latest or '未知'}"]
+            if lic:
+                bits.append(f"许可证：{lic}")
+            if desc:
+                bits.append(desc[:180])
+            return "；".join(bits) + "。"
+        if name == "github_repo_info":
+            lic = (data.get("license") or {}).get("spdx_id") or grab(r'"spdx_id"\s*:\s*"([^"]+)"')
+            full = data.get("full_name") or grab(r'"full_name"\s*:\s*"([^"]+)"')
+            stars = data.get("stargazers_count")
+            if stars is None:
+                stars = grab(r'"stargazers_count"\s*:\s*(\d+)') or 0
+            lang = data.get("language") or grab(r'"language"\s*:\s*"([^"]+)"')
+            desc = data.get("description") or grab(r'"description"\s*:\s*"([^"]{1,200})"')
+            bits = [f"{full or '仓库'}：{stars} stars", f"主语言 {lang or '未知'}",
+                    f"许可证 {lic or '未声明'}"]
+            if desc:
+                bits.append(desc[:180])
+            return "；".join(bits) + "。"
+        if name == "openmeteo_weather":
+            cur = data.get("current") or {}
+            temp = cur.get("temperature_2m")
+            wind = cur.get("wind_speed_10m")
+            code = cur.get("weather_code")
+            time_ = cur.get("time") or data.get("timezone") or ""
+            bits = []
+            if temp is not None:
+                bits.append(f"{temp}°C")
+            if wind is not None:
+                bits.append(f"风速 {wind} km/h")
+            if code is not None:
+                bits.append(f"天气代码 {code}")
+            return ("Open-Meteo " + "，".join(bits) + (f"（{time_}）" if time_ else "") + "。").strip()
+    except Exception:
+        return note
+    return note
 
 
 def _split_memory(pair: str) -> tuple[str, str]:
@@ -897,6 +988,7 @@ async def _rule_react(query: str, ctx: dict, cfg: dict) -> AgentReply:
         result = await tools_mod.invoke_with(ctx.get("tools"), tool_name, tool_args,
                                             ctx.get("tool_ctx") or EMPTY)
         note = result.get("note") or json.dumps(result, ensure_ascii=False)
+        note = _format_plugin_note(tool_name, note)
         if _TOOL_DOWN_RE.search(note):
             note = random.choice(_TOOL_DOWN_FALLBACKS)
         # 工具明确说"没找到"或"未接入"时必须标记升级——
@@ -1183,6 +1275,7 @@ async def _make_llm_reply(data: dict, ctx: dict, cfg: dict) -> AgentReply:
         # 模型本来可以基于已有资料回答，拿 note 顶替等于对用户说「我做不了」。
         unavailable = (tool_result or {}).get("connected") is False
         note = (tool_result or {}).get("note") or ""
+        note = _format_plugin_note(tool_name, note)
         # 小模型会把 observation 前缀原样抄进正文（[weather] ...），去掉标签只留内容。
         if tool_name and (parsed.answer or "").startswith(f"[{tool_name}]"):
             parsed.answer = (parsed.answer or "")[len(tool_name) + 2:].strip()

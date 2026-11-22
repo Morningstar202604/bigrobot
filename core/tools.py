@@ -1506,6 +1506,11 @@ def _merge_general_tools() -> None:
     _SYNC_IMPLS.update(cast(dict, g.SYNC_TOOLS))
     _ASYNC_IMPLS.update(cast(dict, g.ASYNC_TOOLS))
     TOOL_META.update(g.TOOL_META_EXTRA)
+    # 开源小工具（纯函数、无网络/无 shell），单独成文件方便审阅
+    from core import tools_opensource as os_tools
+
+    _SYNC_IMPLS.update(cast(dict, os_tools.SYNC_TOOLS))
+    TOOL_META.update(os_tools.TOOL_META_EXTRA)
 
 
 _merge_general_tools()
@@ -2240,6 +2245,22 @@ def _detect_tool_raw(query: str, tools: dict | None = None) -> tuple[str | None,
             r"(总结|读|解析|看看).{0,6}(pdf|docx?|xlsx?|文档|文件)", q, re.I) \
             and re.search(r"[A-Za-z]:[\\/]|https?://", q):
         return "parse_document", {"path": "", "url": ""}
+    # 包仓库 / 仓库元数据：这类「查一下」是明确的 API 查询，不是全网搜索。
+    # 不先拦，会被下面的 web_search 规则吸走（实测 PyPI/npm 查询回了新闻）。
+    if _has("pypi_package_info") and re.search(r"pypi|pip", q, re.I):
+        m = re.search(r"(?:pypi|pip)\s*(?:上|上的|里的?)?\s*[`\"'“「]?([A-Za-z0-9_.-]{2,60})", q, re.I)
+        if m:
+            return "pypi_package_info", {"name": m.group(1).strip("`\"'“「")}
+    if _has("npm_package_info") and re.search(r"npm", q, re.I):
+        m = re.search(r"npm\s*(?:上|上的|里的?)?\s*[`\"'“「]?([@A-Za-z0-9_.\-/]{2,80})", q, re.I)
+        if m:
+            return "npm_package_info", {"name": m.group(1).strip("`\"'“「")}
+    if _has("github_repo_info") and re.search(r"github", q, re.I):
+        m = re.search(r"github\s*(?:上|上的|仓库)?\s*[:：]?\s*[`\"'“「]?([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)", q, re.I)
+        if m:
+            owner, repo = m.group(1).split("/", 1)
+            return "github_repo_info", {"owner": owner, "repo": repo}
+
     # 只认明确的联网意图：单独的「查一下」太宽，会把
     # 「帮我查一下根本不存在的神秘服务」也拖去搜索，掩盖本该转人工的未命中。
     _web_verb = re.search(r"(搜一下|搜搜|搜索|联网|网上搜)", q)

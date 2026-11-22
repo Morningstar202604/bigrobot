@@ -1,0 +1,571 @@
+{
+  "collection": {
+    "id": "opensource-docs",
+    "name": "开源文档摘要",
+    "description": "来自 Python/FastAPI/Git/Docker/SQLite/MDN/OWASP/MCP 等开源文档的原创摘要",
+    "persona_ids": [],
+    "enabled": true
+  },
+  "items": [
+    {
+      "id": "OS101",
+      "title": "Python 虚拟环境",
+      "answer": "用 `python -m venv .venv` 建隔离环境，激活后再装依赖；依赖清单写进 `requirements.txt` 或 `pyproject.toml`，不要把全局 site-packages 当项目环境。虚拟环境目录不要提交到 Git。",
+      "text": "Python 虚拟环境 用 `python -m venv .venv` 建隔离环境，激活后再装依赖；依赖清单写进 `requirements.txt` 或 `pyproject.toml`，不要把全局 site-packages 当项目环境。虚拟环境目录不要提交到 Git。",
+      "tags": [
+        "python",
+        "venv",
+        "依赖"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.python.org/3/library/venv.html",
+      "license": "PSF"
+    },
+    {
+      "id": "OS102",
+      "title": "Python 列表/字典推导式",
+      "answer": "列表推导式形如 `[f(x) for x in xs if cond(x)]`，适合把过滤和转换合成一行；数据量大或逻辑复杂时改回普通循环，别为了短而牺牲可读性。字典推导式同理：`{k: v for k, v in pairs}`。",
+      "text": "Python 列表/字典推导式 列表推导式形如 `[f(x) for x in xs if cond(x)]`，适合把过滤和转换合成一行；数据量大或逻辑复杂时改回普通循环，别为了短而牺牲可读性。字典推导式同理：`{k: v for k, v in pairs}`。",
+      "tags": [
+        "python",
+        "推导式",
+        "列表"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.python.org/3/tutorial/datastructures.html",
+      "license": "PSF"
+    },
+    {
+      "id": "OS103",
+      "title": "Python pathlib",
+      "answer": "用 `pathlib.Path` 代替字符串拼路径：`Path(base) / \"file.txt\"`、`p.read_text(encoding=\"utf-8\")`、`p.parent.mkdir(parents=True, exist_ok=True)`。它跨平台处理分隔符，也能直接判断 `is_file()` / `exists()`。",
+      "text": "Python pathlib 用 `pathlib.Path` 代替字符串拼路径：`Path(base) / \"file.txt\"`、`p.read_text(encoding=\"utf-8\")`、`p.parent.mkdir(parents=True, exist_ok=True)`。它跨平台处理分隔符，也能直接判断 `is_file()` / `exists()`。",
+      "tags": [
+        "python",
+        "pathlib",
+        "文件"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.python.org/3/library/pathlib.html",
+      "license": "PSF"
+    },
+    {
+      "id": "OS104",
+      "title": "Python 类型注解",
+      "answer": "函数参数和返回值写类型注解，例如 `def f(x: int) -> str`；容器用 `list[str]`、`dict[str, int]`。注解默认不参与运行时校验，主要给编辑器、mypy/pyright 和调用者看；需要运行时校验用 Pydantic。",
+      "text": "Python 类型注解 函数参数和返回值写类型注解，例如 `def f(x: int) -> str`；容器用 `list[str]`、`dict[str, int]`。注解默认不参与运行时校验，主要给编辑器、mypy/pyright 和调用者看；需要运行时校验用 Pydantic。",
+      "tags": [
+        "python",
+        "typing",
+        "类型"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.python.org/3/library/typing.html",
+      "license": "PSF"
+    },
+    {
+      "id": "OS105",
+      "title": "Python 异常处理",
+      "answer": "只捕获预期内的异常，捕获后要么恢复、要么补充上下文再抛出；不要写裸 `except:` 把 KeyboardInterrupt 和真实 bug 一起吞掉。自定义异常继承 `Exception`，日志里保留 `from e` 的异常链。",
+      "text": "Python 异常处理 只捕获预期内的异常，捕获后要么恢复、要么补充上下文再抛出；不要写裸 `except:` 把 KeyboardInterrupt 和真实 bug 一起吞掉。自定义异常继承 `Exception`，日志里保留 `from e` 的异常链。",
+      "tags": [
+        "python",
+        "异常",
+        "error"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.python.org/3/tutorial/errors.html",
+      "license": "PSF"
+    },
+    {
+      "id": "OS106",
+      "title": "Python async/await",
+      "answer": "`async def` 定义协程，`await` 等待另一个协程；阻塞式 IO（requests、time.sleep、同步数据库驱动）不要直接放进事件循环，改用异步客户端或 `asyncio.to_thread`。CPU 密集任务用进程池，不要靠 async 提速。",
+      "text": "Python async/await `async def` 定义协程，`await` 等待另一个协程；阻塞式 IO（requests、time.sleep、同步数据库驱动）不要直接放进事件循环，改用异步客户端或 `asyncio.to_thread`。CPU 密集任务用进程池，不要靠 async 提速。",
+      "tags": [
+        "python",
+        "async",
+        "asyncio"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.python.org/3/library/asyncio.html",
+      "license": "PSF"
+    },
+    {
+      "id": "OS107",
+      "title": "pytest fixture",
+      "answer": "用 `@pytest.fixture` 提供测试依赖，默认 function 作用域；需要共享的数据库连接可用 `scope=\"session\"`，但要在 teardown 里清理。`yield` 之前的代码是 setup，之后的代码是 teardown。",
+      "text": "pytest fixture 用 `@pytest.fixture` 提供测试依赖，默认 function 作用域；需要共享的数据库连接可用 `scope=\"session\"`，但要在 teardown 里清理。`yield` 之前的代码是 setup，之后的代码是 teardown。",
+      "tags": [
+        "pytest",
+        "测试",
+        "fixture"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.pytest.org/en/stable/how-to/fixtures.html",
+      "license": "MIT"
+    },
+    {
+      "id": "OS108",
+      "title": "FastAPI 路径与查询参数",
+      "answer": "路径参数写在路由里，如 `/items/{item_id}`，函数参数同名接收；没出现在路径里的普通参数默认是 query 参数。用 `Query()` / `Path()` 可以加默认值、范围和说明，FastAPI 会自动生成 OpenAPI。",
+      "text": "FastAPI 路径与查询参数 路径参数写在路由里，如 `/items/{item_id}`，函数参数同名接收；没出现在路径里的普通参数默认是 query 参数。用 `Query()` / `Path()` 可以加默认值、范围和说明，FastAPI 会自动生成 OpenAPI。",
+      "tags": [
+        "fastapi",
+        "api",
+        "参数"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://fastapi.tiangolo.com/tutorial/query-params/",
+      "license": "MIT"
+    },
+    {
+      "id": "OS109",
+      "title": "FastAPI Pydantic 模型",
+      "answer": "请求体用 Pydantic `BaseModel` 声明字段和类型，FastAPI 会自动解析、校验并生成文档。响应模型用 `response_model` 限制输出字段，避免把数据库内部字段（如密码哈希）泄露出去。",
+      "text": "FastAPI Pydantic 模型 请求体用 Pydantic `BaseModel` 声明字段和类型，FastAPI 会自动解析、校验并生成文档。响应模型用 `response_model` 限制输出字段，避免把数据库内部字段（如密码哈希）泄露出去。",
+      "tags": [
+        "fastapi",
+        "pydantic",
+        "校验"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://fastapi.tiangolo.com/tutorial/body/",
+      "license": "MIT"
+    },
+    {
+      "id": "OS110",
+      "title": "FastAPI 依赖注入",
+      "answer": "用 `Depends()` 把数据库会话、当前用户、权限校验抽成依赖；依赖可以继续依赖别的依赖，FastAPI 会按图解析并缓存同一次请求内的结果。测试时用 `dependency_overrides` 替换真实依赖。",
+      "text": "FastAPI 依赖注入 用 `Depends()` 把数据库会话、当前用户、权限校验抽成依赖；依赖可以继续依赖别的依赖，FastAPI 会按图解析并缓存同一次请求内的结果。测试时用 `dependency_overrides` 替换真实依赖。",
+      "tags": [
+        "fastapi",
+        "依赖注入",
+        "权限"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://fastapi.tiangolo.com/tutorial/dependencies/",
+      "license": "MIT"
+    },
+    {
+      "id": "OS111",
+      "title": "FastAPI 同步与异步路由",
+      "answer": "`async def` 路由运行在事件循环里，内部必须用异步 IO；普通 `def` 路由会被放到线程池，适合调用同步库。不要在 async 路由里调用阻塞的 requests 或 time.sleep，否则会卡住整个 worker。",
+      "text": "FastAPI 同步与异步路由 `async def` 路由运行在事件循环里，内部必须用异步 IO；普通 `def` 路由会被放到线程池，适合调用同步库。不要在 async 路由里调用阻塞的 requests 或 time.sleep，否则会卡住整个 worker。",
+      "tags": [
+        "fastapi",
+        "async",
+        "性能"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://fastapi.tiangolo.com/async/",
+      "license": "MIT"
+    },
+    {
+      "id": "OS112",
+      "title": "FastAPI OpenAPI 文档",
+      "answer": "FastAPI 默认在 `/docs` 提供 Swagger UI、`/redoc` 提供 ReDoc、`/openapi.json` 提供机器可读 schema。给路由加 `summary`、`description`、`response_model` 和错误响应，文档才准确；生产环境可按需关闭或加鉴权。",
+      "text": "FastAPI OpenAPI 文档 FastAPI 默认在 `/docs` 提供 Swagger UI、`/redoc` 提供 ReDoc、`/openapi.json` 提供机器可读 schema。给路由加 `summary`、`description`、`response_model` 和错误响应，文档才准确；生产环境可按需关闭或加鉴权。",
+      "tags": [
+        "fastapi",
+        "openapi",
+        "文档"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://fastapi.tiangolo.com/tutorial/metadata/",
+      "license": "MIT"
+    },
+    {
+      "id": "OS113",
+      "title": "Git reset 与 revert",
+      "answer": "`git reset` 改写当前分支历史，适合还没推送的本地提交；`git revert` 生成一个反向提交，适合已经共享的历史。已经 push 的公共分支优先 revert，别对别人正在用的分支做硬 reset。",
+      "text": "Git reset 与 revert `git reset` 改写当前分支历史，适合还没推送的本地提交；`git revert` 生成一个反向提交，适合已经共享的历史。已经 push 的公共分支优先 revert，别对别人正在用的分支做硬 reset。",
+      "tags": [
+        "git",
+        "reset",
+        "revert"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://git-scm.com/docs/git-revert",
+      "license": "GPL-2.0"
+    },
+    {
+      "id": "OS114",
+      "title": "Git rebase 与 merge",
+      "answer": "`merge` 保留分支交汇和真实历史，适合公共分支；`rebase` 把提交重放到新基线上，历史更线性，但会改写提交哈希。只 rebase 自己的本地分支，rebase 后推送通常需要 `--force-with-lease`。",
+      "text": "Git rebase 与 merge `merge` 保留分支交汇和真实历史，适合公共分支；`rebase` 把提交重放到新基线上，历史更线性，但会改写提交哈希。只 rebase 自己的本地分支，rebase 后推送通常需要 `--force-with-lease`。",
+      "tags": [
+        "git",
+        "rebase",
+        "merge"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://git-scm.com/docs/git-rebase",
+      "license": "GPL-2.0"
+    },
+    {
+      "id": "OS115",
+      "title": "Git stash",
+      "answer": "`git stash push -m \"说明\"` 临时收起未提交改动，`git stash list` 查看，`git stash pop` 恢复并删除记录。stash 不是备份，冲突时要手动解决；长期未提交的改动应建分支或提交，不要一直堆在 stash。",
+      "text": "Git stash `git stash push -m \"说明\"` 临时收起未提交改动，`git stash list` 查看，`git stash pop` 恢复并删除记录。stash 不是备份，冲突时要手动解决；长期未提交的改动应建分支或提交，不要一直堆在 stash。",
+      "tags": [
+        "git",
+        "stash",
+        "工作区"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://git-scm.com/docs/git-stash",
+      "license": "GPL-2.0"
+    },
+    {
+      "id": "OS116",
+      "title": "Git hooks",
+      "answer": "`pre-commit` 在提交前跑，适合格式化和静态检查；`commit-msg` 校验提交信息；`pre-push` 跑较重测试。hook 脚本放在 `.git/hooks` 默认不随仓库分发，团队协作可用 pre-commit 框架统一管理。",
+      "text": "Git hooks `pre-commit` 在提交前跑，适合格式化和静态检查；`commit-msg` 校验提交信息；`pre-push` 跑较重测试。hook 脚本放在 `.git/hooks` 默认不随仓库分发，团队协作可用 pre-commit 框架统一管理。",
+      "tags": [
+        "git",
+        "hooks",
+        "自动化"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks",
+      "license": "CC-BY-NC-SA-3.0"
+    },
+    {
+      "id": "OS117",
+      "title": "Git .gitignore",
+      "answer": "`.gitignore` 只忽略未跟踪文件；已经被跟踪的文件要先 `git rm --cached` 才会生效。模式按行写，`/` 开头锚定仓库根，`!` 表示例外；密钥、数据库、构建产物、虚拟环境都应忽略。",
+      "text": "Git .gitignore `.gitignore` 只忽略未跟踪文件；已经被跟踪的文件要先 `git rm --cached` 才会生效。模式按行写，`/` 开头锚定仓库根，`!` 表示例外；密钥、数据库、构建产物、虚拟环境都应忽略。",
+      "tags": [
+        "git",
+        "gitignore",
+        "仓库"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://git-scm.com/docs/gitignore",
+      "license": "GPL-2.0"
+    },
+    {
+      "id": "OS118",
+      "title": "Docker 镜像与容器",
+      "answer": "镜像是只读模板，容器是镜像加一层可写层；容器删除后可写层随之消失。需要持久化的数据放 volume，配置用环境变量或挂载只读文件；不要把数据库数据写进容器内部。",
+      "text": "Docker 镜像与容器 镜像是只读模板，容器是镜像加一层可写层；容器删除后可写层随之消失。需要持久化的数据放 volume，配置用环境变量或挂载只读文件；不要把数据库数据写进容器内部。",
+      "tags": [
+        "docker",
+        "镜像",
+        "容器"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "OS119",
+      "title": "Docker volume 与 bind mount",
+      "answer": "volume 由 Docker 管理，适合数据库和长期数据；bind mount 直接映射宿主机目录，适合开发时热更新。生产环境优先 volume，bind mount 要注意宿主机权限和路径可移植性。",
+      "text": "Docker volume 与 bind mount volume 由 Docker 管理，适合数据库和长期数据；bind mount 直接映射宿主机目录，适合开发时热更新。生产环境优先 volume，bind mount 要注意宿主机权限和路径可移植性。",
+      "tags": [
+        "docker",
+        "volume",
+        "存储"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.docker.com/engine/storage/volumes/",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "OS120",
+      "title": "Docker 多阶段构建",
+      "answer": "多阶段构建用多个 `FROM`，前面的阶段装编译工具和依赖，最后只把产物复制到精简运行镜像，例如 `COPY --from=builder /app/dist /app/dist`。这样能显著减小镜像体积并减少攻击面。",
+      "text": "Docker 多阶段构建 多阶段构建用多个 `FROM`，前面的阶段装编译工具和依赖，最后只把产物复制到精简运行镜像，例如 `COPY --from=builder /app/dist /app/dist`。这样能显著减小镜像体积并减少攻击面。",
+      "tags": [
+        "docker",
+        "多阶段",
+        "镜像"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.docker.com/build/building/multi-stage/",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "OS121",
+      "title": "Docker Compose",
+      "answer": "`compose.yaml` 用一个文件描述多个服务、网络和卷；`docker compose up -d` 启动，`down` 停止并删除容器。服务间用服务名互相访问，不要写死宿主机 IP；健康检查和 `depends_on` 配合使用更可靠。",
+      "text": "Docker Compose `compose.yaml` 用一个文件描述多个服务、网络和卷；`docker compose up -d` 启动，`down` 停止并删除容器。服务间用服务名互相访问，不要写死宿主机 IP；健康检查和 `depends_on` 配合使用更可靠。",
+      "tags": [
+        "docker",
+        "compose",
+        "编排"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://docs.docker.com/compose/",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "OS122",
+      "title": "SQL JOIN 类型",
+      "answer": "`INNER JOIN` 只保留两边都匹配的行；`LEFT JOIN` 保留左表全部行，右表无匹配补 NULL；`RIGHT JOIN` 反过来；`FULL JOIN` 保留两边全部行。写 JOIN 时先明确“以哪张表为主”，再决定类型。",
+      "text": "SQL JOIN 类型 `INNER JOIN` 只保留两边都匹配的行；`LEFT JOIN` 保留左表全部行，右表无匹配补 NULL；`RIGHT JOIN` 反过来；`FULL JOIN` 保留两边全部行。写 JOIN 时先明确“以哪张表为主”，再决定类型。",
+      "tags": [
+        "sql",
+        "join",
+        "数据库"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://www.sqlite.org/lang_select.html",
+      "license": "Public-Domain"
+    },
+    {
+      "id": "OS123",
+      "title": "SQL 索引",
+      "answer": "索引能加速等值/范围查询和排序，但会增加写入成本和存储。给 WHERE、JOIN、ORDER BY 里高频使用的列建索引；联合索引注意最左前缀；低选择性的列（如布尔状态）单独建索引收益通常不大。",
+      "text": "SQL 索引 索引能加速等值/范围查询和排序，但会增加写入成本和存储。给 WHERE、JOIN、ORDER BY 里高频使用的列建索引；联合索引注意最左前缀；低选择性的列（如布尔状态）单独建索引收益通常不大。",
+      "tags": [
+        "sql",
+        "索引",
+        "性能"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://www.sqlite.org/optoverview.html",
+      "license": "Public-Domain"
+    },
+    {
+      "id": "OS124",
+      "title": "SQL 事务与 ACID",
+      "answer": "事务把多条语句当成一个原子单元：要么全部提交，要么全部回滚。ACID 指原子性、一致性、隔离性、持久性；转账、库存扣减这类需要“读-改-写”一致的操作必须放事务里。",
+      "text": "SQL 事务与 ACID 事务把多条语句当成一个原子单元：要么全部提交，要么全部回滚。ACID 指原子性、一致性、隔离性、持久性；转账、库存扣减这类需要“读-改-写”一致的操作必须放事务里。",
+      "tags": [
+        "sql",
+        "事务",
+        "acid"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://www.sqlite.org/transactional.html",
+      "license": "Public-Domain"
+    },
+    {
+      "id": "OS125",
+      "title": "SQLite WAL 模式",
+      "answer": "WAL（Write-Ahead Logging）把写操作先追加到日志，读和写可以并发，通常比默认 rollback journal 更适合读多写少的 Web 应用。启用后会出现 `-wal` 和 `-shm` 文件，备份时要一起处理。",
+      "text": "SQLite WAL 模式 WAL（Write-Ahead Logging）把写操作先追加到日志，读和写可以并发，通常比默认 rollback journal 更适合读多写少的 Web 应用。启用后会出现 `-wal` 和 `-shm` 文件，备份时要一起处理。",
+      "tags": [
+        "sqlite",
+        "wal",
+        "并发"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://www.sqlite.org/wal.html",
+      "license": "Public-Domain"
+    },
+    {
+      "id": "OS126",
+      "title": "HTTP 状态码",
+      "answer": "2xx 成功，3xx 重定向/缓存，4xx 客户端错误，5xx 服务端错误。常用：200 成功、201 创建、204 无内容、301/302 重定向、304 未修改、400 参数错误、401 未认证、403 无权限、404 不存在、409 冲突、422 校验失败、429 限流、500 服务端错误。",
+      "text": "HTTP 状态码 2xx 成功，3xx 重定向/缓存，4xx 客户端错误，5xx 服务端错误。常用：200 成功、201 创建、204 无内容、301/302 重定向、304 未修改、400 参数错误、401 未认证、403 无权限、404 不存在、409 冲突、422 校验失败、429 限流、500 服务端错误。",
+      "tags": [
+        "http",
+        "状态码",
+        "api"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status",
+      "license": "CC-BY-SA-2.5"
+    },
+    {
+      "id": "OS127",
+      "title": "HTTP 幂等性",
+      "answer": "幂等指同一请求执行多次与执行一次的效果相同。GET、PUT、DELETE 应幂等，POST 通常不幂等。支付、下单这类非幂等操作要用幂等键/去重表，避免客户端重试造成重复扣款。",
+      "text": "HTTP 幂等性 幂等指同一请求执行多次与执行一次的效果相同。GET、PUT、DELETE 应幂等，POST 通常不幂等。支付、下单这类非幂等操作要用幂等键/去重表，避免客户端重试造成重复扣款。",
+      "tags": [
+        "http",
+        "幂等",
+        "重试"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://datatracker.ietf.org/doc/html/rfc9110#name-idempotent-methods",
+      "license": "IETF"
+    },
+    {
+      "id": "OS128",
+      "title": "HTTP 缓存头",
+      "answer": "`Cache-Control` 控制是否可缓存和时长（如 `max-age=3600`、`no-store`）；`ETag` / `If-None-Match` 做协商缓存，命中返回 304；`Last-Modified` / `If-Modified-Since` 是时间版本。敏感接口用 `no-store`。",
+      "text": "HTTP 缓存头 `Cache-Control` 控制是否可缓存和时长（如 `max-age=3600`、`no-store`）；`ETag` / `If-None-Match` 做协商缓存，命中返回 304；`Last-Modified` / `If-Modified-Since` 是时间版本。敏感接口用 `no-store`。",
+      "tags": [
+        "http",
+        "缓存",
+        "etag"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching",
+      "license": "CC-BY-SA-2.5"
+    },
+    {
+      "id": "OS129",
+      "title": "CORS",
+      "answer": "浏览器跨域请求受同源策略限制；服务端用 `Access-Control-Allow-Origin` 等响应头声明允许的来源、方法和头。带 Cookie 的请求不能把 `Allow-Origin` 设为 `*`，要指定具体源并允许 credentials。",
+      "text": "CORS 浏览器跨域请求受同源策略限制；服务端用 `Access-Control-Allow-Origin` 等响应头声明允许的来源、方法和头。带 Cookie 的请求不能把 `Allow-Origin` 设为 `*`，要指定具体源并允许 credentials。",
+      "tags": [
+        "cors",
+        "浏览器",
+        "安全"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS",
+      "license": "CC-BY-SA-2.5"
+    },
+    {
+      "id": "OS130",
+      "title": "XSS 防护",
+      "answer": "XSS 是攻击者把可执行脚本注入页面。输出到 HTML 时按上下文转义，优先用框架的自动转义；需要富文本时用成熟的白名单清洗库。不要用 `innerHTML` 拼接用户输入，Cookie 设 `HttpOnly` 降低被窃取风险。",
+      "text": "XSS 防护 XSS 是攻击者把可执行脚本注入页面。输出到 HTML 时按上下文转义，优先用框架的自动转义；需要富文本时用成熟的白名单清洗库。不要用 `innerHTML` 拼接用户输入，Cookie 设 `HttpOnly` 降低被窃取风险。",
+      "tags": [
+        "xss",
+        "安全",
+        "前端"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+      "license": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "OS131",
+      "title": "CSRF 防护",
+      "answer": "CSRF 利用用户已登录的 Cookie 自动随请求发送，诱导其在不知情下执行写操作。防御用 SameSite Cookie、CSRF token、校验 Origin/Referer；GET 不应产生副作用，写操作只接受 POST/PUT/PATCH/DELETE。",
+      "text": "CSRF 防护 CSRF 利用用户已登录的 Cookie 自动随请求发送，诱导其在不知情下执行写操作。防御用 SameSite Cookie、CSRF token、校验 Origin/Referer；GET 不应产生副作用，写操作只接受 POST/PUT/PATCH/DELETE。",
+      "tags": [
+        "csrf",
+        "安全",
+        "cookie"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html",
+      "license": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "OS132",
+      "title": "SSRF 防护",
+      "answer": "SSRF 让服务端去请求攻击者指定的地址，可能读取内网服务或云元数据。抓取用户给的 URL 前要校验协议（只 http/https）、解析后的 IP 是否内网/回环/元数据地址，并禁止重定向到内网；DNS 重绑定要二次校验。",
+      "text": "SSRF 防护 SSRF 让服务端去请求攻击者指定的地址，可能读取内网服务或云元数据。抓取用户给的 URL 前要校验协议（只 http/https）、解析后的 IP 是否内网/回环/元数据地址，并禁止重定向到内网；DNS 重绑定要二次校验。",
+      "tags": [
+        "ssrf",
+        "安全",
+        "抓取"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+      "license": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "OS133",
+      "title": "密码哈希",
+      "answer": "不要明文存密码，也不要用 MD5/SHA1/SHA256 直接哈希。用 bcrypt、scrypt 或 Argon2 这类慢哈希，每个用户独立 salt；校验用库提供的 verify 函数，不要自己比较字符串。",
+      "text": "密码哈希 不要明文存密码，也不要用 MD5/SHA1/SHA256 直接哈希。用 bcrypt、scrypt 或 Argon2 这类慢哈希，每个用户独立 salt；校验用库提供的 verify 函数，不要自己比较字符串。",
+      "tags": [
+        "密码",
+        "哈希",
+        "安全"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html",
+      "license": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "OS134",
+      "title": "JWT",
+      "answer": "JWT 由 header、payload、signature 三段组成，payload 只是 Base64 编码，不是加密，别放密码等秘密。服务端必须验签、校验 `exp`/`aud`/`iss`，并支持密钥轮换；需要即时注销时配合服务端会话或黑名单。",
+      "text": "JWT JWT 由 header、payload、signature 三段组成，payload 只是 Base64 编码，不是加密，别放密码等秘密。服务端必须验签、校验 `exp`/`aud`/`iss`，并支持密钥轮换；需要即时注销时配合服务端会话或黑名单。",
+      "tags": [
+        "jwt",
+        "token",
+        "安全"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://datatracker.ietf.org/doc/html/rfc7519",
+      "license": "IETF"
+    },
+    {
+      "id": "OS135",
+      "title": "Linux 文件权限",
+      "answer": "`rwx` 分别对应读/写/执行，三位一组是 owner/group/other。`chmod 640` 表示 owner 读写、group 只读、other 无权限；目录的执行位决定能否进入。密钥文件建议 `600`，不要 `chmod 777`。",
+      "text": "Linux 文件权限 `rwx` 分别对应读/写/执行，三位一组是 owner/group/other。`chmod 640` 表示 owner 读写、group 只读、other 无权限；目录的执行位决定能否进入。密钥文件建议 `600`，不要 `chmod 777`。",
+      "tags": [
+        "linux",
+        "权限",
+        "chmod"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://man7.org/linux/man-pages/man1/chmod.1.html",
+      "license": "GPL-2.0"
+    },
+    {
+      "id": "OS136",
+      "title": "systemd 服务",
+      "answer": "把服务写成 `/etc/systemd/system/foo.service`，设置 `ExecStart`、`WorkingDirectory`、`User`、`Restart=on-failure`；`systemctl daemon-reload` 后 `enable --now`。日志用 `journalctl -u foo -f` 查看。",
+      "text": "systemd 服务 把服务写成 `/etc/systemd/system/foo.service`，设置 `ExecStart`、`WorkingDirectory`、`User`、`Restart=on-failure`；`systemctl daemon-reload` 后 `enable --now`。日志用 `journalctl -u foo -f` 查看。",
+      "tags": [
+        "linux",
+        "systemd",
+        "部署"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html",
+      "license": "LGPL-2.1"
+    },
+    {
+      "id": "OS137",
+      "title": "SSH 密钥登录",
+      "answer": "`ssh-keygen -t ed25519` 生成密钥，公钥追加到服务器 `~/.ssh/authorized_keys`，私钥留在本地并设 `600`。服务器禁用密码登录、禁用 root 直登可降低暴力破解风险；先确认密钥能登录再改配置。",
+      "text": "SSH 密钥登录 `ssh-keygen -t ed25519` 生成密钥，公钥追加到服务器 `~/.ssh/authorized_keys`，私钥留在本地并设 `600`。服务器禁用密码登录、禁用 root 直登可降低暴力破解风险；先确认密钥能登录再改配置。",
+      "tags": [
+        "ssh",
+        "密钥",
+        "运维"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://www.ssh.com/academy/ssh/keygen",
+      "license": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "OS138",
+      "title": "MCP 的 Tools/Resources/Prompts",
+      "answer": "MCP 服务器可暴露三类能力：tools 是可调用的函数，resources 是可读取的上下文数据，prompts 是预置提示模板。客户端先 `list` 再按需 `call/read/get`；工具描述要写清参数、返回和错误，方便模型选择。",
+      "text": "MCP 的 Tools/Resources/Prompts MCP 服务器可暴露三类能力：tools 是可调用的函数，resources 是可读取的上下文数据，prompts 是预置提示模板。客户端先 `list` 再按需 `call/read/get`；工具描述要写清参数、返回和错误，方便模型选择。",
+      "tags": [
+        "mcp",
+        "协议",
+        "工具"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://modelcontextprotocol.io/docs/learn/architecture",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "OS139",
+      "title": "MCP stdio 传输",
+      "answer": "stdio 传输让客户端启动一个子进程，通过标准输入输出交换 JSON-RPC 消息；适合本地 npx/uvx 服务器。进程的 stdout 只能放协议消息，日志必须写 stderr；每次调用起进程的冷启动较慢，长连接可复用会话。",
+      "text": "MCP stdio 传输 stdio 传输让客户端启动一个子进程，通过标准输入输出交换 JSON-RPC 消息；适合本地 npx/uvx 服务器。进程的 stdout 只能放协议消息，日志必须写 stderr；每次调用起进程的冷启动较慢，长连接可复用会话。",
+      "tags": [
+        "mcp",
+        "stdio",
+        "jsonrpc"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://modelcontextprotocol.io/docs/concepts/transports",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "OS140",
+      "title": "MCP 安全边界",
+      "answer": "接入第三方 MCP 服务器等于把外部代码和外部数据接进 Agent：只装可信来源，限制 command/args，默认只读，写工具要人工批准；对返回内容做提示注入防护，不把密钥放在 argv 或日志里。",
+      "text": "MCP 安全边界 接入第三方 MCP 服务器等于把外部代码和外部数据接进 Agent：只装可信来源，限制 command/args，默认只读，写工具要人工批准；对返回内容做提示注入防护，不把密钥放在 argv 或日志里。",
+      "tags": [
+        "mcp",
+        "安全",
+        "权限"
+      ],
+      "collection": "opensource-docs",
+      "source": "https://modelcontextprotocol.io/docs/learn/security",
+      "license": "CC-BY-4.0"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "servers": [
+    {
+      "id": "sequentialthinking",
+      "name": "Sequential Thinking",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "risk": "read",
+      "timeout_s": 60,
+      "source": "https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking",
+      "license": "MIT"
+    },
+    {
+      "id": "memory",
+      "name": "Memory Graph",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "risk": "write",
+      "timeout_s": 60,
+      "source": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+      "license": "MIT"
+    },
+    {
+      "id": "mcp-time",
+      "name": "MCP Time",
+      "command": "uvx",
+      "args": [
+        "mcp-server-time"
+      ],
+      "risk": "read",
+      "timeout_s": 60,
+      "source": "https://github.com/modelcontextprotocol/servers/tree/main/src/time",
+      "license": "MIT"
+    },
+    {
+      "id": "mcp-fetch",
+      "name": "MCP Fetch",
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "risk": "read",
+      "timeout_s": 60,
+      "source": "https://github.com/modelcontextprotocol/servers/tree/main/src/fetch",
+      "license": "MIT"
+    }
+  ]
+}

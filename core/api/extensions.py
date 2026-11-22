@@ -6,7 +6,7 @@ import asyncio
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from core import extensions, mcp_client
+from core import extensions, mcp_client, opensource
 from core.api.deps import require_admin, require_id
 
 router = APIRouter(prefix="/api", tags=["extensions"])
@@ -42,6 +42,12 @@ def _as_http_error(e: Exception) -> HTTPException:
 @router.get("/extensions", dependencies=[Depends(require_admin)])
 def list_extensions():
     return {"items": extensions.list_items()}
+
+
+@router.get("/opensource/catalog", dependencies=[Depends(require_admin)])
+def opensource_catalog():
+    """开源填充目录：工具/图片/技能/表情/KB/插件/MCP 的来源和当前数量。"""
+    return opensource.status()
 
 
 @router.post("/extensions/install", dependencies=[Depends(require_admin)])

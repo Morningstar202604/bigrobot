@@ -195,6 +195,9 @@ def _normalize_tools(raw, allow_private: bool, allow_untrusted: bool) -> list[di
         headers = item.get("headers") or {}
         if not isinstance(headers, dict):
             raise ValueError(f"{name}: headers 必须是对象")
+        fmt = str(item.get("format") or "").strip().lower()
+        if fmt not in {"", "pypi", "npm", "github"}:
+            raise ValueError(f"{name}: 不支持的 format={fmt}")
         timeout_s = item.get("timeout_s", 15)
         try:
             timeout_s = max(3, min(30, int(timeout_s)))
@@ -209,6 +212,7 @@ def _normalize_tools(raw, allow_private: bool, allow_untrusted: bool) -> list[di
             "params": params,
             "headers": {str(k): str(v) for k, v in headers.items()},
             "timeout_s": timeout_s,
+            "format": fmt,
             "allow_untrusted": bool(allow_untrusted) and risk == "read",
             "allow_private": bool(allow_private),
         })
@@ -671,7 +675,9 @@ async def _invoke(name: str, args: dict, ctx) -> dict:
                 json=body if tool["method"] == "POST" else None,
                 headers=headers,
             )
-            raw = resp.content[:MAX_RESPONSE]
+            # JSON 必须先完整解析再截断：PyPI/npm 的元数据动辄上百 KB，
+            # 先截到 4000 字节会变成坏 JSON，格式化器只能退回原始串。
+            raw = resp.content[:2_000_000]
     except httpx.TimeoutException:
         return miss_result(name, "扩展请求超时。")
     except httpx.HTTPError as e:
@@ -687,12 +693,67 @@ async def _invoke(name: str, args: dict, ctx) -> dict:
     if "json" in content_type:
         try:
             parsed = json.loads(text)
-            text = json.dumps(parsed, ensure_ascii=False, indent=2)
+            formatted = _format_payload(str(tool.get("format") or ""), parsed)
+            text = formatted or json.dumps(parsed, ensure_ascii=False, indent=2)
         except ValueError:
             pass
     truncated = len(text) > 4000 or len(resp.content) > MAX_RESPONSE
     return ok_result(name, text[:4000], status_code=resp.status_code,
                      extension=manifest["id"], truncated=truncated)
+
+
+_FORMATTERS = {
+    "pypi": lambda d: _fmt_pypi(d),
+    "npm": lambda d: _fmt_npm(d),
+    "github": lambda d: _fmt_github(d),
+}
+
+
+def _fmt_pypi(data: dict) -> str:
+    info = data.get("info") or {}
+    bits = [f"PyPI 最新版 {info.get('version') or '未知'}"]
+    lic = info.get("license") or info.get("license_expression")
+    if not lic:
+        for c in info.get("classifiers") or []:
+            if str(c).startswith("License ::"):
+                lic = str(c).split("::")[-1].strip()
+                break
+    if lic:
+        bits.append("许可证：" + str(lic)[:80])
+    if info.get("requires_python"):
+        bits.append("Python " + str(info["requires_python"]))
+    if info.get("summary"):
+        bits.append(str(info["summary"])[:180].rstrip("。. "))
+    return "；".join(bits) + "。"
+
+
+def _fmt_npm(data: dict) -> str:
+    latest = (data.get("dist-tags") or {}).get("latest") or data.get("version") or "未知"
+    bits = [f"npm 最新版 {latest}"]
+    if data.get("license"):
+        bits.append("许可证：" + str(data["license"]))
+    if data.get("description"):
+        bits.append(str(data["description"])[:180].rstrip("。. "))
+    return "；".join(bits) + "。"
+
+
+def _fmt_github(data: dict) -> str:
+    lic = (data.get("license") or {}).get("spdx_id") or "未声明"
+    bits = [f"{data.get('full_name') or '仓库'}：{data.get('stargazers_count', 0)} stars",
+            f"主语言 {data.get('language') or '未知'}", f"许可证 {lic}"]
+    if data.get("description"):
+        bits.append(str(data["description"])[:180].rstrip("。. "))
+    return "；".join(bits) + "。"
+
+
+def _format_payload(fmt: str, data) -> str | None:
+    fn = _FORMATTERS.get(fmt)
+    if not fn or not isinstance(data, dict):
+        return None
+    try:
+        return fn(data)
+    except Exception:
+        return None
 
 
 def active_tools() -> dict:

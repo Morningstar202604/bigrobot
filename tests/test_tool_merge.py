@@ -1,7 +1,7 @@
-"""工具合并（B2：54 → 26，加 OCR 后 27）的护栏。
+"""工具合并（B2：54 → 26，加 OCR 后 27，再加 8 个开源纯函数工具后 35）的护栏。
 
 三件事必须同时成立，否则"合并"就是降级：
-1. 模型清单只剩 26 个基础工具 + 1 个 OCR，但被吸收的旧名仍然可调度（不打断已有脚本与审批记录）；
+1. 模型清单只剩 26 个基础工具 + 1 个 OCR + 8 个开源工具，但被吸收的旧名仍然可调度（不打断已有脚本与审批记录）；
    新增未来任务能力不另开工具，而是作为 reminders 的 op=future/tasks/cancel_task；
 2. 合并工具按 op 分派到原实现，未知 op 明确报错而不是静默走默认分支；
 3. 老库迁移只清理内置行，且把开关状态继承给合并后的工具。
@@ -14,8 +14,8 @@ from core import tools as tools_mod
 from core.tool_context import EMPTY
 
 
-def test_tool_count_is_27_with_ocr():
-    assert len(tools_mod.TOOL_META) == 27
+def test_tool_count_is_35_with_ocr_and_opensource():
+    assert len(tools_mod.TOOL_META) == 35
 
 
 def test_retired_tools_stay_dispatchable():

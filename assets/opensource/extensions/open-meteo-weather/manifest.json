@@ -1,0 +1,45 @@
+{
+  "id": "open-meteo-weather",
+  "name": "Open-Meteo 天气",
+  "version": "0.0.1",
+  "base_url": "https://api.open-meteo.com",
+  "description": "开源天气 API（Open-Meteo，数据 CC BY 4.0），不需要 Key。",
+  "tools": [
+    {
+      "name": "openmeteo_weather",
+      "description": "查某经纬度的当前天气与温度。",
+      "method": "GET",
+      "path": "/v1/forecast",
+      "risk": "read",
+      "params": {
+        "latitude": {
+          "type": "string",
+          "required": true,
+          "in": "query",
+          "description": "纬度，如 23.66"
+        },
+        "longitude": {
+          "type": "string",
+          "required": true,
+          "in": "query",
+          "description": "经度，如 116.62"
+        },
+        "current": {
+          "type": "string",
+          "required": false,
+          "in": "query",
+          "description": "固定传 temperature_2m,wind_speed_10m,weather_code"
+        }
+      }
+    }
+  ],
+  "skills": [
+    {
+      "name": "天气查询",
+      "description": "先取经纬度再查 Open-Meteo",
+      "file": "skills/weather.md"
+    }
+  ],
+  "allow_private": true,
+  "allow_untrusted": true
+}

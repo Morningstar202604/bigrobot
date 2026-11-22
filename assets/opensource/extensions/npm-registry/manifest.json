@@ -1,0 +1,34 @@
+{
+ "id": "npm-registry",
+ "name": "npm 包信息",
+ "version": "0.0.1",
+ "base_url": "https://registry.npmjs.org",
+ "allow_private": true,
+ "allow_untrusted": true,
+ "description": "npm Registry API（公开包元数据，无需 Key，固定公网主机）。",
+ "tools": [
+  {
+   "name": "npm_package_info",
+   "description": "读取 npm 包最新版本的版本号、许可证和摘要。",
+   "method": "GET",
+   "path": "/{name}/latest",
+   "risk": "read",
+   "params": {
+    "name": {
+     "type": "string",
+     "required": true,
+     "in": "path",
+     "description": "包名，如 react"
+    }
+   },
+   "format": "npm"
+  }
+ ],
+ "skills": [
+  {
+   "name": "npm 包尽调",
+   "description": "查 npm 元数据再决定是否引入",
+   "file": "skills/npm.md"
+  }
+ ]
+}
