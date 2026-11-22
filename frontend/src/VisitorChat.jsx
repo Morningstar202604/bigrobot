@@ -155,6 +155,11 @@ export default function VisitorChat() {
   const visitorId = useRef(null)
   const { mobile } = useShell()
 
+  // 侧边栏浏览器面板按会话隔离：把当前会话发布到全局 store
+  useEffect(() => {
+    useAppStore.getState().setSession(sessionId || null)
+  }, [sessionId])
+
   // 草稿走 zustand（切页不丢输入）
   const draft = useAppStore((s) => s.draft['visitor'] ?? '')
   const setDraft = useAppStore((s) => s.setDraft)

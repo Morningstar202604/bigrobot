@@ -1,9 +1,9 @@
-"""内置浏览器自动化：用 Playwright 驱动本机 Chromium，保留一个页面会话。
+"""内置浏览器自动化：Playwright 驱动本机 Chromium，按会话隔离页面上下文。
 
 设计边界：
+- 每个聊天会话一个独立 BrowserContext（Cookie / localStorage 不串），最多保留 4 个；
 - 只走 http/https，导航前后都过 url_guard；跳到内网/元数据地址立即中断；
 - 不执行任意 JS，不读本机文件，不下载文件；
-- 页面会话是进程级共享的：管理员连续调用 open/click/type 才能完成多步操作；
 - 浏览器工具在 tools.py 里归入管理员工具，网页访客不能直接驱动。
 """
 from __future__ import annotations
@@ -21,12 +21,14 @@ log = logging.getLogger("cs.browser")
 
 MAX_TEXT = 6000
 DEFAULT_TIMEOUT_MS = 20_000
+MAX_SESSIONS = 4
+
 _pw = None
 _browser = None
-_context = None
-_page = None
-_lock: asyncio.Lock | None = None
 _loop = None
+_start_lock: asyncio.Lock | None = None
+_entries: dict[str, dict] = {}
+_locks: dict[str, asyncio.Lock] = {}
 
 
 class BrowserError(RuntimeError):
@@ -43,45 +45,86 @@ def _chromium_path() -> str | None:
     return None
 
 
-async def _close_soft() -> None:
-    global _pw, _browser, _context, _page, _lock
-    for obj in (_context, _browser):
+def session_key(ctx=None, sid: str = "") -> str:
+    """浏览器隔离键：网页会话按 session_id，QQ 按 chat_key，裸调用回落到 default。"""
+    if sid:
+        return f"session:{sid}"
+    if ctx is not None:
+        raw_sid = str(getattr(ctx, "session_id", "") or "").strip()
+        if raw_sid:
+            return f"session:{raw_sid}"
+        vid = str(getattr(ctx, "visitor_id", "") or "").strip()
+        if vid:
+            return f"visitor:{vid}"
+        chat = str(getattr(ctx, "chat_key", "") or "").strip()
+        if chat:
+            return f"chat:{chat}"
+    return "default"
+
+
+def _reset_after_loop_change() -> None:
+    """pytest / 多事件循环下旧对象不能复用；跨循环不能 await，直接丢弃引用。"""
+    global _pw, _browser, _loop, _start_lock, _entries, _locks
+    _pw = _browser = None
+    _start_lock = None
+    _entries = {}
+    _locks = {}
+
+
+async def _close_entries() -> None:
+    global _entries
+    for entry in list(_entries.values()):
         try:
-            if obj is not None:
-                await obj.close()
+            await entry["context"].close()
         except Exception:
             pass
+    _entries = {}
+
+
+async def _close_browser() -> None:
+    global _pw, _browser, _start_lock
+    await _close_entries()
+    try:
+        if _browser is not None:
+            await _browser.close()
+    except Exception:
+        pass
     try:
         if _pw is not None:
             await _pw.stop()
     except Exception:
         pass
-    _pw = _browser = _context = _page = None
-    _lock = None
+    _pw = _browser = None
+    _start_lock = None
 
 
-async def _ensure_page():
-    global _pw, _browser, _context, _page, _lock, _loop
+def _lock_for(key: str) -> asyncio.Lock:
+    lock = _locks.get(key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _locks[key] = lock
+    return lock
+
+
+async def _ensure_browser():
+    global _pw, _browser, _loop, _start_lock
     loop = asyncio.get_running_loop()
-    # pytest / 多事件循环下旧对象不能复用，直接丢弃重开，避免 “Future attached to a different loop”。
     if _loop is not loop:
-        _pw = _browser = _context = _page = None
-        _lock = None
+        _reset_after_loop_change()
         _loop = loop
-    if _lock is None:
-        _lock = asyncio.Lock()
-    async with _lock:
+    if _start_lock is None:
+        _start_lock = asyncio.Lock()
+    async with _start_lock:
         try:
-            if _page is not None and not _page.is_closed() and _browser is not None \
-                    and _browser.is_connected():
-                return _page
+            if _browser is not None and _browser.is_connected():
+                return _browser
         except Exception:
-            await _close_soft()
+            await _close_browser()
         try:
             from playwright.async_api import async_playwright
         except Exception as e:
             raise BrowserError("没装 Playwright，先执行 pip install playwright") from e
-        await _close_soft()
+        await _close_browser()
         try:
             _pw = await async_playwright().start()
             launch_kwargs = {
@@ -92,18 +135,61 @@ async def _ensure_page():
             if exe:
                 launch_kwargs["executable_path"] = exe
             _browser = await _pw.chromium.launch(**launch_kwargs)
-            _context = await _browser.new_context(
-                viewport={"width": 1366, "height": 900},
-                locale="zh-CN",
-                ignore_https_errors=True,
-            )
-            _page = await _context.new_page()
-            _page.set_default_timeout(DEFAULT_TIMEOUT_MS)
-            _page.on("dialog", lambda dialog: asyncio.create_task(dialog.dismiss()))
-            return _page
+            return _browser
         except Exception as e:
-            await _close_soft()
+            await _close_browser()
             raise BrowserError(f"Chromium 启动失败：{type(e).__name__}: {str(e)[:200]}") from e
+
+
+async def _ensure_page(key: str):
+    browser = await _ensure_browser()
+    entry = _entries.get(key)
+    try:
+        if entry and not entry["page"].is_closed() and entry["context"].browser is browser:
+            entry["last"] = time.time()
+            return entry["page"]
+    except Exception:
+        await _drop_entry(key)
+    # LRU：保留最近 4 个会话，防止管理员开几十个上下文把内存吃满
+    while len(_entries) >= MAX_SESSIONS:
+        oldest = min(_entries, key=lambda k: _entries[k]["last"])
+        await _drop_entry(oldest)
+    try:
+        context = await browser.new_context(
+            viewport={"width": 1366, "height": 900},
+            locale="zh-CN",
+            ignore_https_errors=True,
+        )
+        page = await context.new_page()
+        page.set_default_timeout(DEFAULT_TIMEOUT_MS)
+        page.on("dialog", lambda dialog: asyncio.create_task(dialog.dismiss()))
+        _entries[key] = {"context": context, "page": page, "last": time.time()}
+        return page
+    except Exception as e:
+        await _drop_entry(key)
+        raise BrowserError(f"浏览器会话创建失败：{type(e).__name__}: {str(e)[:200]}") from e
+
+
+def _current_entry(key: str) -> dict | None:
+    entry = _entries.get(key)
+    if not entry:
+        return None
+    try:
+        if entry["page"].is_closed():
+            return None
+    except Exception:
+        return None
+    return entry
+
+
+async def _drop_entry(key: str) -> None:
+    entry = _entries.pop(key, None)
+    _locks.pop(key, None)
+    if entry:
+        try:
+            await entry["context"].close()
+        except Exception:
+            pass
 
 
 def _check_url(url: str) -> str:
@@ -148,137 +234,183 @@ def _ok(tool: str, note: str, **kw) -> dict:
     return ok_result(tool, note, **kw)
 
 
-async def browser_open(url: str, wait_until: str = "domcontentloaded",
-                       timeout: str = "20", **_kw) -> dict:
+async def browser_status(ctx=None, sid: str = "") -> dict:
+    """给侧边栏用的轻状态：不启动浏览器，不抓正文。"""
+    key = session_key(ctx, sid)
+    entry = _current_entry(key)
+    if not entry:
+        return {"connected": False, "session": key, "url": "", "title": "",
+                "sessions": len(_entries)}
+    try:
+        title = await entry["page"].title()
+        url = entry["page"].url
+        if url and url != "about:blank":
+            _check_url(url)
+        return {"connected": True, "session": key, "url": url, "title": title,
+                "sessions": len(_entries)}
+    except Exception:
+        await _drop_entry(key)
+        return {"connected": False, "session": key, "url": "", "title": "",
+                "sessions": len(_entries)}
+
+
+async def browser_open(url: str = "", wait_until: str = "domcontentloaded",
+                       timeout: str = "20", ctx=None, **_kw) -> dict:
     url = (url or "").strip()
     if not url:
         from core.tool_result import need_ctx
         return need_ctx("browser_open", "要打开的网址")
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
+    key = session_key(ctx)
     try:
-        safe = _check_url(url)
-        page = await _ensure_page()
-        try:
-            ms = max(5000, min(45000, int(str(timeout or "20")) * 1000))
-        except ValueError:
-            ms = DEFAULT_TIMEOUT_MS
-        wu = wait_until if wait_until in {"load", "domcontentloaded", "networkidle", "commit"} else "domcontentloaded"
-        resp = await page.goto(safe, wait_until=wu, timeout=ms)
-        st = await _state(page, 2500)
-        note = f"已打开：{st['title'] or '(无标题)'}\n{st['url']}"
-        if st["text"].strip():
-            note += "\n" + st["text"].strip()[:1200]
-        return _ok("browser_open", note, title=st["title"], url=st["url"],
-                   text=st["text"], status_code=(resp.status if resp else None))
+        async with _lock_for(key):
+            safe = _check_url(url)
+            page = await _ensure_page(key)
+            try:
+                ms = max(5000, min(45000, int(str(timeout or "20")) * 1000))
+            except ValueError:
+                ms = DEFAULT_TIMEOUT_MS
+            wu = wait_until if wait_until in {"load", "domcontentloaded", "networkidle", "commit"} else "domcontentloaded"
+            resp = await page.goto(safe, wait_until=wu, timeout=ms)
+            st = await _state(page, 2500)
+            note = f"已打开：{st['title'] or '(无标题)'}\n{st['url']}"
+            if st["text"].strip():
+                note += "\n" + st["text"].strip()[:1200]
+            return _ok("browser_open", note, title=st["title"], url=st["url"],
+                       text=st["text"], status_code=(resp.status if resp else None))
     except BrowserError as e:
         return _err("browser_open", f"浏览器打不开这个地址：{e}")
     except Exception as e:
         return _err("browser_open", f"打开网页失败：{type(e).__name__}: {str(e)[:200]}")
 
 
-async def browser_read(selector: str = "body", max_chars: str = "4000", **_kw) -> dict:
+async def browser_read(selector: str = "body", max_chars: str = "4000", ctx=None, **_kw) -> dict:
+    key = session_key(ctx)
     try:
-        page = await _ensure_page()
-        sel = (selector or "body").strip()
-        text = await page.inner_text(sel, timeout=5000)
-        try:
-            limit = max(200, min(12000, int(str(max_chars or "4000"))))
-        except ValueError:
-            limit = 4000
-        st = await _state(page, 0)
-        body = text.strip()[:limit]
-        return _ok("browser_read", body or "这个选择器没有文字。", selector=sel,
-                   title=st["title"], url=st["url"], text=body)
+        async with _lock_for(key):
+            entry = _current_entry(key)
+            if not entry:
+                raise BrowserError("当前会话还没有打开网页，先用 browser_open 打开一个地址。")
+            page = entry["page"]
+            sel = (selector or "body").strip()
+            text = await page.inner_text(sel, timeout=5000)
+            try:
+                limit = max(200, min(12000, int(str(max_chars or "4000"))))
+            except ValueError:
+                limit = 4000
+            st = await _state(page, 0)
+            body = text.strip()[:limit]
+            return _ok("browser_read", body or "这个选择器没有文字。", selector=sel,
+                       title=st["title"], url=st["url"], text=body)
     except BrowserError as e:
         return _err("browser_read", str(e))
     except Exception as e:
         return _err("browser_read", f"读取失败：{type(e).__name__}: {str(e)[:200]}")
 
 
-async def browser_click(selector: str = "", text: str = "", timeout: str = "15", **_kw) -> dict:
+async def browser_click(selector: str = "", text: str = "", timeout: str = "15",
+                        ctx=None, **_kw) -> dict:
     sel = (selector or "").strip()
     label = (text or "").strip()
     if not sel and not label:
         from core.tool_result import need_ctx
         return need_ctx("browser_click", "CSS 选择器或要点击的文字")
+    key = session_key(ctx)
     try:
-        page = await _ensure_page()
-        try:
-            ms = max(1000, min(30000, int(str(timeout or "15")) * 1000))
-        except ValueError:
-            ms = 15000
-        if sel:
-            await page.locator(sel).first.click(timeout=ms)
-            clicked = sel
-        else:
-            await page.get_by_text(label, exact=False).first.click(timeout=ms)
-            clicked = label
-        try:
-            await page.wait_for_load_state("domcontentloaded", timeout=3000)
-        except Exception:
-            pass
-        st = await _state(page, 1200)
-        note = f"已点击：{clicked}\n现在：{st['title'] or '(无标题)'} {st['url']}"
-        if st["text"].strip():
-            note += "\n" + st["text"].strip()[:800]
-        return _ok("browser_click", note, clicked=clicked,
-                   title=st["title"], url=st["url"], text=st["text"])
+        async with _lock_for(key):
+            entry = _current_entry(key)
+            if not entry:
+                raise BrowserError("当前会话还没有打开网页，先用 browser_open 打开一个地址。")
+            page = entry["page"]
+            try:
+                ms = max(1000, min(30000, int(str(timeout or "15")) * 1000))
+            except ValueError:
+                ms = 15000
+            if sel:
+                await page.locator(sel).first.click(timeout=ms)
+                clicked = sel
+            else:
+                await page.get_by_text(label, exact=False).first.click(timeout=ms)
+                clicked = label
+            try:
+                await page.wait_for_load_state("domcontentloaded", timeout=3000)
+            except Exception:
+                pass
+            st = await _state(page, 1200)
+            note = f"已点击：{clicked}\n现在：{st['title'] or '(无标题)'} {st['url']}"
+            if st["text"].strip():
+                note += "\n" + st["text"].strip()[:800]
+            return _ok("browser_click", note, clicked=clicked,
+                       title=st["title"], url=st["url"], text=st["text"])
     except BrowserError as e:
         return _err("browser_click", str(e))
     except Exception as e:
         return _err("browser_click", f"点击失败：{type(e).__name__}: {str(e)[:200]}")
 
 
-async def browser_type(selector: str = "", text: str = "", enter: str = "false", **_kw) -> dict:
+async def browser_type(selector: str = "", text: str = "", enter: str = "false",
+                       ctx=None, **_kw) -> dict:
     sel = (selector or "").strip()
     val = str(text or "")
     if not sel:
         from core.tool_result import need_ctx
         return need_ctx("browser_type", "输入框选择器")
+    key = session_key(ctx)
     try:
-        page = await _ensure_page()
-        await page.locator(sel).first.fill(val, timeout=15000)
-        if str(enter).lower() in {"1", "true", "yes", "on"}:
-            await page.locator(sel).first.press("Enter", timeout=5000)
-            try:
-                await page.wait_for_load_state("domcontentloaded", timeout=3000)
-            except Exception:
-                pass
-        st = await _state(page, 800)
-        return _ok("browser_type", f"已向 {sel} 输入并提交。",
-                   selector=sel, value=val, enter=str(enter).lower() in {"1", "true", "yes", "on"},
-                   title=st["title"], url=st["url"], text=st["text"])
+        async with _lock_for(key):
+            entry = _current_entry(key)
+            if not entry:
+                raise BrowserError("当前会话还没有打开网页，先用 browser_open 打开一个地址。")
+            page = entry["page"]
+            await page.locator(sel).first.fill(val, timeout=15000)
+            if str(enter).lower() in {"1", "true", "yes", "on"}:
+                await page.locator(sel).first.press("Enter", timeout=5000)
+                try:
+                    await page.wait_for_load_state("domcontentloaded", timeout=3000)
+                except Exception:
+                    pass
+            st = await _state(page, 800)
+            return _ok("browser_type", f"已向 {sel} 输入并提交。",
+                       selector=sel, value=val, enter=str(enter).lower() in {"1", "true", "yes", "on"},
+                       title=st["title"], url=st["url"], text=st["text"])
     except BrowserError as e:
         return _err("browser_type", str(e))
     except Exception as e:
         return _err("browser_type", f"输入失败：{type(e).__name__}: {str(e)[:200]}")
 
 
-async def browser_screenshot(full_page: str = "false", **_kw) -> dict:
+async def browser_screenshot(full_page: str = "false", ctx=None, **_kw) -> dict:
+    key = session_key(ctx)
     try:
-        page = await _ensure_page()
-        out_dir = paths.data_dir() / "browser" / "screenshots"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        p = out_dir / f"shot-{int(time.time() * 1000)}.jpg"
-        await page.screenshot(path=str(p), type="jpeg", quality=82,
-                              full_page=str(full_page).lower() in {"1", "true", "yes", "on"})
-        st = await _state(page, 0)
-        data_url = ""
-        try:
-            if p.stat().st_size <= 2_000_000:
-                data_url = "data:image/jpeg;base64," + base64.b64encode(p.read_bytes()).decode()
-        except OSError:
-            pass
-        return _ok("browser_screenshot", f"已截图：{p.name}",
-                   path=str(p), title=st["title"], url=st["url"],
-                   image_data_url=data_url)
+        async with _lock_for(key):
+            entry = _current_entry(key)
+            if not entry:
+                raise BrowserError("当前会话还没有打开网页，先用 browser_open 打开一个地址。")
+            page = entry["page"]
+            out_dir = paths.data_dir() / "browser" / "screenshots"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            p = out_dir / f"shot-{int(time.time() * 1000)}.jpg"
+            await page.screenshot(path=str(p), type="jpeg", quality=82,
+                                  full_page=str(full_page).lower() in {"1", "true", "yes", "on"})
+            st = await _state(page, 0)
+            data_url = ""
+            try:
+                if p.stat().st_size <= 2_000_000:
+                    data_url = "data:image/jpeg;base64," + base64.b64encode(p.read_bytes()).decode()
+            except OSError:
+                pass
+            return _ok("browser_screenshot", f"已截图：{p.name}",
+                       path=str(p), title=st["title"], url=st["url"],
+                       image_data_url=data_url)
     except BrowserError as e:
         return _err("browser_screenshot", str(e))
     except Exception as e:
         return _err("browser_screenshot", f"截图失败：{type(e).__name__}: {str(e)[:200]}")
 
 
-async def browser_close(**_kw) -> dict:
-    await _close_soft()
-    return _ok("browser_close", "浏览器会话已关闭。", closed=True)
+async def browser_close(ctx=None, **_kw) -> dict:
+    key = session_key(ctx)
+    async with _lock_for(key):
+        await _drop_entry(key)
+    return _ok("browser_close", "这个会话的浏览器已关闭。", closed=True, session=key)

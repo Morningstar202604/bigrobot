@@ -719,8 +719,14 @@ async def _direct_tool(query: str, ctx: dict, cfg: dict) -> AgentReply | None:
     # 普通链接总结仍走 read_source，避免把轻任务塞进整台 Chromium。
     if "browser_open" in ctx["tools"]:
         um = re.search(r"https?://[^\s，。！？]+", q)
-        if um and re.search(r"浏览器|打开网页|打开网站|访问网站|打开这个网页|网页打开", q):
+        if um and re.search(r"浏览器|打开网页|打开网站|访问网站|打开这个网页|网页打开|打开这个链接|访问这个链接", q):
             name, args = "browser_open", {"url": um.group(0)}
+    if not name and "browser_read" in ctx["tools"] and re.search(
+            r"(读取|读一下|读读|看看).{0,10}(当前|这个|刚才的)?.{0,4}(网页|页面)|(网页|页面).{0,4}(正文|内容)", q):
+        name, args = "browser_read", {}
+    if not name and "browser_close" in ctx["tools"] and re.search(
+            r"(关闭|关掉|退出).{0,4}(浏览器|网页会话)", q):
+        name, args = "browser_close", {}
     if not name and "browser_screenshot" in ctx["tools"] and re.search(
             r"(网页|页面|浏览器).{0,6}(截图|截个图|截屏)|(截图|截个图|截屏).{0,6}(网页|页面|浏览器)", q):
         name, args = "browser_screenshot", {}

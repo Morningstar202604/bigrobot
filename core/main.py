@@ -314,6 +314,11 @@ def create_app() -> FastAPI:
         # 重新生成：复用上一条访客消息，不再重复落库
         regenerate: bool = False
 
+    class BrowserOpenIn(BaseModel):
+        url: str
+        wait_until: str = "domcontentloaded"
+        timeout: str = "20"
+
     class FeedbackIn(BaseModel):
         message_id: int | None = None
         rating: str
@@ -932,6 +937,59 @@ def create_app() -> FastAPI:
     @app.get("/api/sessions/{sid}/messages")
     def get_messages(sid: str, _=Depends(_require_admin_or_session)):
         return {"messages": store.get_messages(sid)}
+
+    def _browser_admin(x_admin_token: str | None) -> None:
+        if not _is_admin_token(x_admin_token):
+            raise HTTPException(403, "浏览器自动化只对管理员开放，请先配置管理员令牌")
+        return None
+
+    def _browser_session(sid: str) -> None:
+        if not store.get_session(sid):
+            raise HTTPException(404, "会话不存在")
+
+    @app.get("/api/browser/sessions/{sid}")
+    async def browser_state(sid: str,
+                             x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+        _browser_admin(x_admin_token)
+        _browser_session(sid)
+        from core import browser
+        return await browser.browser_status(sid=sid)
+
+    @app.post("/api/browser/sessions/{sid}/open")
+    async def browser_open_api(sid: str, body: BrowserOpenIn,
+                               x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+        _browser_admin(x_admin_token)
+        _browser_session(sid)
+        from core import browser
+        from core.tool_context import ToolContext
+        res = await browser.browser_open(
+            url=body.url, wait_until=body.wait_until, timeout=body.timeout,
+            ctx=ToolContext(session_id=sid),
+        )
+        if not res.get("found", True):
+            raise HTTPException(400, res.get("note") or "打开失败")
+        return res
+
+    @app.post("/api/browser/sessions/{sid}/screenshot")
+    async def browser_shot_api(sid: str,
+                               x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+        _browser_admin(x_admin_token)
+        _browser_session(sid)
+        from core import browser
+        from core.tool_context import ToolContext
+        res = await browser.browser_screenshot(ctx=ToolContext(session_id=sid))
+        if not res.get("found", True):
+            raise HTTPException(400, res.get("note") or "截图失败")
+        return res
+
+    @app.post("/api/browser/sessions/{sid}/close")
+    async def browser_close_api(sid: str,
+                                x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+        _browser_admin(x_admin_token)
+        _browser_session(sid)
+        from core import browser
+        from core.tool_context import ToolContext
+        return await browser.browser_close(ctx=ToolContext(session_id=sid))
 
     @app.delete("/api/sessions/{sid}/messages/{message_id}")
     def delete_message(sid: str, message_id: int, _=Depends(_require_session_secret)):

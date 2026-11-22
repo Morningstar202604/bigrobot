@@ -7,6 +7,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import Logo from './Logo'
+import BrowserDock from './BrowserDock'
 import { LANGS, setLang } from '../i18n'
 import { K, read, write } from '../lib/storage'
 
@@ -136,6 +137,7 @@ export default function ResponsiveShell({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [theme, toggleTheme] = useTheme()
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [browserOpen, setBrowserOpen] = useState(false)
   const loc = useLocation()
   const { t } = useTranslation()
   const isApp = ['/', '/settings'].includes(loc.pathname) || loc.pathname.startsWith('/settings/')
@@ -178,6 +180,7 @@ export default function ResponsiveShell({ children }) {
                 </button>
                 <Brand onToggleTheme={toggleTheme} theme={theme} />
                 <SideNav onNav={() => setDrawerOpen(false)} />
+                <BrowserDock open={browserOpen} onToggle={setBrowserOpen} />
                 <div className="shell-foot">{t('BigRobot · MIT 开源')}</div>
               </div>
             </>
@@ -192,9 +195,10 @@ export default function ResponsiveShell({ children }) {
   return (
     <Ctx.Provider value={{ drawerOpen, setDrawerOpen, mobile: false }}>
       <div className={`app-shell ${isApp ? 'app-shell-fixed' : ''}`}>
-        <aside className="shell-side">
+        <aside className={`shell-side ${browserOpen ? 'shell-side-wide' : ''}`}>
           <Brand onToggleTheme={toggleTheme} theme={theme} />
           <SideNav />
+          <BrowserDock open={browserOpen} onToggle={setBrowserOpen} />
           <button className="palette-hint" onClick={() => setPaletteOpen(true)} title="命令面板">
             <Command size={12} /> <span>K</span>
           </button>
