@@ -1,0 +1,94 @@
+{
+  "id": "naiwa-emojis",
+  "name": "奶蛙表情",
+  "count": 8,
+  "format": "GIF",
+  "source": "https://github.com/LynnShaw/naiwa-pet / https://milkyfrog.vip/articles/milk-frog-images",
+  "license": "官方图个人聊天可用；动作图仅本地演示/学习；角色版权归原作者",
+  "items": [
+    {
+      "file": "naiwa_idle.gif",
+      "label": "奶蛙待机",
+      "tags": [
+        "奶蛙",
+        "待机",
+        "发呆",
+        "可爱"
+      ],
+      "source": "LynnShaw/naiwa-pet"
+    },
+    {
+      "file": "naiwa_laugh.gif",
+      "label": "奶蛙大笑",
+      "tags": [
+        "奶蛙",
+        "大笑",
+        "笑死",
+        "绷不住"
+      ],
+      "source": "LynnShaw/naiwa-pet"
+    },
+    {
+      "file": "naiwa_head.gif",
+      "label": "奶蛙抱头",
+      "tags": [
+        "奶蛙",
+        "抱头",
+        "头疼",
+        "崩溃"
+      ],
+      "source": "LynnShaw/naiwa-pet"
+    },
+    {
+      "file": "naiwa_belly.gif",
+      "label": "奶蛙捧腹",
+      "tags": [
+        "奶蛙",
+        "捧腹",
+        "肚子疼"
+      ],
+      "source": "LynnShaw/naiwa-pet"
+    },
+    {
+      "file": "naiwa_floor.gif",
+      "label": "奶蛙躺平",
+      "tags": [
+        "奶蛙",
+        "躺平",
+        "摆烂"
+      ],
+      "source": "LynnShaw/naiwa-pet"
+    },
+    {
+      "file": "naiwa_hands.gif",
+      "label": "奶蛙听讲",
+      "tags": [
+        "奶蛙",
+        "听讲",
+        "收到"
+      ],
+      "source": "milkyfrog.vip"
+    },
+    {
+      "file": "naiwa_orange.gif",
+      "label": "奶蛙微笑",
+      "tags": [
+        "奶蛙",
+        "微笑",
+        "打招呼"
+      ],
+      "source": "milkyfrog.vip"
+    },
+    {
+      "file": "naiwa_jump.gif",
+      "label": "奶蛙跳跃",
+      "tags": [
+        "奶蛙",
+        "跳跃",
+        "开心",
+        "庆祝"
+      ],
+      "source": "milkyfrog.vip"
+    }
+  ]
+}

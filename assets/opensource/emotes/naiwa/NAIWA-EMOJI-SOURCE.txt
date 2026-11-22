@@ -1,0 +1,13 @@
+奶蛙表情（8 张 GIF）
+
+官方 3 张：
+- naiwa_hands.gif、naiwa_orange.gif、naiwa_jump.gif
+- 来源：https://milkyfrog.vip/articles/milk-frog-images
+- 用途：个人聊天可直接保存使用；批量转载、商用或二次发布需先取得授权。
+
+动作 5 张：
+- naiwa_idle/laugh/head/belly/floor.gif
+- 来源：https://github.com/LynnShaw/naiwa-pet 的 naiwa.mp4 帧转制
+- 该仓库未声明素材许可证；仅作本地演示/学习，角色版权归原作者。
+
+奶蛙（Milky Frog）角色版权归原作者；文件命名 naiwa_<动作>.gif，标签在 tags.json。

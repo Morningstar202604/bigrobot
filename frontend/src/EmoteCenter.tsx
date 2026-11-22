@@ -72,6 +72,7 @@ export default function EmoteCenter() {
           ['', '全部', allItems.length],
           ['opensource-tieba', '贴吧', groupCounts['opensource-tieba'] || 0],
           ['opensource-meme', '黑化 / 梗图', groupCounts['opensource-meme'] || 0],
+          ['opensource-naiwa', '奶蛙', groupCounts['opensource-naiwa'] || 0],
           ['opensource-noto', 'Noto', groupCounts['opensource-noto'] || 0],
           ['builtin', '内置', groupCounts['builtin'] || 0],
         ].map(([key, label, n]) => (

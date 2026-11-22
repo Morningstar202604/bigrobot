@@ -103,3 +103,14 @@ def test_tieba_and_dark_emote_routing():
     assert intent.emote_keyword("发个黑化冷笑") == "黑化 冷笑"
     res = tool_search_emote(EMPTY, keyword="黑化 冷笑")
     assert res.get("sample_path", "").endswith("dark_heihua_lengxiao.png")
+
+
+def test_naiwa_emote_routing():
+    from core import intent
+    from core.tools import tool_search_emote
+    from core.tool_context import EMPTY
+    assert intent.classify("发个奶蛙大笑").name == intent.INTENT_EMOTE
+    assert intent.emote_keyword("发个奶蛙大笑") == "奶蛙 大笑"
+    assert intent.classify("奶蛙躺平").name == intent.INTENT_EMOTE
+    res = tool_search_emote(EMPTY, keyword="奶蛙 大笑")
+    assert res.get("sample_path", "").endswith("naiwa_laugh.gif")
