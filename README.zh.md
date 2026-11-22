@@ -4,13 +4,27 @@
 
 BigRobot 把你自己已有的聊天账号接管成一个自托管 AI 工作台。账号仍然是你的：真实的群、成员、文件和聊天记录都在这里，助手只在你设定的权限范围内行动。
 
+## 界面
+
+**控制台总览。** 账号、会话、知识库、工具和渠道状态在一屏里；左侧栏可以直接展开浏览器面板和远程控制。
+
+![BigRobot 控制台总览](docs/screenshots/readme-console.png)
+
+**手机远控。** 电脑生成一次性二维码，手机扫码后进入完整控制台，不是只读镜像。
+
+![手机远程控制](docs/screenshots/readme-remote.png)
+
+**按会话隔离的浏览器。** 每个会话独立 Cookie 和 localStorage，侧栏里能直接看页面、截图、刷新。
+
+![浏览器面板](docs/screenshots/readme-browser.png)
+
 ## 为什么从账号开始
 
 大多数机器人等着回复消息。BigRobot 先把一个现成账号接过来，让你看清里面真实存在的东西。第一个渠道是 QQ——QQ 没有可用的后台，登录之后什么都看不见。这里能看到群、成员、文件和历史，再在上面放一个 Agent。
 
 ## 下载
 
-Windows 免安装单文件：`releases/2.0.1/bigrobot-2.0.1-win64.exe`（不需要装 Python）。GitHub Releases 提供同一个包与 `SHA256SUMS.txt`；Gitee、GitCode 没有 Release 区，安装包直接放在仓库的 `releases/2.0.1/` 目录里。
+Windows 免安装单文件：`releases/2.0.1/bigrobot-2.0.1-win64.exe`（不需要装 Python）。GitHub Releases 提供同一个包与 `SHA256SUMS.txt`，Gitee 也有 Release。GitCode 的 Release 只出源码包，exe 放在仓库的 `releases/2.0.1/` 目录里。
 
 包没有代码签名，Windows 可能弹 SmartScreen；首次运行会在用户数据目录创建 `bigrobot-data/`。校验值在 `releases/2.0.1/SHA256SUMS.txt`。
 

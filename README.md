@@ -4,13 +4,27 @@
 
 BigRobot turns a chat account you already own into a self-hosted AI workspace. It keeps the account at the centre: real groups, members, files and history, with an assistant that can act only within the permissions you set.
 
+## Screens
+
+**Console overview.** Accounts, sessions, knowledge, tools and channel health on one screen. The sidebar expands into the browser panel and phone remote control.
+
+![BigRobot console overview](docs/screenshots/readme-console.png)
+
+**Phone remote control.** The desktop issues a one-time QR; the phone joins the full console, not a read-only mirror.
+
+![Phone remote control](docs/screenshots/readme-remote.png)
+
+**Per-session browser.** Each session gets its own cookies and localStorage; the sidebar shows the page, screenshots and refresh controls.
+
+![Browser panel](docs/screenshots/readme-browser.png)
+
 ## Why it starts with the account
 
 Most bots wait for messages. BigRobot starts by taking over an existing account and showing what is actually in it. QQ is the first channel because QQ has no usable backend: you log in and see nothing. Here you see the groups, the members, the files and the history, then put an agent on top.
 
 ## Download
 
-Windows single-file build: `releases/2.0.1/bigrobot-2.0.1-win64.exe` (no Python required). GitHub Releases carries the same file plus `SHA256SUMS.txt`; Gitee and GitCode have no Release section, so the installer lives in the repository's `releases/2.0.1/` directory.
+Windows single-file build: `releases/2.0.1/bigrobot-2.0.1-win64.exe` (no Python required). GitHub Releases carries the same file plus `SHA256SUMS.txt`, and Gitee has a Release too. GitCode's Release only exposes source archives, so the installer lives in the repository's `releases/2.0.1/` directory.
 
 The binary is unsigned, so Windows may show SmartScreen. First run creates `bigrobot-data/` in the user data directory. Checksums are in `releases/2.0.1/SHA256SUMS.txt`.
 
