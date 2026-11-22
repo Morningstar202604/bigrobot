@@ -9,7 +9,7 @@ import json
 import os
 from pathlib import Path
 
-from core import extensions, mcp_client, paths, retrieval, skills
+from core import extensions, mcp_client, retrieval, skills
 
 
 TOOL_NAMES = [

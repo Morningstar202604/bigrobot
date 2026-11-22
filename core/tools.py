@@ -1105,7 +1105,7 @@ async def tool_generate_image(ctx: ToolContext, prompt: str, size: str = "1024x1
             if resp.content and len(resp.content) <= 8_000_000:
                 import base64
                 data_url = f"data:{mime};base64,{base64.b64encode(resp.content).decode()}"
-        except Exception as e:
+        except Exception:
             # 下载失败仍可把 URL 交给前端/QQ；不让一次网络抖动把画图判死
             data_url = ""
         await _send_cq_image(ctx, f"[CQ:image,file={url}]")
