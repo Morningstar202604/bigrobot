@@ -1,8 +1,25 @@
 """开源小工具的纯函数回归：不联网、不碰真实文件。"""
 import asyncio
+import json
+import shutil
+from pathlib import Path
 
 from core import tools
 from core.tool_context import ToolContext
+
+ASSETS = Path(__file__).resolve().parent.parent / "assets" / "opensource" / "emotes"
+
+
+def _seed_emote(tmp_path, monkeypatch, relative: str, label: str) -> str:
+    """把仓库里的表情快照放进临时 GATEWAY_EMOTE_DIR，测试不依赖本机收藏。"""
+    src = ASSETS / relative
+    shutil.copy(src, tmp_path / src.name)
+    (tmp_path / "index.json").write_text(
+        json.dumps([{"data": src.name, "summary": ""}], ensure_ascii=False), encoding="utf-8")
+    (tmp_path / "tags.json").write_text(
+        json.dumps({src.name: label}, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setenv("GATEWAY_EMOTE_DIR", str(tmp_path))
+    return src.name
 
 
 def _call(name, **args):
@@ -94,23 +111,25 @@ def test_extension_formatters_use_latest_and_license_expression():
     assert "MIT" in _fmt_pypi({"info": {"version": "1.0", "license_expression": "MIT"}})
 
 
-def test_tieba_and_dark_emote_routing():
+def test_tieba_and_dark_emote_routing(tmp_path, monkeypatch):
     from core import intent
     from core.tools import tool_search_emote
     from core.tool_context import EMPTY
     assert intent.classify("发个贴吧滑稽").name == intent.INTENT_EMOTE
     assert intent.emote_keyword("发个贴吧滑稽") == "贴吧 滑稽"
     assert intent.emote_keyword("发个黑化冷笑") == "黑化 冷笑"
+    name = _seed_emote(tmp_path, monkeypatch, "meme/dark_heihua_lengxiao.png", "黑化 冷笑")
     res = tool_search_emote(EMPTY, keyword="黑化 冷笑")
-    assert res.get("sample_path", "").endswith("dark_heihua_lengxiao.png")
+    assert res.get("sample_path", "").endswith(name)
 
 
-def test_naiwa_emote_routing():
+def test_naiwa_emote_routing(tmp_path, monkeypatch):
     from core import intent
     from core.tools import tool_search_emote
     from core.tool_context import EMPTY
     assert intent.classify("发个奶蛙大笑").name == intent.INTENT_EMOTE
     assert intent.emote_keyword("发个奶蛙大笑") == "奶蛙 大笑"
     assert intent.classify("奶蛙躺平").name == intent.INTENT_EMOTE
+    name = _seed_emote(tmp_path, monkeypatch, "naiwa/naiwa_laugh.gif", "奶蛙 大笑")
     res = tool_search_emote(EMPTY, keyword="奶蛙 大笑")
-    assert res.get("sample_path", "").endswith("naiwa_laugh.gif")
+    assert res.get("sample_path", "").endswith(name)
