@@ -208,14 +208,17 @@ body {
   background: var(--brand);
   color: #fff;
   font-size: 13px; font-weight: 550;
+  min-height: 34px;
   padding: 8px 16px;
   border-radius: var(--r-sm);
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.08s;
   font-family: var(--font);
 }
-.btn:hover { background: var(--brand-2); }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn:hover:not(:disabled) { background: var(--brand-2); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 .btn.secondary {
   background: var(--panel);
   color: var(--ink-2);
@@ -223,9 +226,15 @@ body {
 }
 .btn.secondary:hover { background: var(--panel-2); color: var(--ink); }
 .btn.danger { background: var(--danger); }
-.btn.sm { padding: 5px 11px; font-size: 12px; }
+.btn.danger:hover:not(:disabled) { background: #b91c1c; }
+.btn.danger:focus-visible { outline-color: var(--danger); }
+.btn.sm { min-height: 28px; padding: 5px 11px; font-size: 12px; }
 .btn.ghost { background: transparent; color: var(--ink-2); }
-.btn.ghost:hover { background: var(--panel-2); color: var(--ink); }
+.btn.ghost:hover:not(:disabled) { background: var(--panel-2); color: var(--ink); }
+/* 图标型删除：平时不抢眼，悬停才给危险底色；不要做成无提示的裸图标 */
+.btn.danger-ghost { background: transparent; color: var(--ink-2); border: 1px solid transparent; }
+.btn.danger-ghost:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); border-color: rgba(220, 38, 38, 0.22); }
+.btn.danger-ghost:focus-visible { color: var(--danger); outline-color: var(--danger); }
 
 .badge {
   display: inline-flex; align-items: center; gap: 5px;

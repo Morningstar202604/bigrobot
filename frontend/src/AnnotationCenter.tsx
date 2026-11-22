@@ -59,9 +59,17 @@ export default function AnnotationCenter() {
   }
 
   const remove = async (row: Annotation) => {
-    if (!confirm(`删除标注「${row.question.slice(0, 20)}」？`)) return
-    await http.del(`/api/annotations/${row.id}`).catch(() => {})
-    invalidate()
+    const ok = await fb.confirm(`删除标注「${row.question.slice(0, 20)}」？`, {
+      danger: true, confirmText: t('删除'),
+    })
+    if (!ok) return
+    try {
+      await http.del(`/api/annotations/${row.id}`)
+      fb.toast.success(t('已删除'))
+      invalidate()
+    } catch (e) {
+      fb.toast.error(`${t('删除失败')}：${(e as Error).message}`)
+    }
   }
 
   const saveEdit = async (id: number) => {
@@ -157,7 +165,7 @@ export default function AnnotationCenter() {
                     <button className="btn secondary sm" onClick={() => toggle(row)} title={row.enabled ? '停用' : '启用'}>
                       <Power size={13} /> {row.enabled ? '停用' : '启用'}
                     </button>
-                    <button className="btn secondary sm ac-del" onClick={() => remove(row)}>
+                    <button className="btn danger-ghost sm" aria-label={t('删除标注')} title={t('删除标注')} onClick={() => remove(row)}>
                       <Trash2 size={13} />
                     </button>
                   </div>

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { http } from './lib/queries'
+import { useFeedback } from './components/Feedback'
 import { qk } from './lib/queryClient'
 import { t } from './lib/t'
 
@@ -85,6 +86,7 @@ function fmtEta(n: number): string {
 
 export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) {
   const qc = useQueryClient()
+  const fb = useFeedback()
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['local-models'],
     queryFn: () => http.get<LocalOverview>('/api/local-models'),
@@ -130,6 +132,12 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
     onSuccess: () => { setMsg('模型文件已删除'); invalidate() },
     onError: (e) => setErr((e as Error).message),
   })
+  const askRemove = async (m: LocalModel) => {
+    const ok = await fb.confirm(`删除模型文件「${m.name}」？已下载的权重会从本机磁盘移除。`, {
+      danger: true, confirmText: '删除文件',
+    })
+    if (ok) remove.mutate(m.id)
+  }
 
   const busy = download.isPending || activate.isPending || stop.isPending || remove.isPending
 
@@ -179,13 +187,24 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
             <div className="lm-progress">
               <div className="lm-progress-line">
                 <span>{job.status === 'verifying' ? '校验文件…' : `${job.percent}% · ${fmtSpeed(job.speed_bps)}${job.eta_s ? ` · 剩 ${fmtEta(job.eta_s)}` : ''}`}</span>
-                <button className="btn ghost sm" onClick={() => cancel.mutate(job.job_id)}>取消</button>
+                <button className="btn ghost sm" onClick={() => cancel.mutate(job.job_id)}
+                  disabled={cancel.isPending && cancel.variables === job.job_id}>
+                  {cancel.isPending && cancel.variables === job.job_id
+                    ? <><Loader2 size={12} className="animate-spin" /> 取消中…</>
+                    : '取消'}
+                </button>
               </div>
               <div className="lm-progress-track"><div style={{ width: `${job.percent}%` }} /></div>
             </div>
           ) : !m.installed ? (
-            <button className="btn sm" onClick={() => download.mutate(m.id)} disabled={busy || tooBig} title={tooBig ? fitLabel : ''}>
-              <Download size={13} /> {tooBig ? '内存不足' : `下载 ${m.size_label}`}
+            <button className="btn sm" onClick={() => download.mutate(m.id)}
+              disabled={busy || tooBig}
+              title={tooBig ? fitLabel : ''}>
+              {download.isPending && download.variables === m.id
+                ? <Loader2 size={13} className="animate-spin" />
+                : <Download size={13} />}
+              {download.isPending && download.variables === m.id ? ' 加入队列…'
+                : tooBig ? ' 内存不足' : ` 下载 ${m.size_label}`}
             </button>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
@@ -196,11 +215,15 @@ export function LocalModelsPanel({ onActivated }: { onActivated?: () => void }) 
               )}
               {running && (
                 <button className="btn secondary sm" onClick={() => stop.mutate()} disabled={busy}>
-                  <Square size={13} /> 停止
+                  {stop.isPending ? <Loader2 size={13} className="animate-spin" /> : <Square size={13} />}
+                  {stop.isPending ? ' 停止中…' : ' 停止'}
                 </button>
               )}
-              <button className="btn ghost sm" onClick={() => remove.mutate(m.id)} disabled={busy || running} title="删除模型文件">
-                <Trash2 size={13} />
+              <button className="btn danger-ghost sm" onClick={() => void askRemove(m)}
+                disabled={busy || running}
+                aria-label="删除模型文件" title="删除模型文件">
+                {remove.isPending && remove.variables === m.id
+                  ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
               </button>
             </div>
           )}

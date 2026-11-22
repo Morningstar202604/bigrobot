@@ -7,6 +7,7 @@ import {
 import { http } from './lib/queries'
 import type { AgentConfig } from './types/api'
 import { ErrorBanner } from './components/Spinner'
+import { useFeedback } from './components/Feedback'
 import { t } from './lib/t'
 
 /* ============================================================
@@ -73,6 +74,8 @@ export function ProviderPanel({ cfg, setCfg, persist }: {
   persist?: (next: AgentConfig) => void
 }) {
   const qc = useQueryClient()
+  const fb = useFeedback()
+  const [removing, setRemoving] = useState<string | null>(null)
   const { data: meta } = useQuery({
     queryKey: ['provider-presets'],
     queryFn: () => http.get<{ presets: Preset[]; protocols: { value: string; label: string }[] }>('/api/providers/presets'),
@@ -227,11 +230,21 @@ export function ProviderPanel({ cfg, setCfg, persist }: {
     persist?.(next)
   }
 
-  const remove = (name: string) => {
-    const next = JSON.parse(JSON.stringify(cfg)) as AgentConfig
-    next.llm.providers = (next.llm.providers || []).filter((p) => p.name !== name)
-    setCfg(next)
-    persist?.(next)
+  const remove = async (name: string) => {
+    const ok = await fb.confirm(`删除模型厂商「${name}」？只移除这条配置，不会删除已保存的 Key。`, {
+      danger: true, confirmText: '删除',
+    })
+    if (!ok) return
+    setRemoving(name)
+    try {
+      const next = JSON.parse(JSON.stringify(cfg)) as AgentConfig
+      next.llm.providers = (next.llm.providers || []).filter((p) => p.name !== name)
+      setCfg(next)
+      persist?.(next)
+      fb.toast.success(`已删除「${name}」`)
+    } finally {
+      setRemoving(null)
+    }
   }
 
   const setProviderKey = (name: string, v: string) => {
@@ -272,8 +285,10 @@ export function ProviderPanel({ cfg, setCfg, persist }: {
                 {isActive(p)
                   ? <span className="badge ok">{t('使用中')}</span>
                   : <button className="btn sm" onClick={() => applyProvider(p)}>{t('切换到这个')}</button>}
-                <button className="btn secondary sm" onClick={() => remove(p.name)} title={t('删除')}>
-                  <Trash2 size={12} />
+                <button className="btn danger-ghost sm" onClick={() => void remove(p.name)}
+                  disabled={removing === p.name}
+                  aria-label={`${t('删除')} ${p.name}`} title={t('删除')}>
+                  {removing === p.name ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                 </button>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">

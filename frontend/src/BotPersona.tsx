@@ -176,6 +176,7 @@ function loadRoles(): RoleEntry[] { return readJson<RoleEntry[]>(K.roleLib, []) 
 function saveRoles(rs: RoleEntry[]) { writeJson(K.roleLib, rs) }
 
 function RoleLibrary({ draft, onApply }: { draft: AgentConfig; onApply: (r: RoleEntry) => void }) {
+  const fb = useFeedback()
   const [roles, setRoles] = useState<RoleEntry[]>(loadRoles)
   const [name, setName] = useState('')
   const [expanded, setExpanded] = useState(false)
@@ -206,7 +207,7 @@ function RoleLibrary({ draft, onApply }: { draft: AgentConfig; onApply: (r: Role
         if (!Array.isArray(arr)) throw new Error('格式不是角色数组')
         const merged = [...arr, ...roles.filter((r) => !arr.some((x: RoleEntry) => x.name === r.name))]
         persist(merged)
-      } catch (e) { alert(`导入失败：${(e as Error).message}`) }
+      } catch (e) { fb.toast.error(`导入失败：${(e as Error).message}`) }
     }
     rd.readAsText(file)
   }
@@ -250,8 +251,14 @@ function RoleLibrary({ draft, onApply }: { draft: AgentConfig; onApply: (r: Role
                     <span>{r.persona.slice(0, 46)}{r.persona.length > 46 ? '…' : ''}</span>
                     <em>temp {r.temperature} · {r.savedAt.slice(0, 10)}</em>
                   </div>
-                  <button className="btn secondary sm ac-del" title={t('删除')}
-                    onClick={() => persist(roles.filter((x) => x.name !== r.name))}>
+                  <button className="btn danger-ghost sm" title={t('删除')} aria-label={`${t('删除')} ${r.name}`}
+                    onClick={async () => {
+                      const ok = await fb.confirm(`删除人设「${r.name}」？`, { danger: true, confirmText: t('删除') })
+                      if (ok) {
+                        persist(roles.filter((x) => x.name !== r.name))
+                        fb.toast.success(`已删除「${r.name}」`)
+                      }
+                    }}>
                     <Trash2 size={13} />
                   </button>
                 </div>

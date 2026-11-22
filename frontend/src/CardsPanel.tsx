@@ -135,8 +135,11 @@ export default function CardsPanel() {
                     {bound.length > 0 && ` · 已绑定: ${bound.join(', ')}`}
                   </em>
                 </div>
-                <button className="btn secondary sm ac-del" title={t('删除')}
-                  onClick={() => { if (confirm(`删除角色卡「${c.name}」？`)) remove(c.id) }}>
+                <button className="btn danger-ghost sm" aria-label={t('删除角色卡')} title={t('删除角色卡')}
+                  onClick={async () => {
+                    const ok = await fb.confirm(`删除角色卡「${c.name}」？`, { danger: true, confirmText: t('删除') })
+                    if (ok) remove(c.id)
+                  }}>
                   <Trash2 size={13} />
                 </button>
               </div>

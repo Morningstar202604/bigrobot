@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Pencil, Trash2, Upload, Download, Plus, Search, BookOpen, X, Save, Settings2, Power } from 'lucide-react'
+import { Pencil, Trash2, Upload, Download, Plus, Search, BookOpen, X, Save, Settings2, Power, Loader2 } from 'lucide-react'
 import {
   useKb, useKbMutations, useKbImport, useKbTest, useKbDocImport,
   useKbCollectionMutations, usePersonaOptions, exportKb,
@@ -155,10 +155,15 @@ export function KbPanel() {
               <span className="kc-title">{e.title}</span>
               <div className="kc-actions" style={{ opacity: 1 }}>
                 <button className="btn ghost sm" aria-label={tr('编辑条目')} title={tr('编辑条目')} onClick={() => setEditing(e)}><Pencil size={13} /></button>
-                <button className="btn ghost sm" aria-label={tr('删除条目')} title={tr('删除条目')} style={{ color: 'var(--danger)' }} onClick={async () => {
-                  const ok = await fb.confirm(`删除知识库条目 ${e.id}？删除后相关问答将失去依据。`, { confirmText: '删除' })
-                  if (ok) km.remove.mutate(e.id)
-                }}><Trash2 size={13} /></button>
+                <button className="btn danger-ghost sm" aria-label={tr('删除条目')} title={tr('删除条目')}
+                  disabled={km.remove.isPending && km.remove.variables === e.id}
+                  onClick={async () => {
+                    const ok = await fb.confirm(`删除知识库条目 ${e.id}？删除后相关问答将失去依据。`, { danger: true, confirmText: tr('删除') })
+                    if (ok) km.remove.mutate(e.id)
+                  }}>
+                  {km.remove.isPending && km.remove.variables === e.id
+                    ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                </button>
               </div>
             </div>
             <div className="kc-tags">

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Save, RefreshCw, Plus, Pencil, Trash2, X, Wrench, ShieldAlert, ChevronDown, ChevronUp, Zap, Activity, BookOpen } from 'lucide-react'
+import { Save, RefreshCw, Plus, Pencil, Trash2, X, Wrench, ShieldAlert, ChevronDown, ChevronUp, Zap, Activity, BookOpen, Loader2 } from 'lucide-react'
 import { useKb, useTools, useToolMutations, useInjectionRules, useInjectionRuleMutations, useUpdateConfig } from '../lib/queries'
 import { useFeedback } from '../components/Feedback'
 import type { AgentConfig, ToolDef, InjectionRule } from '../types/api'
@@ -229,10 +229,15 @@ export function ToolsPanel() {
                 <button className="btn ghost sm" title={t.enabled ? '停用' : '启用'} style={{ color: t.enabled ? 'var(--muted)' : 'var(--ok)' }} onClick={() => tm.toggle.mutate({ id: t.id, enabled: !t.enabled })}>
                   <Activity size={13} /> {t.enabled ? '停用' : '启用'}
                 </button>
-                <button className="btn ghost sm" title={tr('删除')} style={{ color: 'var(--danger)' }} onClick={async () => {
-                  const ok = await fb.confirm(`删除工具 ${t.id}？删除后 Agent 将不再具备该能力。`, { confirmText: '删除' })
-                  if (ok) tm.remove.mutate(t.id)
-                }}><Trash2 size={13} /></button>
+                <button className="btn danger-ghost sm" title={tr('删除')} aria-label={tr('删除工具')}
+                  disabled={tm.remove.isPending && tm.remove.variables === t.id}
+                  onClick={async () => {
+                    const ok = await fb.confirm(`删除工具 ${t.id}？删除后 Agent 将不再具备该能力。`, { danger: true, confirmText: '删除' })
+                    if (ok) tm.remove.mutate(t.id)
+                  }}>
+                  {tm.remove.isPending && tm.remove.variables === t.id
+                    ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                </button>
               </div>
             </div>
             <div className="kc-tags">
@@ -379,7 +384,15 @@ export function GuardrailPanel() {
                   <input type="checkbox" checked={r.enabled} onChange={(e) => rm.update.mutate({ ...r, enabled: e.target.checked })} />
                 </td>
                 <td>
-                  <button className="btn ghost sm" aria-label={tr('删除规则')} title={tr('删除规则')} onClick={() => rm.remove.mutate(r.id)}><Trash2 size={13} /></button>
+                  <button className="btn danger-ghost sm" aria-label={tr('删除规则')} title={tr('删除规则')}
+                    disabled={rm.remove.isPending && rm.remove.variables === r.id}
+                    onClick={async () => {
+                      const ok = await fb.confirm(`删除注入规则 #${r.id}？`, { danger: true, confirmText: tr('删除') })
+                      if (ok) rm.remove.mutate(r.id)
+                    }}>
+                    {rm.remove.isPending && rm.remove.variables === r.id
+                      ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                  </button>
                 </td>
               </tr>
             ))}

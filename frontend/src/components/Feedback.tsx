@@ -83,6 +83,18 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     setDialog(null)
   }
 
+  React.useEffect(() => {
+    if (!dialog) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        close(dialog.mode === 'confirm' ? false : null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dialog])
+
   return (
     <Ctx.Provider value={api}>
       {children}
@@ -111,7 +123,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
               />
             )}
             <div className="dlg-actions">
-              <button className="btn secondary sm" onClick={() => close(dialog.mode === 'confirm' ? false : null)}>
+              <button className="btn secondary sm" autoFocus onClick={() => close(dialog.mode === 'confirm' ? false : null)}>
                 取消
               </button>
               <button
