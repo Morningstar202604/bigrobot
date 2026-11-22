@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  AlertTriangle, CheckCircle2, Plug, Power, Puzzle, RefreshCw, Server, Trash2, Upload,
+  AlertTriangle, CheckCircle2, Loader2, Plug, Power, Puzzle, RefreshCw, Server, Trash2, Upload,
 } from 'lucide-react'
 import {
   isAuthError, useExtensionDelete, useExtensionInstallUrl, useExtensionRollback,
@@ -52,21 +52,23 @@ function ExtensionCard({ item, onChanged }: { item: ExtensionItem; onChanged: ()
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button className="btn ghost sm" title={item.enabled ? '停用' : '启用'}
+            disabled={toggle.isPending}
             onClick={() => toggle.mutate({ id: item.id, enabled: !item.enabled }, {
               onSuccess: () => { fb.toast.success(item.enabled ? '已停用' : '已启用'); onChanged() },
               onError: (e) => fb.toast.error((e as Error).message),
             })}>
-            <Power size={14} />
+            {toggle.isPending ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
           </button>
-          <button className="btn ghost sm" title="回滚到上一个版本"
+          <button className="btn ghost sm" title="回滚到上一个版本" disabled={rollback.isPending}
             onClick={() => rollback.mutate(item.id, {
               onSuccess: (d) => { fb.toast.success(`已回滚到 v${d.item.version}`); onChanged() },
               onError: (e) => fb.toast.error((e as Error).message),
             })}>
-            <RefreshCw size={14} />
+            {rollback.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           </button>
-          <button className="btn ghost sm" title="删除扩展" onClick={remove}>
-            <Trash2 size={14} />
+          <button className="btn danger-ghost sm" title="删除扩展" aria-label={`删除扩展 ${item.name}`}
+            disabled={del.isPending} onClick={remove}>
+            {del.isPending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
           </button>
         </div>
       </div>
@@ -120,7 +122,7 @@ function McpCard({ server, onChanged }: { server: McpServer; onChanged: () => vo
           {server.last_error && <p className="text-[12px] mt-1" style={{ color: 'var(--danger)' }}>{server.last_error}</p>}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button className="btn ghost sm" title="测试并刷新工具"
+          <button className="btn ghost sm" title="测试并刷新工具" disabled={test.isPending}
             onClick={() => test.mutate(server.id, {
               onSuccess: (d) => {
                 if (d.ok) { fb.toast.success(`连接成功，发现 ${d.tools.length} 个工具`); onChanged() }
@@ -131,14 +133,16 @@ function McpCard({ server, onChanged }: { server: McpServer; onChanged: () => vo
             <RefreshCw size={14} className={test.isPending ? 'animate-spin' : ''} />
           </button>
           <button className="btn ghost sm" title={server.enabled ? '停用' : '启用'}
+            disabled={toggle.isPending}
             onClick={() => toggle.mutate({ id: server.id, enabled: !server.enabled }, {
               onSuccess: () => { fb.toast.success(server.enabled ? '已停用' : '已启用'); onChanged() },
               onError: (e) => fb.toast.error((e as Error).message),
             })}>
-            <Power size={14} />
+            {toggle.isPending ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
           </button>
-          <button className="btn ghost sm" title="删除" onClick={remove}>
-            <Trash2 size={14} />
+          <button className="btn danger-ghost sm" title="删除" aria-label={`删除 MCP 服务器 ${server.name}`}
+            disabled={del.isPending} onClick={remove}>
+            {del.isPending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
           </button>
         </div>
       </div>
@@ -260,10 +264,10 @@ export default function ExtensionsCenter() {
               <input className="input flex-1" placeholder="https://example.com/extension.zip" value={url}
                 onChange={(e) => setUrl(e.target.value)} />
               <button className="btn" disabled={installUrl.isPending || !url.trim()} onClick={doInstallUrl}>
-                {installUrl.isPending ? '安装中…' : '从链接安装'}
+                {installUrl.isPending ? <><Loader2 size={14} className="animate-spin" /> 安装中…</> : '从链接安装'}
               </button>
               <button className="btn secondary" disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
-                {upload.isPending ? '上传中…' : '上传 zip'}
+                {upload.isPending ? <><Loader2 size={14} className="animate-spin" /> 上传中…</> : '上传 zip'}
               </button>
               <input ref={fileRef} type="file" accept=".zip,application/zip" className="hidden"
                 onChange={(e) => { doUpload(e.target.files?.[0]); e.currentTarget.value = '' }} />
@@ -326,7 +330,7 @@ export default function ExtensionsCenter() {
                   value={mcp.timeout_s} onChange={(e) => setMcp({ ...mcp, timeout_s: Number(e.target.value) })} />秒
               </label>
               <button className="btn" disabled={createMcp.isPending} onClick={doCreateMcp}>
-                {createMcp.isPending ? '添加中…' : '添加'}
+                {createMcp.isPending ? <><Loader2 size={14} className="animate-spin" /> 添加中…</> : '添加'}
               </button>
             </div>
           </div>

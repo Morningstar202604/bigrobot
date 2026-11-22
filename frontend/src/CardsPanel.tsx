@@ -31,6 +31,7 @@ export default function CardsPanel() {
   const [bindKey, setBindKey] = useState('')
   const [bindCard, setBindCard] = useState('')
   const [busy, setBusy] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const fb = useFeedback()
 
   const load = useCallback(async () => {
@@ -82,12 +83,15 @@ export default function CardsPanel() {
   }
 
   const remove = async (cid: number) => {
+    setDeletingId(cid)
     try {
       await http.del(`/api/cards/${cid}`)
       fb.toast.success('已删除')
       await load()
     } catch (e) {
       fb.toast.error((e as Error).message)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -136,11 +140,14 @@ export default function CardsPanel() {
                   </em>
                 </div>
                 <button className="btn danger-ghost sm" aria-label={t('删除角色卡')} title={t('删除角色卡')}
+                  disabled={deletingId === c.id}
                   onClick={async () => {
                     const ok = await fb.confirm(`删除角色卡「${c.name}」？`, { danger: true, confirmText: t('删除') })
-                    if (ok) remove(c.id)
+                    if (ok) await remove(c.id)
                   }}>
-                  <Trash2 size={13} />
+                  {deletingId === c.id
+                    ? <Loader2 size={13} className="animate-spin" />
+                    : <Trash2 size={13} />}
                 </button>
               </div>
             )

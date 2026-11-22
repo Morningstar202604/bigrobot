@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search, Trash2, Images } from 'lucide-react'
+import { Search, Trash2, Images, Loader2 } from 'lucide-react'
 import { useEmotes, useEmoteDelete, fetchEmoteBlob, isAuthError } from './lib/queries'
 import type { EmoteItem } from './lib/queries'
 import TokenGate from './components/TokenGate'
@@ -37,11 +37,19 @@ export default function EmoteCenter() {
   // 先解构出来再判。
   const emoteError = emotes.error
   const refetchEmotes = emotes.refetch
+  const askDelete = async (it: EmoteItem) => {
+    const label = it.summary || it.tags || t('这张表情')
+    const ok = await fb.confirm(`删除表情「${label}」？`, { danger: true, confirmText: t('删除') })
+    if (!ok) return
+    del.mutate(String(it.ts), {
+      onSuccess: () => fb.toast.success(t('已删除')),
+      onError: (e) => fb.toast.error(`${t('删除失败')}: ${(e as Error).message}`),
+    })
+  }
   const allItems: EmoteItem[] = emotes.data?.items ?? []
   const groupCounts: Record<string, number> = {}
   for (const it of allItems) groupCounts[it.group] = (groupCounts[it.group] || 0) + 1
   const items = group ? allItems.filter((it) => it.group === group) : allItems
-  const [confirmTs, setConfirmTs] = useState<number | null>(null)
 
   if (emotes.error && isAuthError(emotes.error)) return <TokenGate error={emotes.error} onAuthed={() => emotes.refetch()} />
   if (emotes.error) return <div className="p-8"><ErrorBanner message={(emotes.error as Error).message} onRetry={() => emotes.refetch()} /></div>
@@ -102,22 +110,14 @@ export default function EmoteCenter() {
                 <span className="text-xs text-muted truncate" title={it.summary || it.tags || ''}>
                   {it.summary || it.tags || it.kind}
                 </span>
-                {confirmTs === it.ts ? (
-                  <span className="flex gap-1 shrink-0">
-                    <button className="btn sm" style={{ background: 'var(--danger)', color: '#fff' }}
-                      disabled={del.isPending}
-                      onClick={() => del.mutate(String(it.ts), {
-                        onSuccess: () => { setConfirmTs(null); fb.toast.success(t('已删除')) },
-                        onError: (e) => fb.toast.error(`${t('删除失败')}: ${(e as Error).message}`),
-                      })}>{t('确认')}</button>
-                    <button className="btn ghost sm" onClick={() => setConfirmTs(null)}>{t('取消')}</button>
-                  </span>
-                ) : (
-                  <button className="btn ghost sm opacity-0 group-hover:opacity-100 transition-opacity"
-                    title={t('删除这张')} onClick={() => setConfirmTs(it.ts)}>
-                    <Trash2 size={13} />
-                  </button>
-                )}
+                <button className="btn danger-ghost sm opacity-70 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                  title={t('删除这张')} aria-label={t('删除这张表情')}
+                  disabled={del.isPending && del.variables === String(it.ts)}
+                  onClick={() => void askDelete(it)}>
+                  {del.isPending && del.variables === String(it.ts)
+                    ? <Loader2 size={13} className="animate-spin" />
+                    : <Trash2 size={13} />}
+                </button>
               </div>
             </div>
           ))}
